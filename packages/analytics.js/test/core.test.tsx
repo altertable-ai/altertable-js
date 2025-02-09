@@ -18,7 +18,7 @@ const setWindowLocation = (url: string) => {
 const expectBeaconCall = (config: Config, apiKey: string) => {
   const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
   expect(callArgs[0]).toBe(
-    `${config.baseUrl}/1/track?apiKey=${encodeURIComponent(apiKey)}`
+    `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
   );
   expect(callArgs[1]).toBeInstanceOf(Blob);
 };
@@ -29,7 +29,7 @@ const expectFetchCall = (
   payload: Record<string, any>
 ) => {
   const fetchCall = (fetch as Mock).mock.calls[0];
-  expect(fetchCall[0]).toBe(`${config.baseUrl}/1/track`);
+  expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
   const options = fetchCall[1];
   expect(options.method).toBe('POST');
   expect(options.headers['Content-Type']).toBe('application/json');
@@ -104,10 +104,11 @@ modes.forEach(({ mode, description, setup }) => {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
           event: PAGEVIEW_EVENT,
+          user_id: `anonymous-${randomId}`,
           properties: {
-            url: 'http://localhost/page',
-            sessionId: `session-${randomId}`,
-            visitorId: `visitor-${randomId}`,
+            $url: 'http://localhost/page',
+            $sessionId: `session-${randomId}`,
+            $visitorId: `visitor-${randomId}`,
           },
         });
       }
@@ -129,6 +130,7 @@ modes.forEach(({ mode, description, setup }) => {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
           event: 'eventName',
+          user_id: `anonymous-${randomId}`,
           properties: { foo: 'bar' },
         });
       }
@@ -147,25 +149,28 @@ modes.forEach(({ mode, description, setup }) => {
       }
 
       // Simulate a URL change.
-      setWindowLocation('http://localhost/new-page');
+      setWindowLocation('http://localhost/new-page?foo=bar&baz=qux');
       vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL + 1);
 
       if (mode === 'beacon') {
         const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
         expect(callArgs[0]).toBe(
-          `${config.baseUrl}/1/track?apiKey=${encodeURIComponent(apiKey)}`
+          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
         );
       } else {
         const expectedPayload = {
           event: PAGEVIEW_EVENT,
+          user_id: `anonymous-${randomId}`,
           properties: {
-            url: 'http://localhost/new-page',
-            sessionId: `session-${randomId}`,
-            visitorId: `visitor-${randomId}`,
+            $url: 'http://localhost/new-page',
+            $sessionId: `session-${randomId}`,
+            $visitorId: `visitor-${randomId}`,
+            foo: 'bar',
+            baz: 'qux',
           },
         };
         const fetchCall = (fetch as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/1/track`);
+        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
         const options = fetchCall[1];
         expect(options.method).toBe('POST');
         expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
@@ -182,11 +187,11 @@ modes.forEach(({ mode, description, setup }) => {
       if (mode === 'beacon') {
         const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
         expect(callArgs[0]).toBe(
-          `${config.baseUrl}/1/track?apiKey=${encodeURIComponent(apiKey)}`
+          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
         );
       } else {
         const fetchCall = (fetch as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/1/track`);
+        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
       }
       vi.useRealTimers();
     });

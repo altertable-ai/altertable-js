@@ -16,11 +16,13 @@ export class Reaping {
   private _config: Config;
   private _sessionId: string;
   private _visitorId: string;
+  private _userId: string;
 
   constructor() {
     this._lastUrl = window.location.href;
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
+    this._userId = this._generateId('anonymous');
   }
 
   init(apiKey: string, config: Config) {
@@ -39,16 +41,27 @@ export class Reaping {
     }
   }
 
+  identify(userId: string) {
+    // FIXME: dummy implementation
+    this._userId = userId;
+  }
+
   page(url: string) {
+    const [urlWithoutSearch, search] = url.split('?');
     this.track(PAGEVIEW_EVENT, {
-      url,
-      sessionId: this._getSessionId(),
-      visitorId: this._getVisitorId(),
+      $url: urlWithoutSearch,
+      $sessionId: this._getSessionId(),
+      $visitorId: this._getVisitorId(),
+      ...Object.fromEntries(new URLSearchParams(search)),
     });
   }
 
   track(event: string, properties?: EventProperties) {
-    this._request('/1/track', { event, properties: properties || {} });
+    this._request('/track', {
+      event,
+      user_id: this._userId,
+      properties: properties || {},
+    });
   }
 
   private _checkForChanges() {
