@@ -5,6 +5,8 @@ export interface Config {
 
 export type EventProperties = Record<string, unknown> | null | undefined;
 
+export const PAGEVIEW_EVENT = 'pageview';
+
 export class Reaping {
   private _lastUrl: string;
   private _apiKey: string;
@@ -31,7 +33,7 @@ export class Reaping {
   }
 
   page(url: string) {
-    this._request('/1/page', { url });
+    this.track(PAGEVIEW_EVENT, { url });
   }
 
   track(event: string, properties: EventProperties) {

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { Reaping, Config } from '../src/core';
+import { Reaping, Config, PAGEVIEW_EVENT } from '../src/core';
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
@@ -37,7 +37,7 @@ describe('Reaping with navigator.sendBeacon available', () => {
     // The init() method automatically calls page() if autoCapture is not false.
     expect(navigator.sendBeacon).toHaveBeenCalled();
 
-    const expectedBeaconUrl = `${config.baseUrl}/1/page?apiKey=${encodeURIComponent(apiKey)}`;
+    const expectedBeaconUrl = `${config.baseUrl}/1/track?apiKey=${encodeURIComponent(apiKey)}`;
     const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
     expect(callArgs[0]).toBe(expectedBeaconUrl);
     expect(callArgs[1]).toBeInstanceOf(Blob);
@@ -65,7 +65,7 @@ describe('Reaping with navigator.sendBeacon available', () => {
     setWindowLocation('http://localhost/new-page');
     vi.advanceTimersByTime(101);
 
-    const expectedBeaconUrl = `${config.baseUrl}/1/page?apiKey=${encodeURIComponent(apiKey)}`;
+    const expectedBeaconUrl = `${config.baseUrl}/1/track?apiKey=${encodeURIComponent(apiKey)}`;
     const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
     expect(callArgs[0]).toBe(expectedBeaconUrl);
 
@@ -115,7 +115,7 @@ describe('Reaping with fetch fallback (navigator.sendBeacon not available)', () 
     const config: Config = { baseUrl: 'http://localhost', autoCapture: true };
     reaping.init(apiKey, config);
 
-    const expectedUrl = `${config.baseUrl}/1/page`;
+    const expectedUrl = `${config.baseUrl}/1/track`;
     expect(fetch).toHaveBeenCalled();
 
     const fetchCall = (fetch as Mock).mock.calls[0];
@@ -125,7 +125,12 @@ describe('Reaping with fetch fallback (navigator.sendBeacon not available)', () 
     expect(options.method).toBe('POST');
     expect(options.headers['Content-Type']).toBe('application/json');
     expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-    expect(options.body).toBe(JSON.stringify({ url: 'http://localhost/page' }));
+    expect(options.body).toBe(
+      JSON.stringify({
+        event: PAGEVIEW_EVENT,
+        properties: { url: 'http://localhost/page' },
+      })
+    );
   });
 
   it('should send a track event using fetch', () => {
@@ -158,7 +163,7 @@ describe('Reaping with fetch fallback (navigator.sendBeacon not available)', () 
     setWindowLocation('http://localhost/new-page');
     vi.advanceTimersByTime(101);
 
-    const expectedUrl = `${config.baseUrl}/1/page`;
+    const expectedUrl = `${config.baseUrl}/1/track`;
     expect(fetch).toHaveBeenCalled();
     const fetchCall = (fetch as Mock).mock.calls[0];
     expect(fetchCall[0]).toBe(expectedUrl);
@@ -167,7 +172,10 @@ describe('Reaping with fetch fallback (navigator.sendBeacon not available)', () 
     expect(options.method).toBe('POST');
     expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
     expect(options.body).toBe(
-      JSON.stringify({ url: 'http://localhost/new-page' })
+      JSON.stringify({
+        event: PAGEVIEW_EVENT,
+        properties: { url: 'http://localhost/new-page' },
+      })
     );
 
     vi.useRealTimers();
