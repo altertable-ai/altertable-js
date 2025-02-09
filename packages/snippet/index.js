@@ -12,8 +12,7 @@
   ((document, instance) => {
     if (!instance._initialized) {
       // eslint-disable-next-line no-undef
-      window.reaping = instance;
-      instance._i = [];
+      window.Reaping = instance;
 
       instance.init = function (apiKey, config) {
         const scriptElement = document.createElement('script');
@@ -28,16 +27,16 @@
           createStubMethod(instance, METHODS[i]);
         }
 
-        instance._i.push(['init', apiKey, config]);
+        instance.push(['init', apiKey, config]);
       };
 
       instance._initialized = 1;
     }
     // eslint-disable-next-line no-undef
-  })(document, window.reaping || []);
+  })(document, window.Reaping || []);
 
   // eslint-disable-next-line no-undef
-  reaping.init('%REAPING_API_KEY%', {
+  window.Reaping.init('%REAPING_API_KEY%', {
     baseUrl: '%REAPING_API_URL%',
   });
 })();

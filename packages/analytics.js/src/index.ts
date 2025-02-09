@@ -1,26 +1,21 @@
-interface Reaping {
-  _lastUrl: string;
-  checkForChanges(): void;
+import { Reaping } from './core';
+
+declare global {
+  interface Window {
+    Reaping: Reaping | Array<Array<unknown>> | undefined;
+  }
 }
 
-const reaping: Reaping = {
-  _lastUrl: window.location.href,
+export const reaping = new Reaping();
 
-  checkForChanges() {
-    const currentUrl = window.location.href;
-    if (currentUrl !== this._lastUrl) {
-      this._lastUrl = currentUrl;
-      // FIXME
-    }
-  },
-};
+const stub = window.Reaping;
+if (stub && Array.isArray(stub)) {
+  for (const item of stub) {
+    const method = item[0];
+    const args = item.slice(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (reaping[method as keyof Reaping] as any)(...args);
+  }
+}
 
-setInterval(() => {
-  reaping.checkForChanges();
-}, 100);
-
-window.addEventListener('popstate', () => reaping.checkForChanges());
-window.addEventListener('hashchange', () => reaping.checkForChanges());
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(window as any).Reaping = reaping;
+window.Reaping = reaping;
