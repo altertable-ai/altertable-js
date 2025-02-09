@@ -1,0 +1,47 @@
+{
+  "name": "@reaping-ai/snippet",
+  "version": "0.1.0",
+  "description": "FIXME",
+  "main": "dist/index.js",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf dist",
+    "lint": "eslint index.js",
+    "build:es5": "babel index.js --out-file dist/index.js",
+    "build:min": "terser index.js -c -m -o dist/index.min.js",
+    "build": "npm run build:es5 && npm run build:min"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reaping-ai/analytics.js"
+  },
+  "author": "Reaping AI Team",
+  "license": "MIT",
+  "homepage": "https://github.com/reaping-ai/analytics.js#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.26.4",
+    "@babel/core": "^7.26.8",
+    "@babel/preset-env": "^7.26.8",
+    "eslint": "^8.57.0",
+    "eslint-config-love": "^84.0.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.15.1",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-promise": "^7.2.1",
+    "prettier": "3.5.0",
+    "terser": "^5.38.1"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "ie": "9"
+          }
+        }
+      ]
+    ]
+  }
+}
