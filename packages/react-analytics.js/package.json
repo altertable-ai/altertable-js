@@ -1,0 +1,65 @@
+{
+  "name": "@reaping-ai/react-analytics.js",
+  "version": "0.1.0",
+  "description": "FIXME",
+  "main": "dist/index.js",
+  "private": false,
+  "module": "dist/index.mjs",
+  "browser": "dist/index.global.js",
+  "typings": "dist/index.d.ts",
+  "keywords": [
+    "analytics",
+    "track",
+    "react",
+    "reaping"
+  ],
+  "scripts": {
+    "dev": "rollup -c --configPlugin typescript --watch",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext ts",
+    "build": "tsup",
+    "test": "vitest --environment=jsdom --watch=false",
+    "test:watch": "vitest --environment=jsdom"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reaping-ai/analytics.js"
+  },
+  "author": "Reaping AI Team",
+  "license": "MIT",
+  "homepage": "https://github.com/reaping-ai/analytics.js#readme",
+  "peerDependencies": {
+    "react": "^16.0 || ^17.0 || ^18.0 || ^19.0"
+  },
+  "dependencies": {
+    "@reaping-ai/analytics.js": "^0.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.8",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
+    "eslint": "^8.57.0",
+    "eslint-config-love": "^84.0.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.15.1",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-promise": "^7.2.1",
+    "jsdom": "^26.0.0",
+    "lint-staged": "^15.2.2",
+    "prettier": "3.4.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.6.2",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}
