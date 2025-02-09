@@ -3,9 +3,9 @@ export interface Config {
   autoCapture?: boolean;
 }
 
-export type EventProperties = Record<string, unknown> | null | undefined;
+export type EventProperties = Record<string, unknown>;
 
-export const PAGEVIEW_EVENT = 'pageview';
+export const PAGEVIEW_EVENT = '$pageview';
 export const SESSION_STORAGE_KEY = 'reaping-session-id';
 export const LOCAL_STORAGE_KEY = 'reaping-visitor-id';
 export const AUTO_CAPTURE_INTERVAL = 100;
@@ -47,8 +47,8 @@ export class Reaping {
     });
   }
 
-  track(event: string, properties: EventProperties) {
-    this._request('/1/track', { event, properties });
+  track(event: string, properties?: EventProperties) {
+    this._request('/1/track', { event, properties: properties || {} });
   }
 
   private _checkForChanges() {

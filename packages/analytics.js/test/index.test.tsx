@@ -26,11 +26,11 @@ describe('analytics.js', () => {
     expect(page).not.toHaveBeenCalled();
 
     instance.init('key', {
-      baseUrl: 'https://eu.reaping.ai',
+      baseUrl: 'https://api.reaping.ai',
       autoCapture: false,
     });
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://eu.reaping.ai',
+      baseUrl: 'https://api.reaping.ai',
       autoCapture: false,
     });
 
@@ -43,13 +43,17 @@ describe('analytics.js', () => {
 
   test('auto captures', async () => {
     const { reaping: instance } = await import('../src');
-    instance.init('key', { baseUrl: 'https://eu.reaping.ai' });
+    instance.init('key', { baseUrl: 'https://api.reaping.ai' });
     expect(page).toHaveBeenCalledWith(window.location.href);
   });
 
   test('replays stubbed', async () => {
     const stub = [
-      ['init', 'key', { baseUrl: 'https://eu.reaping.ai', autoCapture: false }],
+      [
+        'init',
+        'key',
+        { baseUrl: 'https://api.reaping.ai', autoCapture: false },
+      ],
       ['page', 'url'],
       ['page', 'url2'],
       ['track', 'event', { prop: 'value' }],
@@ -58,7 +62,7 @@ describe('analytics.js', () => {
     const { reaping: instance } = await import('../src');
     expect((window as any).Reaping).toBe(instance);
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://eu.reaping.ai',
+      baseUrl: 'https://api.reaping.ai',
       autoCapture: false,
     });
     expect(page).toHaveBeenCalledWith('url');
