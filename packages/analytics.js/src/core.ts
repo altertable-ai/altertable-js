@@ -8,6 +8,7 @@ export type EventProperties = Record<string, unknown> | null | undefined;
 export const PAGEVIEW_EVENT = 'pageview';
 export const SESSION_STORAGE_KEY = 'reaping-session-id';
 export const LOCAL_STORAGE_KEY = 'reaping-visitor-id';
+export const AUTO_CAPTURE_INTERVAL = 100;
 
 export class Reaping {
   private _lastUrl: string;
@@ -31,7 +32,7 @@ export class Reaping {
 
       setInterval(() => {
         this._checkForChanges();
-      }, 100);
+      }, AUTO_CAPTURE_INTERVAL);
 
       window.addEventListener('popstate', () => this._checkForChanges());
       window.addEventListener('hashchange', () => this._checkForChanges());

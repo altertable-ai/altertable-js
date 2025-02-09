@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { Reaping, Config, PAGEVIEW_EVENT } from '../src/core';
+import {
+  Reaping,
+  Config,
+  PAGEVIEW_EVENT,
+  AUTO_CAPTURE_INTERVAL,
+} from '../src/core';
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
@@ -73,6 +78,7 @@ modes.forEach(({ mode, description, setup }) => {
   describe(`Reaping ${description}`, () => {
     let reaping: Reaping;
     const apiKey = 'test-api-key';
+
     // Generate a fixed randomId and override crypto.randomUUID
     const randomId: string = crypto.randomUUID();
     crypto.randomUUID = vi.fn(() => randomId) as any;
@@ -142,7 +148,7 @@ modes.forEach(({ mode, description, setup }) => {
 
       // Simulate a URL change.
       setWindowLocation('http://localhost/new-page');
-      vi.advanceTimersByTime(101);
+      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL + 1);
 
       if (mode === 'beacon') {
         const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
