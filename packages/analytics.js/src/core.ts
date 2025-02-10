@@ -47,12 +47,13 @@ export class Reaping {
   }
 
   page(url: string) {
-    const [urlWithoutSearch, search] = url.split('?');
+    const parsedUrl = new URL(url);
+    const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
     this.track(PAGEVIEW_EVENT, {
       $url: urlWithoutSearch,
       $sessionId: this._getSessionId(),
       $visitorId: this._getVisitorId(),
-      ...Object.fromEntries(new URLSearchParams(search)),
+      ...Object.fromEntries(parsedUrl.searchParams),
     });
   }
 
