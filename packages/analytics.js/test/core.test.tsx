@@ -149,7 +149,7 @@ modes.forEach(({ mode, description, setup }) => {
       }
 
       // Simulate a URL change.
-      setWindowLocation('http://localhost/new-page?foo=bar&baz=qux');
+      setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
       vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL + 1);
 
       if (mode === 'beacon') {
@@ -167,6 +167,7 @@ modes.forEach(({ mode, description, setup }) => {
             $visitorId: `visitor-${randomId}`,
             foo: 'bar',
             baz: 'qux',
+            test: 'to?',
           },
         };
         const fetchCall = (fetch as Mock).mock.calls[0];

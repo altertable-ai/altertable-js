@@ -37,8 +37,8 @@ describe('analytics.js', () => {
     instance.track('event', { prop: 'value' });
     expect(track).toHaveBeenCalledWith('event', { prop: 'value' });
 
-    instance.page('url');
-    expect(page).toHaveBeenCalledWith('url');
+    instance.page('https://reaping.ai');
+    expect(page).toHaveBeenCalledWith('https://reaping.ai');
   });
 
   test('auto captures', async () => {
@@ -54,8 +54,8 @@ describe('analytics.js', () => {
         'key',
         { baseUrl: 'https://api.reaping.ai', autoCapture: false },
       ],
-      ['page', 'url'],
-      ['page', 'url2'],
+      ['page', 'https://reaping.ai'],
+      ['page', 'https://example.com'],
       ['track', 'event', { prop: 'value' }],
     ];
     (window as any).Reaping = stub;
@@ -65,8 +65,8 @@ describe('analytics.js', () => {
       baseUrl: 'https://api.reaping.ai',
       autoCapture: false,
     });
-    expect(page).toHaveBeenCalledWith('url');
-    expect(page).toHaveBeenCalledWith('url2');
+    expect(page).toHaveBeenCalledWith('https://reaping.ai');
+    expect(page).toHaveBeenCalledWith('https://example.com');
     expect(track).toHaveBeenCalledWith('event', { prop: 'value' });
   });
 });
