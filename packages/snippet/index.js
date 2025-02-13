@@ -1,5 +1,5 @@
 (() => {
-  const METHODS = ['init', 'track', 'page'];
+  const METHODS = ['init', 'track', 'page', 'identify'];
 
   const createStubMethod = (targetObject, methodName) => {
     targetObject[methodName] = function () {

@@ -6,9 +6,15 @@ export interface Config {
 export type EventProperties = Record<string, unknown>;
 
 export const PAGEVIEW_EVENT = '$pageview';
+
 export const SESSION_STORAGE_KEY = 'reaping-session-id';
 export const LOCAL_STORAGE_KEY = 'reaping-visitor-id';
 export const AUTO_CAPTURE_INTERVAL = 100;
+
+export const PROPERTY_URL = '$url';
+export const PROPERTY_SESSION_ID = '$sessionId';
+export const PROPERTY_VISITOR_ID = '$visitorId';
+export const PROPERTY_VIEWPORT = '$viewport';
 
 export class Reaping {
   private _lastUrl: string;
@@ -50,9 +56,10 @@ export class Reaping {
     const parsedUrl = new URL(url);
     const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
     this.track(PAGEVIEW_EVENT, {
-      $url: urlWithoutSearch,
-      $sessionId: this._getSessionId(),
-      $visitorId: this._getVisitorId(),
+      [PROPERTY_URL]: urlWithoutSearch,
+      [PROPERTY_SESSION_ID]: this._getSessionId(),
+      [PROPERTY_VISITOR_ID]: this._getVisitorId(),
+      [PROPERTY_VIEWPORT]: this._getViewport(),
       ...Object.fromEntries(parsedUrl.searchParams),
     });
   }
@@ -131,5 +138,9 @@ export class Reaping {
       }
     }
     return `${prefix}-${Math.random().toString(36).substring(2)}`;
+  }
+
+  private _getViewport(): string {
+    return `${window.innerWidth}x${window.innerHeight}`;
   }
 }

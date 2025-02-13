@@ -5,6 +5,10 @@ import {
   Config,
   PAGEVIEW_EVENT,
   AUTO_CAPTURE_INTERVAL,
+  PROPERTY_URL,
+  PROPERTY_SESSION_ID,
+  PROPERTY_VISITOR_ID,
+  PROPERTY_VIEWPORT,
 } from '../src/core';
 
 const setWindowLocation = (url: string) => {
@@ -78,6 +82,7 @@ modes.forEach(({ mode, description, setup }) => {
   describe(`Reaping ${description}`, () => {
     let reaping: Reaping;
     const apiKey = 'test-api-key';
+    const viewPort = '1024x768';
 
     // Generate a fixed randomId and override crypto.randomUUID
     const randomId: string = crypto.randomUUID();
@@ -106,9 +111,10 @@ modes.forEach(({ mode, description, setup }) => {
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
           properties: {
-            $url: 'http://localhost/page',
-            $sessionId: `session-${randomId}`,
-            $visitorId: `visitor-${randomId}`,
+            [PROPERTY_URL]: 'http://localhost/page',
+            [PROPERTY_SESSION_ID]: `session-${randomId}`,
+            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
+            [PROPERTY_VIEWPORT]: viewPort,
           },
         });
       }
@@ -162,9 +168,10 @@ modes.forEach(({ mode, description, setup }) => {
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
           properties: {
-            $url: 'http://localhost/new-page',
-            $sessionId: `session-${randomId}`,
-            $visitorId: `visitor-${randomId}`,
+            [PROPERTY_URL]: 'http://localhost/new-page',
+            [PROPERTY_SESSION_ID]: `session-${randomId}`,
+            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
+            [PROPERTY_VIEWPORT]: viewPort,
             foo: 'bar',
             baz: 'qux',
             test: 'to?',
