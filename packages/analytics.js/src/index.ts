@@ -1,5 +1,7 @@
 import { Reaping } from './core';
 
+export type { Reaping };
+
 declare global {
   interface Window {
     Reaping: Reaping | Array<Array<unknown>> | undefined;
