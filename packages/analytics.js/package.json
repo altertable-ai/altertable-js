@@ -1,5 +1,5 @@
 {
-  "name": "@altertable-ai/analytics.js",
+  "name": "@altertable/analytics.js",
   "version": "0.1.0",
   "description": "FIXME",
   "main": "dist/index.js",

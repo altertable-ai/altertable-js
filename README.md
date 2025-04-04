@@ -4,21 +4,21 @@ This monorepo contains packages for the Altertable.AI analytics.js libraries.
 
 ## Packages
 
-### [@altertable-ai/analytics.js](packages/analytics.js)
+### [@altertable/analytics.js](packages/analytics.js)
 
 A JavaScript library for analytics tracking.
 
 #### Installation
 
 ```sh
-npm install @altertable-ai/analytics.js
+npm install @altertable/analytics.js
 ```
 
 #### Usage
 
 FIXME
 
-### [@altertable-ai/react-analytics.js](packages/react-analytics.js)
+### [@altertable/react-analytics.js](packages/react-analytics.js)
 
 A React JavaScript library for analytics tracking
 .
@@ -26,7 +26,7 @@ A React JavaScript library for analytics tracking
 #### Installation
 
 ```sh
-npm install @altertable-ai/react-analytics.js
+npm install @altertable/react-analytics.js
 ```
 
 #### Usage
