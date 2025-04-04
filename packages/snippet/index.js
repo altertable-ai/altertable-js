@@ -12,7 +12,7 @@
   ((document, instance) => {
     if (!instance._initialized) {
       // eslint-disable-next-line no-undef
-      window.Reaping = instance;
+      window.Altertable = instance;
 
       instance.init = function (apiKey, config) {
         const scriptElement = document.createElement('script');
@@ -33,10 +33,10 @@
       instance._initialized = 1;
     }
     // eslint-disable-next-line no-undef
-  })(document, window.Reaping || []);
+  })(document, window.Altertable || []);
 
   // eslint-disable-next-line no-undef
-  window.Reaping.init('%REAPING_API_KEY%', {
-    baseUrl: '%REAPING_API_URL%',
+  window.Altertable.init('%ALTERTABLE_API_KEY%', {
+    baseUrl: '%ALTERTABLE_API_URL%',
   });
 })();

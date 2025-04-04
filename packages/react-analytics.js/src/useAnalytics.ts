@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
-import type { Reaping } from '@reaping-ai/analytics.js';
+import type { Altertable } from '@altertable-ai/analytics.js';
 
 export const useAnalytics = <T extends FunnelMapping>() => {
-  const instance = window.Reaping as Reaping;
+  const instance = window.Altertable as Altertable;
 
   const makeTrack = <Steps extends T[keyof T] = T[keyof T]>() => {
     return <Step extends FunnelStepNames<Steps>>(

@@ -1,23 +1,23 @@
-import { Reaping } from './core';
+import { Altertable } from './core';
 
-export type { Reaping };
+export type { Altertable };
 
 declare global {
   interface Window {
-    Reaping: Reaping | Array<Array<unknown>> | undefined;
+    Altertable: Altertable | Array<Array<unknown>> | undefined;
   }
 }
 
-export const reaping = new Reaping();
+export const altertable = new Altertable();
 
-const stub = window.Reaping;
+const stub = window.Altertable;
 if (stub && Array.isArray(stub)) {
   for (const item of stub) {
     const method = item[0];
     const args = item.slice(1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (reaping[method as keyof Reaping] as any)(...args);
+    (altertable[method as keyof Altertable] as any)(...args);
   }
 }
 
-window.Reaping = reaping;
+window.Altertable = altertable;
