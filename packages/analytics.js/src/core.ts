@@ -7,8 +7,8 @@ export type EventProperties = Record<string, unknown>;
 
 export const PAGEVIEW_EVENT = '$pageview';
 
-export const SESSION_STORAGE_KEY = 'reaping-session-id';
-export const LOCAL_STORAGE_KEY = 'reaping-visitor-id';
+export const SESSION_STORAGE_KEY = 'altertable-session-id';
+export const LOCAL_STORAGE_KEY = 'altertable-visitor-id';
 export const AUTO_CAPTURE_INTERVAL = 100;
 
 export const PROPERTY_URL = '$url';
@@ -16,7 +16,7 @@ export const PROPERTY_SESSION_ID = '$sessionId';
 export const PROPERTY_VISITOR_ID = '$visitorId';
 export const PROPERTY_VIEWPORT = '$viewport';
 
-export class Reaping {
+export class Altertable {
   private _lastUrl: string;
   private _apiKey: string;
   private _config: Config;

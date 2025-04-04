@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
-  Reaping,
+  Altertable,
   Config,
   PAGEVIEW_EVENT,
   AUTO_CAPTURE_INTERVAL,
@@ -79,8 +79,8 @@ const modes: {
 
 // Run the same suite for each transport mode
 modes.forEach(({ mode, description, setup }) => {
-  describe(`Reaping ${description}`, () => {
-    let reaping: Reaping;
+  describe(`Altertable ${description}`, () => {
+    let altertable: Altertable;
     const apiKey = 'test-api-key';
     const viewPort = '1024x768';
 
@@ -90,7 +90,7 @@ modes.forEach(({ mode, description, setup }) => {
 
     beforeEach(() => {
       setup();
-      reaping = new Reaping();
+      altertable = new Altertable();
     });
 
     afterEach(() => {
@@ -100,7 +100,7 @@ modes.forEach(({ mode, description, setup }) => {
 
     it('should send a page event on init with the current URL', () => {
       const config: Config = { baseUrl: 'http://localhost', autoCapture: true };
-      reaping.init(apiKey, config);
+      altertable.init(apiKey, config);
 
       if (mode === 'beacon') {
         expect(navigator.sendBeacon).toHaveBeenCalled();
@@ -125,9 +125,9 @@ modes.forEach(({ mode, description, setup }) => {
         baseUrl: 'http://localhost',
         autoCapture: false,
       };
-      reaping.init(apiKey, config);
+      altertable.init(apiKey, config);
 
-      reaping.track('eventName', { foo: 'bar' });
+      altertable.track('eventName', { foo: 'bar' });
 
       if (mode === 'beacon') {
         expect(navigator.sendBeacon).toHaveBeenCalled();
@@ -145,7 +145,7 @@ modes.forEach(({ mode, description, setup }) => {
     it('should detect URL changes and send a page event', () => {
       vi.useFakeTimers();
       const config: Config = { baseUrl: 'http://localhost', autoCapture: true };
-      reaping.init(apiKey, config);
+      altertable.init(apiKey, config);
 
       // Clear initial call (from init auto-capture)
       if (mode === 'beacon') {
@@ -209,7 +209,7 @@ modes.forEach(({ mode, description, setup }) => {
         baseUrl: 'http://localhost',
         autoCapture: false,
       };
-      reaping.init(apiKey, config);
+      altertable.init(apiKey, config);
       if (mode === 'beacon') {
         expect(navigator.sendBeacon).not.toHaveBeenCalled();
       } else {

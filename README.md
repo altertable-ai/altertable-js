@@ -1,24 +1,24 @@
-# Reaping.AI Analytics.js Monorepo
+# Altertable.AI Analytics.js Monorepo
 
-This monorepo contains packages for the Reaping.AI analytics.js libraries.
+This monorepo contains packages for the Altertable.AI analytics.js libraries.
 
 ## Packages
 
-### [@reaping-ai/analytics.js](packages/analytics.js)
+### [@altertable/analytics.js](packages/analytics.js)
 
 A JavaScript library for analytics tracking.
 
 #### Installation
 
 ```sh
-npm install @reaping-ai/analytics.js
+npm install @altertable/analytics.js
 ```
 
 #### Usage
 
 FIXME
 
-### [@reaping-ai/react-analytics.js](packages/react-analytics.js)
+### [@altertable/react-analytics.js](packages/react-analytics.js)
 
 A React JavaScript library for analytics tracking
 .
@@ -26,7 +26,7 @@ A React JavaScript library for analytics tracking
 #### Installation
 
 ```sh
-npm install @reaping-ai/react-analytics.js
+npm install @altertable/react-analytics.js
 ```
 
 #### Usage

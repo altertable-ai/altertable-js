@@ -8,42 +8,42 @@ describe('analytics.js', () => {
   let page: MockInstance;
 
   beforeEach(async () => {
-    delete (window as any).Reaping;
+    delete (window as any).Altertable;
     vi.resetModules();
 
-    const { Reaping } = await import('../src/core');
-    init = vi.spyOn(Reaping.prototype, 'init');
-    page = vi.spyOn(Reaping.prototype, 'page');
-    track = vi.spyOn(Reaping.prototype, 'track');
+    const { Altertable } = await import('../src/core');
+    init = vi.spyOn(Altertable.prototype, 'init');
+    page = vi.spyOn(Altertable.prototype, 'page');
+    track = vi.spyOn(Altertable.prototype, 'track');
 
-    (Reaping.prototype as any)._request = vi.fn(); // ensure no network requests
+    (Altertable.prototype as any)._request = vi.fn(); // ensure no network requests
   });
 
   test('tracks', async () => {
-    const { reaping: instance } = await import('../src');
+    const { altertable: instance } = await import('../src');
     expect(track).not.toHaveBeenCalled();
     expect(init).not.toHaveBeenCalled();
     expect(page).not.toHaveBeenCalled();
 
     instance.init('key', {
-      baseUrl: 'https://api.reaping.ai',
+      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://api.reaping.ai',
+      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
 
     instance.track('event', { prop: 'value' });
     expect(track).toHaveBeenCalledWith('event', { prop: 'value' });
 
-    instance.page('https://reaping.ai');
-    expect(page).toHaveBeenCalledWith('https://reaping.ai');
+    instance.page('https://altertable.ai');
+    expect(page).toHaveBeenCalledWith('https://altertable.ai');
   });
 
   test('auto captures', async () => {
-    const { reaping: instance } = await import('../src');
-    instance.init('key', { baseUrl: 'https://api.reaping.ai' });
+    const { altertable: instance } = await import('../src');
+    instance.init('key', { baseUrl: 'https://api.altertable.ai' });
     expect(page).toHaveBeenCalledWith(window.location.href);
   });
 
@@ -52,20 +52,20 @@ describe('analytics.js', () => {
       [
         'init',
         'key',
-        { baseUrl: 'https://api.reaping.ai', autoCapture: false },
+        { baseUrl: 'https://api.altertable.ai', autoCapture: false },
       ],
-      ['page', 'https://reaping.ai'],
+      ['page', 'https://altertable.ai'],
       ['page', 'https://example.com'],
       ['track', 'event', { prop: 'value' }],
     ];
-    (window as any).Reaping = stub;
-    const { reaping: instance } = await import('../src');
-    expect((window as any).Reaping).toBe(instance);
+    (window as any).Altertable = stub;
+    const { altertable: instance } = await import('../src');
+    expect((window as any).Altertable).toBe(instance);
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://api.reaping.ai',
+      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
-    expect(page).toHaveBeenCalledWith('https://reaping.ai');
+    expect(page).toHaveBeenCalledWith('https://altertable.ai');
     expect(page).toHaveBeenCalledWith('https://example.com');
     expect(track).toHaveBeenCalledWith('event', { prop: 'value' });
   });

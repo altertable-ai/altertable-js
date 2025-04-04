@@ -1,5 +1,5 @@
 {
-  "name": "@reaping-ai/react-analytics.js",
+  "name": "@altertable/react-analytics.js",
   "version": "0.3.0",
   "description": "FIXME",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
     "analytics",
     "track",
     "react",
-    "reaping"
+    "altertable"
   ],
   "scripts": {
     "dev": "rollup -c --configPlugin typescript --watch",
@@ -26,16 +26,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/reaping-ai/analytics.js"
+    "url": "git+https://github.com/altertable-ai/analytics.js"
   },
-  "author": "Reaping AI Team",
+  "author": "Altertable AI Team",
   "license": "MIT",
-  "homepage": "https://github.com/reaping-ai/analytics.js#readme",
+  "homepage": "https://github.com/altertable-ai/analytics.js#readme",
   "peerDependencies": {
     "react": "^16.0 || ^17.0 || ^18.0 || ^19.0"
   },
   "dependencies": {
-    "@reaping-ai/analytics.js": "^0.1.0"
+    "@altertable/analytics.js": "^0.1.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
