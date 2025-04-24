@@ -110,6 +110,7 @@ modes.forEach(({ mode, description, setup }) => {
         expectFetchCall(config, apiKey, {
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
+          environment: 'production',
           properties: {
             [PROPERTY_URL]: 'http://localhost/page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
@@ -137,6 +138,7 @@ modes.forEach(({ mode, description, setup }) => {
         expectFetchCall(config, apiKey, {
           event: 'eventName',
           user_id: `anonymous-${randomId}`,
+          environment: 'production',
           properties: { foo: 'bar' },
         });
       }
@@ -167,6 +169,7 @@ modes.forEach(({ mode, description, setup }) => {
         const expectedPayload = {
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
+          environment: 'production',
           properties: {
             [PROPERTY_URL]: 'http://localhost/new-page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
