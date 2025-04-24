@@ -1,7 +1,10 @@
 export interface Config {
   baseUrl: string;
+  environment?: string;
   autoCapture?: boolean;
 }
+
+const DEFAULT_ENVIRONMENT = 'production';
 
 export type EventProperties = Record<string, unknown>;
 
@@ -68,6 +71,7 @@ export class Altertable {
     this._request('/track', {
       event,
       user_id: this._userId,
+      environment: this._config.environment || DEFAULT_ENVIRONMENT,
       properties: properties || {},
     });
   }
