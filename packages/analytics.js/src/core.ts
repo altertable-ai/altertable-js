@@ -18,6 +18,7 @@ export const PROPERTY_URL = '$url';
 export const PROPERTY_SESSION_ID = '$sessionId';
 export const PROPERTY_VISITOR_ID = '$visitorId';
 export const PROPERTY_VIEWPORT = '$viewport';
+export const PROPERTY_REFERER = '$referer';
 
 export class Altertable {
   private _lastUrl: string;
@@ -26,8 +27,10 @@ export class Altertable {
   private _sessionId: string;
   private _visitorId: string;
   private _userId: string;
+  private _referrer: string;
 
   constructor() {
+    this._referrer = document.referrer;
     this._lastUrl = window.location.href;
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
@@ -63,6 +66,7 @@ export class Altertable {
       [PROPERTY_SESSION_ID]: this._getSessionId(),
       [PROPERTY_VISITOR_ID]: this._getVisitorId(),
       [PROPERTY_VIEWPORT]: this._getViewport(),
+      [PROPERTY_REFERER]: this._referrer,
       ...Object.fromEntries(parsedUrl.searchParams),
     });
   }
@@ -80,6 +84,7 @@ export class Altertable {
     const currentUrl = window.location.href;
     if (currentUrl !== this._lastUrl) {
       this.page(currentUrl);
+      this._referrer = this._lastUrl;
       this._lastUrl = currentUrl;
     }
   }
