@@ -9,6 +9,7 @@ import {
   PROPERTY_SESSION_ID,
   PROPERTY_VISITOR_ID,
   PROPERTY_VIEWPORT,
+  PROPERTY_REFERER,
 } from '../src/core';
 
 const setWindowLocation = (url: string) => {
@@ -116,6 +117,7 @@ modes.forEach(({ mode, description, setup }) => {
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: viewPort,
+            [PROPERTY_REFERER]: null,
           },
         });
       }
@@ -175,6 +177,7 @@ modes.forEach(({ mode, description, setup }) => {
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: viewPort,
+            [PROPERTY_REFERER]: null,
             foo: 'bar',
             baz: 'qux',
             test: 'to?',

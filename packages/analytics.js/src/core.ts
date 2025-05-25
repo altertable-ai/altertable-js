@@ -27,10 +27,10 @@ export class Altertable {
   private _sessionId: string;
   private _visitorId: string;
   private _userId: string;
-  private _referrer: string;
+  private _referrer: string | null;
 
   constructor() {
-    this._referrer = document.referrer;
+    this._referrer = document.referrer || null;
     this._lastUrl = window.location.href;
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
