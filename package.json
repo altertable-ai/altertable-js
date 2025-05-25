@@ -14,5 +14,8 @@
   "dependencies": {},
   "devDependencies": {
     "lerna": "^8.2.2"
+  },
+  "resolutions": {
+    "esbuild": "^0.25.4"
   }
 }
