@@ -15,8 +15,8 @@ export const LOCAL_STORAGE_KEY = 'altertable-visitor-id';
 export const AUTO_CAPTURE_INTERVAL = 100;
 
 export const PROPERTY_URL = '$url';
-export const PROPERTY_SESSION_ID = '$sessionId';
-export const PROPERTY_VISITOR_ID = '$visitorId';
+export const PROPERTY_SESSION_ID = '$session_id';
+export const PROPERTY_VISITOR_ID = '$visitor_id';
 export const PROPERTY_VIEWPORT = '$viewport';
 export const PROPERTY_REFERER = '$referer';
 
