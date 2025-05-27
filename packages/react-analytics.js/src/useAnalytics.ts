@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
 import type { Altertable } from '@altertable/analytics.js';
+import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from '@altertable/analytics.js';
 
 export const useAnalytics = <T extends FunnelMapping>() => {
   const instance = window.Altertable as Altertable;
@@ -11,7 +12,11 @@ export const useAnalytics = <T extends FunnelMapping>() => {
       properties: FunnelStepProperties<Steps, Step>
     ) => {
       try {
-        instance.track(step, properties);
+        instance.track(step, {
+          ...properties,
+          [PROPERTY_LIB]: __LIB__,
+          [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
+        });
       } catch (error) {
         console.error('Failed to track event', error);
       }

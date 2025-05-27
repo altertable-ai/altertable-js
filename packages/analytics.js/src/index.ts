@@ -1,6 +1,7 @@
-import { Altertable } from './core';
+import { Altertable, PROPERTY_LIB, PROPERTY_LIB_VERSION } from './core';
 
 export type { Altertable };
+export { PROPERTY_LIB, PROPERTY_LIB_VERSION };
 
 declare global {
   interface Window {

@@ -19,6 +19,8 @@ export const PROPERTY_SESSION_ID = '$session_id';
 export const PROPERTY_VISITOR_ID = '$visitor_id';
 export const PROPERTY_VIEWPORT = '$viewport';
 export const PROPERTY_REFERER = '$referer';
+export const PROPERTY_LIB = '$lib';
+export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
   private _lastUrl: string;
@@ -63,10 +65,6 @@ export class Altertable {
     const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
     this.track(PAGEVIEW_EVENT, {
       [PROPERTY_URL]: urlWithoutSearch,
-      [PROPERTY_SESSION_ID]: this._getSessionId(),
-      [PROPERTY_VISITOR_ID]: this._getVisitorId(),
-      [PROPERTY_VIEWPORT]: this._getViewport(),
-      [PROPERTY_REFERER]: this._referrer,
       ...Object.fromEntries(parsedUrl.searchParams),
     });
   }
@@ -76,7 +74,16 @@ export class Altertable {
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
-      properties: properties || {},
+      properties: {
+        [PROPERTY_SESSION_ID]: this._getSessionId(),
+        [PROPERTY_VISITOR_ID]: this._getVisitorId(),
+        [PROPERTY_VIEWPORT]: this._getViewport(),
+        [PROPERTY_REFERER]: this._referrer,
+        [PROPERTY_LIB]: __LIB__,
+        [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
+        // PROPERTY_LIB and PROPERTY_LIB_VERSION might be overridden by the react library
+        ...(properties || {}),
+      },
     });
   }
 
