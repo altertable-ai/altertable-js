@@ -10,6 +10,8 @@ import {
   PROPERTY_VISITOR_ID,
   PROPERTY_VIEWPORT,
   PROPERTY_REFERER,
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
 } from '../src/core';
 
 const setWindowLocation = (url: string) => {
@@ -113,6 +115,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
+            [PROPERTY_LIB]: 'dummy',
+            [PROPERTY_LIB_VERSION]: '0.0.0',
             [PROPERTY_URL]: 'http://localhost/page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
@@ -141,7 +145,11 @@ modes.forEach(({ mode, description, setup }) => {
           event: 'eventName',
           user_id: `anonymous-${randomId}`,
           environment: 'production',
-          properties: { foo: 'bar' },
+          properties: {
+            [PROPERTY_LIB]: 'dummy',
+            [PROPERTY_LIB_VERSION]: '0.0.0',
+            foo: 'bar',
+          },
         });
       }
     });
@@ -173,6 +181,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
+            [PROPERTY_LIB]: 'dummy',
+            [PROPERTY_LIB_VERSION]: '0.0.0',
             [PROPERTY_URL]: 'http://localhost/new-page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
