@@ -1,6 +1,6 @@
 {
   "name": "@altertable/react-analytics.js",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "FIXME",
   "main": "dist/index.js",
   "private": false,
@@ -35,7 +35,7 @@
     "react": "^16.0 || ^17.0 || ^18.0 || ^19.0"
   },
   "dependencies": {
-    "@altertable/analytics.js": "^0.2.3"
+    "@altertable/analytics.js": "^0.2.4"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

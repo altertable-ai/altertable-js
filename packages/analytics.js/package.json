@@ -1,6 +1,6 @@
 {
   "name": "@altertable/analytics.js",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "FIXME",
   "main": "dist/index.js",
   "private": false,
