@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
 import type { Altertable } from '@altertable/analytics.js';
-import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from '@altertable/analytics.js';
+
+const PROPERTY_LIB = '$lib';
+const PROPERTY_LIB_VERSION = '$lib_version';
 
 export const useAnalytics = <T extends FunnelMapping>() => {
   const instance = window.Altertable as Altertable;
