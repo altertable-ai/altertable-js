@@ -9,7 +9,7 @@
     "lint": "eslint index.js",
     "build:es5": "babel index.js --out-file dist/index.js",
     "build:min": "terser index.js -c -m -o dist/index.min.js",
-    "build": "npm run build:es5 && npm run build:min"
+    "build": "bun run build:es5 && bun run build:min"
   },
   "repository": {
     "type": "git",

@@ -11,7 +11,7 @@ A JavaScript library for analytics tracking.
 #### Installation
 
 ```sh
-npm install @altertable/altertable.js
+bun install @altertable/altertable.js
 ```
 
 #### Usage
@@ -26,7 +26,7 @@ A React JavaScript library for analytics tracking
 #### Installation
 
 ```sh
-npm install @altertable/react-altertable.js
+bun install @altertable/react-altertable.js
 ```
 
 #### Usage
@@ -40,7 +40,7 @@ FIXME
 To build all packages, run:
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### Testing
@@ -48,7 +48,7 @@ npm run build
 To run tests for all packages, run:
 
 ```bash
-npm run test
+bun run test
 ```
 
 ### Linting
@@ -56,7 +56,7 @@ npm run test
 To lint all packages, run:
 
 ```bash
-npm run lint
+bun run lint
 ```
 
 ### Release
