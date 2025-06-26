@@ -1,7 +1,7 @@
 {
-  "name": "@altertable/altertable.js",
-  "version": "0.2.7",
-  "description": "altertable.js allows you to automatically capture usage and send events to Altertable.",
+  "name": "@altertable/altertable-react",
+  "version": "0.4.8",
+  "description": "React SDK to capture and send events to Altertable.",
   "main": "dist/index.js",
   "private": false,
   "module": "dist/index.mjs",
@@ -10,6 +10,7 @@
   "keywords": [
     "analytics",
     "track",
+    "react",
     "altertable"
   ],
   "scripts": {
@@ -25,14 +26,22 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/altertable-ai/altertable.js"
+    "url": "git+https://github.com/altertable-ai/altertable-js"
   },
   "author": "Altertable AI Team",
   "license": "MIT",
-  "homepage": "https://github.com/altertable-ai/altertable.js#readme",
+  "homepage": "https://github.com/altertable-ai/altertable-js#readme",
+  "peerDependencies": {
+    "react": "^16.0 || ^17.0 || ^18.0 || ^19.0"
+  },
+  "dependencies": {
+    "@altertable/altertable-js": "^0.2.5"
+  },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.2.0",
     "@types/node": "^22.13.0",
+    "@types/react": "^19.0.8",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
     "eslint": "^8.57.0",
@@ -45,6 +54,8 @@
     "jsdom": "^26.0.0",
     "lint-staged": "^15.2.2",
     "prettier": "3.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.2",
     "tsup": "^8.3.6",
