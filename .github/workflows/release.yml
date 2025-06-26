@@ -1,4 +1,4 @@
-name: Release react-altertable.js
+name: Release
 
 on:
   workflow_dispatch:
@@ -16,18 +16,21 @@ jobs:
           bun-version: '1.2.4'
 
       - name: Install dependencies
-        run: |
-          cd packages/react-altertable.js
-          bun install --no-save --check-files
+        run: bun install --no-save --check-files
 
       - name: Build
-        run: |
-          cd packages/react-altertable.js
-          bun run build
+        run: bun run build
 
-      - name: Publish
+      - name: Publish altertable.js
+        run: |
+          cd packages/altertable.js
+          bun publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish react-altertable.js
         run: |
           cd packages/react-altertable.js
           bun publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
