@@ -118,6 +118,10 @@ function getCurrentBranch(): string {
   return '';
 }
 
+function getReleaseBranchName(version: string): string {
+  return `release/v${version}`;
+}
+
 function checkBaseBranch(): boolean {
   const currentBranch = getCurrentBranch();
   if (!ALLOWED_BASE_BRANCHES.includes(currentBranch)) {
@@ -132,8 +136,8 @@ function checkBaseBranch(): boolean {
 }
 
 function createReleaseBranch(version: string): boolean {
-  const branchName = `release/v${version}`;
-  console.log(`\n🌿 Creating release branch: ${branchName}`);
+  const branchName = getReleaseBranchName(version);
+  console.log(`🌿 Creating release branch: ${branchName}`);
 
   const checkoutResult = Bun.spawnSync(['git', 'checkout', '-b', branchName]);
   return checkoutResult.exitCode === 0;
@@ -260,7 +264,7 @@ async function main(): Promise<void> {
       console.log('⚠️  Git commit failed, please commit manually');
     }
 
-    const releaseBranchName = `release/v${nextVersion}`;
+    const releaseBranchName = getReleaseBranchName(nextVersion);
 
     console.log(`📤 Pushing release branch: ${releaseBranchName}`);
     const pushResult = Bun.spawnSync([
