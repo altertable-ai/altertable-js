@@ -8,9 +8,9 @@
         "lerna": "^8.2.2",
       },
     },
-    "packages/altertable.js": {
-      "name": "@altertable/altertable.js",
-      "version": "0.2.7",
+    "packages/altertable-js": {
+      "name": "@altertable/altertable-js",
+      "version": "0.3.0",
       "devDependencies": {
         "@testing-library/dom": "^10.4.0",
         "@types/node": "^22.13.0",
@@ -33,11 +33,11 @@
         "vitest": "^3.0.4",
       },
     },
-    "packages/react-altertable.js": {
-      "name": "@altertable/react-altertable.js",
-      "version": "0.4.8",
+    "packages/altertable-react": {
+      "name": "@altertable/altertable-react",
+      "version": "0.3.0",
       "dependencies": {
-        "@altertable/altertable.js": "^0.2.5",
+        "@altertable/altertable-js": "^0.3.0",
       },
       "devDependencies": {
         "@testing-library/dom": "^10.4.0",
@@ -68,8 +68,8 @@
         "react": "^16.0 || ^17.0 || ^18.0 || ^19.0",
       },
     },
-    "packages/snippet": {
-      "name": "@altertable/snippet",
+    "packages/altertable-snippet": {
+      "name": "@altertable/altertable-snippet",
       "version": "0.1.0",
       "devDependencies": {
         "@babel/cli": "^7.26.4",
@@ -92,11 +92,11 @@
     "esbuild": "^0.25.4",
   },
   "packages": {
-    "@altertable/altertable.js": ["@altertable/altertable.js@workspace:packages/altertable.js"],
+    "@altertable/altertable-js": ["@altertable/altertable-js@workspace:packages/altertable-js"],
 
-    "@altertable/react-altertable.js": ["@altertable/react-altertable.js@workspace:packages/react-altertable.js"],
+    "@altertable/altertable-react": ["@altertable/altertable-react@workspace:packages/altertable-react"],
 
-    "@altertable/snippet": ["@altertable/snippet@workspace:packages/snippet"],
+    "@altertable/altertable-snippet": ["@altertable/altertable-snippet@workspace:packages/altertable-snippet"],
 
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
 
