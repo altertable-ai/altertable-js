@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, MockInstance, test, vi } from 'vitest';
 
-describe('analytics.js', () => {
+describe('altertable.js', () => {
   let track: MockInstance;
   let init: MockInstance;
   let page: MockInstance;

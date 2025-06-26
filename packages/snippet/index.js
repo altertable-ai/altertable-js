@@ -18,7 +18,7 @@
         const scriptElement = document.createElement('script');
         scriptElement.type = 'text/javascript';
         scriptElement.async = true;
-        scriptElement.src = config.baseUrl + '/analytics.js';
+        scriptElement.src = config.baseUrl + '/altertable.js';
 
         const firstScript = document.getElementsByTagName('script')[0];
         firstScript.parentNode.insertBefore(scriptElement, firstScript);
