@@ -1,5 +1,5 @@
 {
-  "name": "@altertable/snippet",
+  "name": "@altertable/altertable-snippet",
   "version": "0.1.0",
   "description": "JavaScript snippet for loading and initializing Altertable analytics tracking",
   "main": "dist/index.js",
