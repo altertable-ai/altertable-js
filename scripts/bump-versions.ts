@@ -8,7 +8,7 @@ const GITHUB_REPO_URL = 'https://github.com/altertable-ai/altertable-js';
 const GIT_MAIN_BRANCH = 'main';
 const PACKAGES_FOLDER = 'packages';
 const ALLOWED_BASE_BRANCHES = [GIT_MAIN_BRANCH];
-const IGNORED_PACKAGES = [`@${NPM_ORG_NAME}/snippet`];
+const IGNORED_PACKAGES = [`@${NPM_ORG_NAME}/altertable-snippet`];
 
 interface PackageJson {
   name: string;
