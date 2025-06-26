@@ -16,6 +16,8 @@ export const useAltertable = <T extends FunnelMapping>() => {
       try {
         instance.track(step, {
           ...properties,
+          // The React library needs to override the lib properties coming from
+          // the core library
           [PROPERTY_LIB]: __LIB__,
           [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
         });

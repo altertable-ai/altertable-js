@@ -2,6 +2,7 @@ export interface Config {
   baseUrl: string;
   environment?: string;
   autoCapture?: boolean;
+  release?: string;
 }
 
 const DEFAULT_ENVIRONMENT = 'production';
@@ -19,6 +20,7 @@ export const PROPERTY_SESSION_ID = '$session_id';
 export const PROPERTY_VISITOR_ID = '$visitor_id';
 export const PROPERTY_VIEWPORT = '$viewport';
 export const PROPERTY_REFERER = '$referer';
+export const PROPERTY_RELEASE = '$release';
 export const PROPERTY_LIB = '$lib';
 export const PROPERTY_LIB_VERSION = '$lib_version';
 
@@ -81,7 +83,9 @@ export class Altertable {
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
-        // PROPERTY_LIB and PROPERTY_LIB_VERSION might be overridden by the react library
+        [PROPERTY_RELEASE]: this._config.release,
+        // The above properties might be overridden by user-provided fields
+        // and the React library
         ...(properties || {}),
       },
     });

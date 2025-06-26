@@ -10,6 +10,7 @@ import {
   PROPERTY_VISITOR_ID,
   PROPERTY_VIEWPORT,
   PROPERTY_REFERER,
+  PROPERTY_RELEASE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
 } from '../src/core';
@@ -148,6 +149,35 @@ modes.forEach(({ mode, description, setup }) => {
           properties: {
             [PROPERTY_LIB]: 'dummy',
             [PROPERTY_LIB_VERSION]: '0.0.0',
+            foo: 'bar',
+          },
+        });
+      }
+    });
+
+    it('should send a track event with release ID', () => {
+      const config: Config = {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        release: '04ed05b',
+      };
+      altertable.init(apiKey, config);
+
+      altertable.track('eventName', { foo: 'bar' });
+
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).toHaveBeenCalled();
+        expectBeaconCall(config, apiKey);
+      } else {
+        expect(fetch).toHaveBeenCalled();
+        expectFetchCall(config, apiKey, {
+          event: 'eventName',
+          user_id: `anonymous-${randomId}`,
+          environment: 'production',
+          properties: {
+            [PROPERTY_LIB]: 'dummy',
+            [PROPERTY_LIB_VERSION]: '0.0.0',
+            [PROPERTY_RELEASE]: '04ed05b',
             foo: 'bar',
           },
         });

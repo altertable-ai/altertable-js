@@ -39,5 +39,6 @@
   window.Altertable.init('%ALTERTABLE_API_KEY%', {
     baseUrl: '%ALTERTABLE_API_URL%',
     environment: '%ALTERTABLE_ENVIRONMENT%',
+    release: '%ALTERTABLE_RELEASE%',
   });
 })();
