@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { render } from '@testing-library/react';
-import { useAnalytics } from '../src';
+import { useAltertable } from '../src';
 import React from 'react';
 
 export type TestMapping = {
@@ -22,7 +22,7 @@ export type TestMapping = {
 };
 
 const Signup = () => {
-  const { useFunnel, track } = useAnalytics<TestMapping>();
+  const { useFunnel, track } = useAltertable<TestMapping>();
   const { track: trackSignup } = useFunnel('signup');
   const { track: trackPurchase } = useFunnel('purchase');
 
@@ -41,6 +41,6 @@ const Signup = () => {
 };
 
 test('compiles', () => {
-  expect(useAnalytics).toBeDefined();
+  expect(useAltertable).toBeDefined();
   render(<Signup />);
 });
