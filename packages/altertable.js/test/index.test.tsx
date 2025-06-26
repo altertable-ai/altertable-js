@@ -26,11 +26,9 @@ describe('altertable.js', () => {
     expect(page).not.toHaveBeenCalled();
 
     instance.init('key', {
-      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
 
@@ -43,17 +41,13 @@ describe('altertable.js', () => {
 
   test('auto captures', async () => {
     const { altertable: instance } = await import('../src');
-    instance.init('key', { baseUrl: 'https://api.altertable.ai' });
+    instance.init('key');
     expect(page).toHaveBeenCalledWith(window.location.href);
   });
 
   test('replays stubbed', async () => {
     const stub = [
-      [
-        'init',
-        'key',
-        { baseUrl: 'https://api.altertable.ai', autoCapture: false },
-      ],
+      ['init', 'key', { autoCapture: false }],
       ['page', 'https://altertable.ai'],
       ['page', 'https://example.com'],
       ['track', 'event', { prop: 'value' }],
@@ -62,7 +56,6 @@ describe('altertable.js', () => {
     const { altertable: instance } = await import('../src');
     expect((window as any).Altertable).toBe(instance);
     expect(init).toHaveBeenCalledWith('key', {
-      baseUrl: 'https://api.altertable.ai',
       autoCapture: false,
     });
     expect(page).toHaveBeenCalledWith('https://altertable.ai');

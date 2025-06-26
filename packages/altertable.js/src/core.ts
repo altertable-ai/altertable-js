@@ -1,10 +1,27 @@
 export interface Config {
-  baseUrl: string;
+  /**
+   * The base URL of the Altertable API.
+   * @default https://api.altertable.ai
+   */
+  baseUrl?: string;
+  /**
+   * The environment of the application.
+   * @default "production"
+   */
   environment?: string;
+  /**
+   * Whether to automatically capture page views and events.
+   * @default true
+   */
   autoCapture?: boolean;
+  /**
+   * The release ID of the application.
+   * This is helpful to identify the version of the application an event is coming from.
+   */
   release?: string;
 }
 
+const DEFAULT_BASE_URL = 'https://api.altertable.ai';
 const DEFAULT_ENVIRONMENT = 'production';
 
 export type EventProperties = Record<string, unknown>;
@@ -41,7 +58,7 @@ export class Altertable {
     this._userId = this._generateId('anonymous');
   }
 
-  init(apiKey: string, config: Config) {
+  init(apiKey: string, config: Config = {}) {
     this._apiKey = apiKey;
     this._config = config;
 
@@ -101,7 +118,7 @@ export class Altertable {
   }
 
   private _request(path: string, body: unknown): void {
-    const url = `${this._config.baseUrl}${path}`;
+    const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
     const payload = JSON.stringify(body);
 
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {

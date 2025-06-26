@@ -128,6 +128,27 @@ modes.forEach(({ mode, description, setup }) => {
       }
     });
 
+    it('should send a track event with the default base URL', () => {
+      const config: Config = {
+        autoCapture: false,
+      };
+      altertable.init(apiKey, config);
+
+      altertable.track('eventName', { foo: 'bar' });
+
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).toHaveBeenCalledWith(
+          'https://api.altertable.ai/track?apiKey=test-api-key',
+          expect.anything()
+        );
+      } else {
+        expect(fetch).toHaveBeenCalledWith(
+          'https://api.altertable.ai/track',
+          expect.anything()
+        );
+      }
+    });
+
     it('should send a track event', () => {
       const config: Config = {
         baseUrl: 'http://localhost',
