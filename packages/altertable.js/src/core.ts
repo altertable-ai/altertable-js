@@ -85,6 +85,7 @@ export class Altertable {
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
         [PROPERTY_RELEASE]: this._config.release,
         // The above properties might be overridden by user-provided fields
+        // and the React library
         ...(properties || {}),
       },
     });
