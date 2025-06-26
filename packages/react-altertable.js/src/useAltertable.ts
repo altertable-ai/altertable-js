@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
-import type { Altertable } from '@altertable/altertable.js';
+import type { Altertable } from '@altertable/altertable-js';
 
 const PROPERTY_LIB = '$lib';
 const PROPERTY_LIB_VERSION = '$lib_version';

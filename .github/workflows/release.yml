@@ -21,16 +21,16 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Publish altertable.js
+      - name: Publish altertable-js
         run: |
-          cd packages/altertable.js
+          cd packages/altertable-js
           bun publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish react-altertable.js
+      - name: Publish altertable-react
         run: |
-          cd packages/react-altertable.js
+          cd packages/altertable-react
           bun publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

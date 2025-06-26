@@ -1,7 +1,7 @@
 {
-  "name": "@altertable/altertable.js",
+  "name": "@altertable/altertable-js",
   "version": "0.2.7",
-  "description": "altertable.js allows you to automatically capture usage and send events to Altertable.",
+  "description": "JavaScript SDK to capture and send events to Altertable.",
   "main": "dist/index.js",
   "private": false,
   "module": "dist/index.mjs",
@@ -25,11 +25,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/altertable-ai/altertable.js"
+    "url": "git+https://github.com/altertable-ai/altertable-js"
   },
   "author": "Altertable AI Team",
   "license": "MIT",
-  "homepage": "https://github.com/altertable-ai/altertable.js#readme",
+  "homepage": "https://github.com/altertable-ai/altertable-js#readme",
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
     "@types/node": "^22.13.0",

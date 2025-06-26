@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 const NPM_ORG_NAME = 'altertable';
-const GITHUB_REPO_URL = 'https://github.com/altertable-ai/altertable.js';
+const GITHUB_REPO_URL = 'https://github.com/altertable-ai/altertable-js';
 const GIT_MAIN_BRANCH = 'main';
 const PACKAGES_FOLDER = 'packages';
 const ALLOWED_BASE_BRANCHES = [GIT_MAIN_BRANCH];
