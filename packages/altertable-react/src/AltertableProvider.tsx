@@ -1,5 +1,5 @@
 import { type Altertable, altertable } from '@altertable/altertable-js';
-import React, { createContext, useContext, type ReactNode } from 'react';
+import React, { createContext, type ReactNode, useContext } from 'react';
 
 const AltertableContext = createContext<Altertable>(altertable);
 AltertableContext.displayName = 'AltertableContext';
