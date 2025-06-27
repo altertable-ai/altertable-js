@@ -1,54 +1,42 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import { useAltertableContext } from './AltertableProvider';
+import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
 import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
-import type { Altertable } from '@altertable/altertable-js';
 
-const PROPERTY_LIB = '$lib';
-const PROPERTY_LIB_VERSION = '$lib_version';
+export function useAltertable<T extends FunnelMapping>() {
+  const altertable = useAltertableContext();
 
-export const useAltertable = <T extends FunnelMapping>() => {
-  const instance = window.Altertable as Altertable;
-
-  const makeTrack = <Steps extends T[keyof T] = T[keyof T]>() => {
-    return <Step extends FunnelStepNames<Steps>>(
-      step: Step,
-      properties: FunnelStepProperties<Steps, Step>
+  const track = useCallback(
+    <Steps extends T[keyof T] = T[keyof T]>(
+      step: FunnelStepNames<Steps>,
+      properties: FunnelStepProperties<Steps, typeof step>
     ) => {
-      try {
-        instance.track(step, {
-          ...properties,
-          // The React library needs to override the lib properties coming from
-          // the core library
-          [PROPERTY_LIB]: __LIB__,
-          [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
-        });
-      } catch (error) {
-        console.error('Failed to track event', error);
-      }
-    };
-  };
+      altertable.track(step, {
+        ...properties,
+        // The React library needs to override the lib properties coming from
+        // the core library
+        [PROPERTY_LIB]: __LIB__,
+        [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
+      });
+    },
+    [altertable]
+  );
 
   const useFunnel = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    <FunnelName extends keyof T>(_funnelName: FunnelName) => {
-      const track = useCallback(makeTrack<T[FunnelName]>(), []);
-      return { track };
-    },
-    []
+    <FunnelName extends keyof T>(_funnelName: FunnelName) => ({
+      track: track<T[FunnelName]>,
+    }),
+    [track]
   );
 
-  const track = useCallback(makeTrack(), []);
-
-  const identify = useCallback((userId: string) => {
-    try {
-      instance.identify(userId);
-    } catch (error) {
-      console.error('Failed to identify user', error);
-    }
-  }, []);
-
-  return {
-    useFunnel,
-    identify,
-    track,
-  };
-};
+  return useMemo(
+    () => ({
+      identify: altertable.identify,
+      track,
+      useFunnel,
+    }),
+    [altertable, track, useFunnel]
+  );
+}
