@@ -104,7 +104,7 @@ export class Altertable {
     });
   }
 
-  track(event: string, properties?: EventProperties) {
+  track(event: string, properties: EventProperties = {}) {
     this._request('/track', {
       event,
       user_id: this._userId,
@@ -115,7 +115,7 @@ export class Altertable {
         [PROPERTY_RELEASE]: this._config.release,
         // The above properties might be overridden by user-provided fields
         // and the React library
-        ...(properties || {}),
+        ...properties,
       },
     });
   }

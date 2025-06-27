@@ -10,7 +10,7 @@ export function useAltertable<T extends FunnelMapping>() {
   const track = useCallback(
     <Steps extends T[keyof T] = T[keyof T]>(
       step: FunnelStepNames<Steps>,
-      properties: FunnelStepProperties<Steps, typeof step>
+      properties: FunnelStepProperties<Steps, typeof step> = {}
     ) => {
       altertable.track(step, {
         ...properties,
