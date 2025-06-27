@@ -1,4 +1,6 @@
+import { invariant } from './lib/invariant';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import { warn } from './lib/warn';
 
 export interface Config {
   /**
@@ -45,8 +47,8 @@ export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
   private _lastUrl: string;
-  private _apiKey: string;
-  private _config: Config;
+  private _apiKey: string | undefined;
+  private _config: Config | undefined;
   private _sessionId: string;
   private _visitorId: string;
   private _userId: string;
@@ -92,6 +94,14 @@ export class Altertable {
   }
 
   page(url: string) {
+    if (!this._isInitialized()) {
+      warn(
+        false,
+        'Altertable must be initialized with init() before calling page()'
+      );
+      return;
+    }
+
     const parsedUrl = new URL(url);
     const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
     this.track(PAGEVIEW_EVENT, {
@@ -105,6 +115,14 @@ export class Altertable {
   }
 
   track(event: string, properties: EventProperties = {}) {
+    if (!this._isInitialized()) {
+      warn(
+        false,
+        'Altertable must be initialized with init() before calling track()'
+      );
+      return;
+    }
+
     this._request('/track', {
       event,
       user_id: this._userId,
@@ -120,6 +138,10 @@ export class Altertable {
     });
   }
 
+  private _isInitialized(): boolean {
+    return Boolean(this._apiKey && this._config);
+  }
+
   private _checkForChanges() {
     safelyRunOnBrowser(({ window }) => {
       const currentUrl = window.location.href;
@@ -132,6 +154,9 @@ export class Altertable {
   }
 
   private _request(path: string, body: unknown): void {
+    invariant(!!this._apiKey, 'Missing API key');
+    invariant(!!this._config, 'Missing configuration');
+
     const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
     const payload = JSON.stringify(body);
 
