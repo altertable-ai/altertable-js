@@ -21,6 +21,7 @@ export default defineConfig([
       },
       globals: {
         // Build-time constants
+        __DEV__: 'readonly',
         __LIB__: 'readonly',
         __LIB_VERSION__: 'readonly',
         // Browser globals that are safe to use
@@ -40,6 +41,7 @@ export default defineConfig([
         'error',
         { allowWholeFile: true },
       ],
+      'no-console': 'error',
       'no-unused-vars': 'off', // TypeScript handles this
       'no-undef': 'off', // TypeScript handles this
       'no-restricted-globals': [
@@ -93,6 +95,12 @@ export default defineConfig([
     files: ['packages/altertable-snippet/**/*.{js,ts,tsx}'],
     rules: {
       'no-restricted-globals': 'off',
+    },
+  },
+  {
+    files: ['scripts/**/*.{js,ts,tsx}'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {

@@ -1,18 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+
 import {
   Altertable,
+  AUTO_CAPTURE_INTERVAL,
   Config,
   PAGEVIEW_EVENT,
-  AUTO_CAPTURE_INTERVAL,
-  PROPERTY_URL,
-  PROPERTY_SESSION_ID,
-  PROPERTY_VISITOR_ID,
-  PROPERTY_VIEWPORT,
-  PROPERTY_REFERER,
-  PROPERTY_RELEASE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
+  PROPERTY_REFERER,
+  PROPERTY_RELEASE,
+  PROPERTY_SESSION_ID,
+  PROPERTY_URL,
+  PROPERTY_VIEWPORT,
+  PROPERTY_VISITOR_ID,
 } from '../src/core';
 
 const setWindowLocation = (url: string) => {

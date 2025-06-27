@@ -1,0 +1,44 @@
+/* eslint-disable no-console */
+
+export function toWarnDev(
+  callback: () => void,
+  expectedMessage?: string
+): void {
+  if (expectedMessage !== undefined && typeof expectedMessage !== 'string') {
+    throw new Error(
+      `toWarnDev() requires a parameter of type string but was given ${typeof expectedMessage}.`
+    );
+  }
+
+  if (!__DEV__) {
+    callback();
+    return;
+  }
+
+  const originalWarnMethod = console.warn;
+  let calledTimes = 0;
+  let actualWarning = '';
+
+  console.warn = (message: string) => {
+    calledTimes++;
+    actualWarning = message;
+  };
+
+  callback();
+
+  console.warn = originalWarnMethod;
+
+  // Expectation without any message.
+  // We only check that `console.warn` was called.
+  if (expectedMessage === undefined && calledTimes === 0) {
+    throw new Error('No warning recorded.');
+  }
+
+  // Expectation with a message.
+  if (expectedMessage !== undefined && actualWarning !== expectedMessage) {
+    throw new Error(`Unexpected warning recorded.
+
+Expected: ${expectedMessage}
+Received: ${actualWarning}`);
+  }
+}
