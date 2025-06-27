@@ -1,7 +1,6 @@
 import { invariant } from './lib/invariant';
-import { log } from './lib/log';
+import { createLogger, type Logger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
-import { warn } from './lib/warn';
 
 export interface Config {
   /**
@@ -55,6 +54,7 @@ export class Altertable {
   private _userId: string;
   private _referrer: string | null;
   private _debug: boolean = false;
+  private _logger: Logger = createLogger('Altertable');
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -107,8 +107,7 @@ export class Altertable {
 
   page(url: string) {
     if (!this._isInitialized()) {
-      warn(
-        false,
+      this._logger.warnDev(
         'Altertable must be initialized with init() before calling page()'
       );
       return;
@@ -128,8 +127,7 @@ export class Altertable {
 
   track(event: string, properties: EventProperties = {}) {
     if (!this._isInitialized()) {
-      warn(
-        false,
+      this._logger.warnDev(
         'Altertable must be initialized with init() before calling track()'
       );
       return;
@@ -149,9 +147,11 @@ export class Altertable {
       },
     };
 
-    log(!this._debug, 'Event', event, JSON.stringify(payload, null, 2));
-
     this._request('/track', payload);
+
+    if (this._debug) {
+      this._logger.log('Event', event, JSON.stringify(payload, null, 2));
+    }
   }
 
   debug(value: boolean) {
