@@ -135,11 +135,12 @@ export class Altertable {
     const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
     const payload = JSON.stringify(body);
 
+    /* eslint-disable no-restricted-globals */
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
       const beaconUrl = `${url}?apiKey=${encodeURIComponent(this._apiKey)}`;
       const blob = new Blob([payload], { type: 'application/json' });
       navigator.sendBeacon(beaconUrl, blob);
-    } else {
+    } /* eslint-enable no-restricted-globals */ else {
       fetch(url, {
         method: 'POST',
         headers: {
@@ -153,12 +154,14 @@ export class Altertable {
 
   private _getSessionId(): string {
     try {
+      /* eslint-disable no-restricted-globals */
       let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!id) {
         id = this._sessionId;
         sessionStorage.setItem(SESSION_STORAGE_KEY, id);
       }
       return id;
+      /* eslint-enable no-restricted-globals */
     } catch {
       return this._sessionId;
     }
@@ -166,12 +169,14 @@ export class Altertable {
 
   private _getVisitorId(): string {
     try {
+      /* eslint-disable no-restricted-globals */
       let id = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (!id) {
         id = this._visitorId;
         localStorage.setItem(LOCAL_STORAGE_KEY, id);
       }
       return id;
+      /* eslint-enable no-restricted-globals */
     } catch {
       return this._visitorId;
     }

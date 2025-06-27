@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 // A generic funnel step has a name and properties.
 export type FunnelStep = { name: string; properties: any };
 

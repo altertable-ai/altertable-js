@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-globals */
+
 /** Runs code on browser environments safely. */
 export function safelyRunOnBrowser<TReturn>(
   callback: (params: { window: typeof window }) => TReturn,

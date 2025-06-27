@@ -24,7 +24,6 @@ export function useAltertable<T extends FunnelMapping>() {
   );
 
   const useFunnel = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     <FunnelName extends keyof T>(_funnelName: FunnelName) => ({
       track: track<T[FunnelName]>,
     }),
