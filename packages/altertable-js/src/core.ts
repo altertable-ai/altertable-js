@@ -1,4 +1,5 @@
 import { invariant } from './lib/invariant';
+import { log } from './lib/log';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { warn } from './lib/warn';
 
@@ -53,6 +54,7 @@ export class Altertable {
   private _visitorId: string;
   private _userId: string;
   private _referrer: string | null;
+  private _debug: boolean = false;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -133,7 +135,7 @@ export class Altertable {
       return;
     }
 
-    this._request('/track', {
+    const payload = {
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
@@ -145,7 +147,15 @@ export class Altertable {
         // and the React library
         ...properties,
       },
-    });
+    };
+
+    log(!this._debug, 'Event', event, JSON.stringify(payload, null, 2));
+
+    this._request('/track', payload);
+  }
+
+  debug(value: boolean) {
+    this._debug = value;
   }
 
   private _isInitialized(): boolean {
