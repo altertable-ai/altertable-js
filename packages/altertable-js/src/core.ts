@@ -1,3 +1,5 @@
+import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+
 export interface Config {
   /**
    * The base URL of the Altertable API.
@@ -51,8 +53,14 @@ export class Altertable {
   private _referrer: string | null;
 
   constructor() {
-    this._referrer = document.referrer || null;
-    this._lastUrl = window.location.href;
+    this._referrer = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.document.referrer || null,
+      () => null
+    );
+    this._lastUrl = safelyRunOnBrowser(
+      ({ window }) => window.location.href,
+      () => ''
+    );
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
     this._userId = this._generateId('anonymous');
@@ -63,14 +71,18 @@ export class Altertable {
     this._config = config;
 
     if (config.autoCapture !== false) {
-      this.page(this._lastUrl);
+      if (this._lastUrl) {
+        this.page(this._lastUrl);
+      }
 
       setInterval(() => {
         this._checkForChanges();
       }, AUTO_CAPTURE_INTERVAL);
 
-      window.addEventListener('popstate', () => this._checkForChanges());
-      window.addEventListener('hashchange', () => this._checkForChanges());
+      safelyRunOnBrowser(({ window }) => {
+        window.addEventListener('popstate', () => this._checkForChanges());
+        window.addEventListener('hashchange', () => this._checkForChanges());
+      });
     }
   }
 
@@ -109,12 +121,14 @@ export class Altertable {
   }
 
   private _checkForChanges() {
-    const currentUrl = window.location.href;
-    if (currentUrl !== this._lastUrl) {
-      this.page(currentUrl);
-      this._referrer = this._lastUrl;
-      this._lastUrl = currentUrl;
-    }
+    safelyRunOnBrowser(({ window }) => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== this._lastUrl) {
+        this.page(currentUrl);
+        this._referrer = this._lastUrl;
+        this._lastUrl = currentUrl;
+      }
+    });
   }
 
   private _request(path: string, body: unknown): void {
@@ -178,6 +192,9 @@ export class Altertable {
   }
 
   private _getViewport(): string {
-    return `${window.innerWidth}x${window.innerHeight}`;
+    return safelyRunOnBrowser(
+      ({ window }) => `${window.innerWidth}x${window.innerHeight}`,
+      () => '0x0'
+    );
   }
 }

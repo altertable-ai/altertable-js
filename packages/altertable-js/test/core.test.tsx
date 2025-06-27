@@ -116,8 +116,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
-            [PROPERTY_LIB]: 'dummy',
-            [PROPERTY_LIB_VERSION]: '0.0.0',
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_URL]: 'http://localhost/page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
@@ -168,8 +168,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
-            [PROPERTY_LIB]: 'dummy',
-            [PROPERTY_LIB_VERSION]: '0.0.0',
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             foo: 'bar',
           },
         });
@@ -196,8 +196,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
-            [PROPERTY_LIB]: 'dummy',
-            [PROPERTY_LIB_VERSION]: '0.0.0',
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_RELEASE]: '04ed05b',
             foo: 'bar',
           },
@@ -232,8 +232,8 @@ modes.forEach(({ mode, description, setup }) => {
           user_id: `anonymous-${randomId}`,
           environment: 'production',
           properties: {
-            [PROPERTY_LIB]: 'dummy',
-            [PROPERTY_LIB_VERSION]: '0.0.0',
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_URL]: 'http://localhost/new-page',
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
