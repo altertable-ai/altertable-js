@@ -77,15 +77,25 @@ export class Altertable {
         this.page(this._lastUrl);
       }
 
-      setInterval(() => {
+      let intervalId = setInterval(() => {
         this._checkForChanges();
       }, AUTO_CAPTURE_INTERVAL);
 
       safelyRunOnBrowser(({ window }) => {
-        window.addEventListener('popstate', () => this._checkForChanges());
-        window.addEventListener('hashchange', () => this._checkForChanges());
+        window.addEventListener('popstate', this._checkForChanges);
+        window.addEventListener('hashchange', this._checkForChanges);
       });
+
+      return () => {
+        clearInterval(intervalId);
+        safelyRunOnBrowser(({ window }) => {
+          window.removeEventListener('popstate', this._checkForChanges);
+          window.removeEventListener('hashchange', this._checkForChanges);
+        });
+      };
     }
+
+    return () => {};
   }
 
   identify(userId: string) {
