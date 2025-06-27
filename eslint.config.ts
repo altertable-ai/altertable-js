@@ -90,6 +90,12 @@ export default defineConfig([
     },
   },
   {
+    files: ['packages/altertable-snippet/**/*.{js,ts,tsx}'],
+    rules: {
+      'no-restricted-globals': 'off',
+    },
+  },
+  {
     files: ['**/*.d.ts'],
     rules: {
       'no-unused-vars': 'off',

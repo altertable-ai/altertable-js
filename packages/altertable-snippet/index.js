@@ -11,7 +11,6 @@
 
   ((document, instance) => {
     if (!instance._initialized) {
-      // eslint-disable-next-line no-undef
       window.Altertable = instance;
 
       instance.init = function (apiKey, config) {
@@ -32,10 +31,8 @@
 
       instance._initialized = 1;
     }
-    // eslint-disable-next-line no-undef
   })(document, window.Altertable || []);
 
-  // eslint-disable-next-line no-undef
   window.Altertable.init('%ALTERTABLE_API_KEY%', {
     baseUrl: '%ALTERTABLE_API_URL%',
     environment: '%ALTERTABLE_ENVIRONMENT%',
