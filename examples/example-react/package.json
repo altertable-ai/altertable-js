@@ -13,8 +13,11 @@
   "dependencies": {
     "@altertable/altertable-js": "workspace:*",
     "@altertable/altertable-react": "workspace:*",
+    "@tailwindcss/vite": "^4.1.11",
+    "lucide-react": "^0.525.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.11"
   },
   "devDependencies": {
     "@types/react": "^19.0.8",
