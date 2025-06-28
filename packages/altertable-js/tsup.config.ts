@@ -10,6 +10,7 @@ export default defineConfig({
   format: ['cjs', 'esm', 'iife'],
   dts: true,
   platform: 'neutral',
+  globalName: 'Altertable',
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __LIB__: JSON.stringify(pkg.name),
