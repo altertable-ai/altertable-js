@@ -5,8 +5,9 @@ import {
 } from '@altertable/altertable-react';
 import { useState } from 'react';
 
-altertable.init(__ALTERTABLE_API_KEY__, {
-  baseUrl: __ALTERTABLE_BASE_URL__,
+altertable.init(import.meta.env.VITE_ALTERTABLE_API_KEY, {
+  baseUrl: import.meta.env.VITE_ALTERTABLE_BASE_URL,
+  environment: import.meta.env.MODE,
 });
 
 export function App() {
