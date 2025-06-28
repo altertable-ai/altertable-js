@@ -10,7 +10,7 @@
     "build:es5": "babel index.js --out-file dist/index.js",
     "build:min": "terser index.js -c -m -o dist/index.min.js",
     "build": "bun run build:es5 && bun run build:min",
-    "build:watch": "bun run build:es5 --watch"
+    "dev": "bun run build:es5 --watch"
   },
   "repository": {
     "type": "git",

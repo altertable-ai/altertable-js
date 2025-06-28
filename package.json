@@ -7,7 +7,6 @@
   ],
   "scripts": {
     "build": "lerna run build",
-    "build:watch": "lerna run build:watch --parallel",
     "clean": "lerna run clean",
     "dev": "bun run scripts/dev.ts",
     "dev:packages": "lerna run dev --scope=@altertable/* --parallel",

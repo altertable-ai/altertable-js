@@ -44,13 +44,6 @@ bun run dev:examples
 
 Runs only the examples (requires packages to be built first).
 
-### Individual Package Development
-
-```bash
-cd packages/altertable-js
-bun run build:watch
-```
-
 ### Individual Example Development
 
 ```bash
@@ -68,7 +61,6 @@ bun run dev
 
 ### Watch Mode
 
-- Packages have `build:watch` scripts that rebuild on file changes
 - Examples run in development mode with hot reload
 - Changes propagate automatically through the workspace
 
@@ -84,7 +76,6 @@ bun run dev
 
 - `bun run dev` - Full development environment
 - `bun run build` - Build all packages
-- `bun run build:watch` - Build all packages in watch mode
 - `bun run test` - Run all tests
 - `bun run test:watch` - Run all tests in watch mode
 - `bun run lint` - Lint all packages and examples
@@ -93,7 +84,6 @@ bun run dev
 ### Package Level
 
 - `bun run build` - Build the package
-- `bun run build:watch` - Build in watch mode
 - `bun run test` - Run tests
 - `bun run test:watch` - Run tests in watch mode
 - `bun run lint` - Lint the package

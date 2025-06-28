@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { readdirSync } from 'fs';
 import { join } from 'path';
 
 const ROOT_DIR = process.cwd();
@@ -16,6 +16,7 @@ const colors = {
   green: '\x1b[32m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
+  bgBlue: '\x1b[44m',
   magenta: '\x1b[35m',
   cyan: '\x1b[36m',
 };
@@ -64,49 +65,46 @@ function spawnProcess(
 }
 
 async function main() {
-  log('🚀 Starting Altertable Development Environment', 'bright');
+  log('Altertable JavaScript Development Environment', 'blue');
+  log('');
 
-  // Check if packages exist
-  const packages = ['altertable-js', 'altertable-react', 'altertable-snippet'];
-  const existingPackages = packages.filter(pkg =>
-    existsSync(join(PACKAGES_DIR, pkg))
-  );
+  // Dynamically scan packages directory
+  const packages = readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name)
+    .sort();
 
-  if (existingPackages.length === 0) {
+  if (packages.length === 0) {
     log('❌ No packages found in packages/ directory', 'red');
     process.exit(1);
   }
 
-  log(`📦 Found packages: ${existingPackages.join(', ')}`, 'green');
+  log(`📦 Packages: ${packages.join(', ')}`, 'green');
 
-  // Start package watch builds
-  log('🔨 Starting package watch builds...', 'yellow');
-  const packageProcesses = existingPackages.map(pkg => {
+  const packageProcesses = packages.map(pkg => {
     const pkgDir = join(PACKAGES_DIR, pkg);
-    return spawnProcess('bun', ['run', 'build:watch'], pkgDir, pkg);
+    return spawnProcess('bun', ['run', 'dev'], pkgDir, pkg);
   });
 
-  // Check if examples exist
-  const examples = ['example-react'];
-  const existingExamples = examples.filter(example =>
-    existsSync(join(EXAMPLES_DIR, example))
-  );
+  // Dynamically scan examples directory
+  const examples = readdirSync(EXAMPLES_DIR, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name)
+    .sort();
 
-  if (existingExamples.length > 0) {
-    log(`📱 Found examples: ${existingExamples.join(', ')}`, 'green');
+  if (examples.length > 0) {
+    log(`🖥️  Examples: ${examples.join(', ')}`, 'green');
 
-    // Wait a bit for packages to build initially
-    log('⏳ Waiting for initial package builds...', 'yellow');
+    log('');
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Start example development servers
-    log('🌐 Starting example development servers...', 'yellow');
-    const exampleProcesses = existingExamples.map(example => {
+    log('');
+
+    const exampleProcesses = examples.map(example => {
       const exampleDir = join(EXAMPLES_DIR, example);
       return spawnProcess('bun', ['run', 'dev'], exampleDir, example);
     });
 
-    log('✅ Development environment ready!', 'green');
     log('📦 Packages are building in watch mode', 'blue');
     log('🌐 Examples are running on their respective ports', 'blue');
     log(
@@ -114,6 +112,7 @@ async function main() {
       'blue'
     );
     log('🛑 Press Ctrl+C to stop all processes', 'yellow');
+    log('');
 
     // Handle graceful shutdown
     process.on('SIGINT', () => {
