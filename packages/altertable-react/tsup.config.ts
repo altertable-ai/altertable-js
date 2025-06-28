@@ -7,7 +7,7 @@ export default defineConfig({
   entry: ['src/index.ts'],
   sourcemap: true,
   clean: true,
-  format: ['cjs', 'esm', 'iife'],
+  format: ['cjs', 'esm'],
   dts: true,
   platform: 'neutral',
   external: ['@altertable/altertable-js'],

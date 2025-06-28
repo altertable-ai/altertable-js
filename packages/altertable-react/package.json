@@ -5,7 +5,6 @@
   "main": "dist/index.js",
   "private": false,
   "module": "dist/index.mjs",
-  "browser": "dist/index.global.js",
   "typings": "dist/index.d.ts",
   "keywords": [
     "analytics",
