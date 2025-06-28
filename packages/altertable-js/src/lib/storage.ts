@@ -205,34 +205,34 @@ function isCookieSupported(): boolean {
 
 export function selectStorage(
   type: StorageType | 'unknown',
-  dependencies: { logger: Logger }
+  params: { onError: (message: string) => void }
 ): StorageAPI {
-  const { logger } = dependencies;
+  const { onError } = params;
 
   switch (type) {
     case 'localStorage': {
       if (isLocalStorageSupported()) {
         return new LocalStorageStore();
       } else {
-        logger.error(
+        onError(
           'localStorage not supported, falling back to localStorage+cookie'
         );
-        return selectStorage('localStorage+cookie', dependencies);
+        return selectStorage('localStorage+cookie', params);
       }
     }
     case 'localStorage+cookie': {
       if (isLocalStorageSupported() && isCookieSupported()) {
         return new LocalPlusCookieStore();
       } else if (isCookieSupported()) {
-        logger.error(
+        onError(
           'localStorage+cookie not fully supported, falling back to cookie'
         );
         return new CookieStore();
       } else if (isLocalStorageSupported()) {
-        logger.error('Cookie not supported, falling back to localStorage');
+        onError('Cookie not supported, falling back to localStorage');
         return new LocalStorageStore();
       } else {
-        logger.error(
+        onError(
           'Neither localStorage nor cookie supported, falling back to memory'
         );
         return new MemoryStore();
@@ -242,7 +242,7 @@ export function selectStorage(
       if (isSessionStorageSupported()) {
         return new SessionStorageStore();
       } else {
-        logger.error('sessionStorage not supported, falling back to memory');
+        onError('sessionStorage not supported, falling back to memory');
         return new MemoryStore();
       }
     }
@@ -250,7 +250,7 @@ export function selectStorage(
       if (isCookieSupported()) {
         return new CookieStore();
       } else {
-        logger.error('cookie not supported, falling back to memory');
+        onError('cookie not supported, falling back to memory');
         return new MemoryStore();
       }
     }
@@ -258,8 +258,8 @@ export function selectStorage(
       return new MemoryStore();
     }
     default: {
-      logger.error('Unknown storage type, falling back to localStorage+cookie');
-      return selectStorage('localStorage+cookie', dependencies);
+      onError('Unknown storage type, falling back to localStorage+cookie');
+      return selectStorage('localStorage+cookie', params);
     }
   }
 }
