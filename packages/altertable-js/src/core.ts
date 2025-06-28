@@ -1,3 +1,19 @@
+import {
+  AUTO_CAPTURE_INTERVAL,
+  DEFAULT_BASE_URL,
+  DEFAULT_ENVIRONMENT,
+  PAGEVIEW_EVENT,
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+  PROPERTY_REFERER,
+  PROPERTY_RELEASE,
+  PROPERTY_SESSION_ID,
+  PROPERTY_URL,
+  PROPERTY_VIEWPORT,
+  PROPERTY_VISITOR_ID,
+  STORAGE_KEY_SESSION_ID,
+  STORAGE_KEY_VISITOR_ID,
+} from './lib/constants';
 import { invariant } from './lib/invariant';
 import { createLogger, type Logger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
@@ -35,25 +51,7 @@ export interface Config {
   persistence?: StorageType;
 }
 
-const DEFAULT_BASE_URL = 'https://api.altertable.ai';
-const DEFAULT_ENVIRONMENT = 'production';
-
 export type EventProperties = Record<string, unknown>;
-
-export const PAGEVIEW_EVENT = '$pageview';
-
-export const SESSION_STORAGE_KEY = 'altertable-session-id';
-export const LOCAL_STORAGE_KEY = 'altertable-visitor-id';
-export const AUTO_CAPTURE_INTERVAL = 100;
-
-export const PROPERTY_URL = '$url';
-export const PROPERTY_SESSION_ID = '$session_id';
-export const PROPERTY_VISITOR_ID = '$visitor_id';
-export const PROPERTY_VIEWPORT = '$viewport';
-export const PROPERTY_REFERER = '$referer';
-export const PROPERTY_RELEASE = '$release';
-export const PROPERTY_LIB = '$lib';
-export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
   private _lastUrl: string;
@@ -214,19 +212,19 @@ export class Altertable {
   }
 
   private _getSessionId(): string {
-    let id = this._storage.getItem(SESSION_STORAGE_KEY);
+    let id = this._storage.getItem(STORAGE_KEY_SESSION_ID);
     if (!id) {
       id = this._sessionId;
-      this._storage.setItem(SESSION_STORAGE_KEY, id);
+      this._storage.setItem(STORAGE_KEY_SESSION_ID, id);
     }
     return id;
   }
 
   private _getVisitorId(): string {
-    let id = this._storage.getItem(LOCAL_STORAGE_KEY);
+    let id = this._storage.getItem(STORAGE_KEY_VISITOR_ID);
     if (!id) {
       id = this._visitorId;
-      this._storage.setItem(LOCAL_STORAGE_KEY, id);
+      this._storage.setItem(STORAGE_KEY_VISITOR_ID, id);
     }
     return id;
   }

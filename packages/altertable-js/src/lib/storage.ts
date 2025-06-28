@@ -263,3 +263,7 @@ export function selectStorage(
     }
   }
 }
+
+export function createAltertableStorageKey(...parts: string[]): string {
+  return ['atbl', ...parts].join(':');
+}
