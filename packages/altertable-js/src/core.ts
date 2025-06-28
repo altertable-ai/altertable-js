@@ -1,6 +1,11 @@
 import { invariant } from './lib/invariant';
 import { createLogger, type Logger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import {
+  selectStorage,
+  type StorageAPI,
+  type StorageType,
+} from './lib/storage';
 
 export interface Config {
   /**
@@ -23,6 +28,11 @@ export interface Config {
    * This is helpful to identify the version of the application an event is coming from.
    */
   release?: string;
+  /**
+   * The persistence strategy for storing IDs.
+   * @default "localStorage+cookie"
+   */
+  persistence?: StorageType;
 }
 
 const DEFAULT_BASE_URL = 'https://api.altertable.ai';
@@ -55,6 +65,7 @@ export class Altertable {
   private _referrer: string | null;
   private _debug: boolean = false;
   private _logger: Logger = createLogger('Altertable');
+  private _storage: StorageAPI | undefined;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -73,6 +84,9 @@ export class Altertable {
   init(apiKey: string, config: Config = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    const persistence: StorageType =
+      config.persistence ?? 'localStorage+cookie';
+    this._storage = selectStorage(persistence, { logger: this._logger });
 
     if (config.autoCapture !== false) {
       if (this._lastUrl) {
@@ -198,33 +212,21 @@ export class Altertable {
   }
 
   private _getSessionId(): string {
-    try {
-      /* eslint-disable no-restricted-globals */
-      let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (!id) {
-        id = this._sessionId;
-        sessionStorage.setItem(SESSION_STORAGE_KEY, id);
-      }
-      return id;
-      /* eslint-enable no-restricted-globals */
-    } catch {
-      return this._sessionId;
+    let id = this._storage.getItem(SESSION_STORAGE_KEY);
+    if (!id) {
+      id = this._sessionId;
+      this._storage.setItem(SESSION_STORAGE_KEY, id);
     }
+    return id;
   }
 
   private _getVisitorId(): string {
-    try {
-      /* eslint-disable no-restricted-globals */
-      let id = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!id) {
-        id = this._visitorId;
-        localStorage.setItem(LOCAL_STORAGE_KEY, id);
-      }
-      return id;
-      /* eslint-enable no-restricted-globals */
-    } catch {
-      return this._visitorId;
+    let id = this._storage.getItem(LOCAL_STORAGE_KEY);
+    if (!id) {
+      id = this._visitorId;
+      this._storage.setItem(LOCAL_STORAGE_KEY, id);
     }
+    return id;
   }
 
   private _generateId(prefix: string): string {
