@@ -14,11 +14,12 @@
     "altertable"
   ],
   "scripts": {
-    "dev": "rollup -c --configPlugin typescript --watch",
+    "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext ts",
     "lint:fix": "bun run lint --fix",
     "build": "tsup",
+    "build:watch": "tsup --watch",
     "test": "vitest --environment=jsdom --watch=false",
     "test:watch": "vitest --environment=jsdom"
   },

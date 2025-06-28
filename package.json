@@ -7,11 +7,15 @@
   ],
   "scripts": {
     "build": "lerna run build",
+    "build:watch": "lerna run build:watch --parallel",
     "clean": "lerna run clean",
+    "dev": "bun run scripts/dev.ts",
+    "dev:packages": "lerna run dev --scope=@altertable/* --parallel",
+    "dev:examples": "lerna run dev --scope=*-example --parallel",
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint:fix",
     "test": "lerna run test",
-    "test:watch": "lerna run test:watch",
+    "test:watch": "lerna run test:watch --parallel",
     "bump": "bun run scripts/bump-versions.ts"
   },
   "devDependencies": {
