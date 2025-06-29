@@ -51,7 +51,7 @@ export interface AltertableConfig {
   release?: string;
   /**
    * The persistence strategy for storing IDs.
-   * @default "localStorage+cookie"
+   * @default "localStorage"
    */
   persistence?: StorageType;
   /**
@@ -100,8 +100,7 @@ export class Altertable {
   init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
-    const persistence: StorageType =
-      config.persistence ?? 'localStorage+cookie';
+    const persistence: StorageType = config.persistence ?? 'localStorage';
     this._storage = selectStorage(persistence, {
       onError: message => this._logger.error(message),
     });
