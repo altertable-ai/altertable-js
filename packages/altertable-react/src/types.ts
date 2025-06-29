@@ -1,15 +1,14 @@
-// A generic funnel step has a name and properties.
-export type FunnelStep = { name: string; properties: any };
+type FunnelName = string;
+
+export type FunnelStep = { name: FunnelName; properties?: Record<string, any> };
 
 // Extracts a union of all step names from a funnel's steps array.
-export type FunnelStepNames<T extends readonly FunnelStep[]> =
-  T[number]['name'];
+export type FunnelStepName<T extends readonly FunnelStep[]> = T[number]['name'];
 
 // Given a funnel's steps and a step name, extract the expected properties.
 export type FunnelStepProperties<
   T extends readonly FunnelStep[],
-  N extends FunnelStepNames<T>,
+  N extends FunnelStepName<T>,
 > = Extract<T[number], { name: N }>['properties'];
 
-// The funnel mapping: keys are funnel names; values are arrays of funnel steps.
-export type FunnelMapping = Record<string, readonly FunnelStep[]>;
+export type FunnelMapping = Record<FunnelName, readonly FunnelStep[]>;

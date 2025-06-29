@@ -2,17 +2,17 @@ import { useCallback, useMemo } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
-import { FunnelMapping, FunnelStepNames, FunnelStepProperties } from './types';
+import { FunnelMapping, FunnelStepName, FunnelStepProperties } from './types';
 
 export function useAltertable<T extends FunnelMapping>() {
   const altertable = useAltertableContext();
 
   const track = useCallback(
     <Steps extends T[keyof T] = T[keyof T]>(
-      step: FunnelStepNames<Steps>,
-      properties: FunnelStepProperties<Steps, typeof step> = {}
+      stepName: FunnelStepName<Steps>,
+      properties: FunnelStepProperties<Steps, typeof stepName> = {}
     ) => {
-      altertable.track(step, {
+      altertable.track(stepName, {
         ...properties,
         // The React library needs to override the lib properties coming from
         // the core library
