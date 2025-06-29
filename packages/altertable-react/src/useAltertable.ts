@@ -32,8 +32,9 @@ export function useAltertable<T extends FunnelMapping>() {
 
   return useMemo(
     () => ({
-      identify: altertable.identify,
-      configure: altertable.configure,
+      identify: altertable.identify.bind(altertable),
+      configure: altertable.configure.bind(altertable),
+      getTrackingConsent: altertable.getTrackingConsent.bind(altertable),
       track,
       useFunnel,
     }),
