@@ -1,4 +1,4 @@
-import { Logger } from './logger';
+import { STORAGE_KEY_TEST } from './constants';
 import { safelyRunOnBrowser } from './safelyRunOnBrowser';
 
 export type StorageType =
@@ -159,9 +159,8 @@ function isLocalStorageSupported(): boolean {
   return safelyRunOnBrowser(
     ({ window }): boolean => {
       try {
-        const key = '__test__';
-        window.localStorage.setItem(key, '1');
-        window.localStorage.removeItem(key);
+        window.localStorage.setItem(STORAGE_KEY_TEST, '1');
+        window.localStorage.removeItem(STORAGE_KEY_TEST);
         return true;
       } catch {
         return false;
@@ -175,9 +174,8 @@ function isSessionStorageSupported(): boolean {
   return safelyRunOnBrowser(
     ({ window }): boolean => {
       try {
-        const key = '__test__';
-        window.sessionStorage.setItem(key, '1');
-        window.sessionStorage.removeItem(key);
+        window.sessionStorage.setItem(STORAGE_KEY_TEST, '1');
+        window.sessionStorage.removeItem(STORAGE_KEY_TEST);
         return true;
       } catch {
         return false;
@@ -191,9 +189,10 @@ function isCookieSupported(): boolean {
   return safelyRunOnBrowser(
     ({ window }): boolean => {
       try {
-        window.document.cookie = 'cookietest=1';
-        const supported = window.document.cookie.indexOf('cookietest=') !== -1;
-        window.document.cookie = 'cookietest=; Max-Age=0';
+        window.document.cookie = `${STORAGE_KEY_TEST}=1`;
+        const supported =
+          window.document.cookie.indexOf(`${STORAGE_KEY_TEST}=`) !== -1;
+        window.document.cookie = `${STORAGE_KEY_TEST}=; Max-Age=0`;
         return supported;
       } catch {
         return false;
@@ -265,5 +264,5 @@ export function selectStorage(
 }
 
 export function createAltertableStorageKey(...parts: string[]): string {
-  return ['atbl', ...parts].join(':');
+  return ['atbl', ...parts].join('.');
 }
