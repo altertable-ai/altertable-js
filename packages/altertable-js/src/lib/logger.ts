@@ -11,6 +11,12 @@ export function createLogger(prefix: string) {
     log: (...args: unknown[]) => {
       console.log(`[${prefix}]`, ...args);
     },
+    logHeader: () => {
+      console.log(
+        `Altertable v${__LIB_VERSION__} %c• Debug mode enabled`,
+        'color: #64748b;'
+      );
+    },
     logEvent: (
       payload: EventPayload,
       config: Required<Pick<AltertableConfig, 'trackingConsent'>>

@@ -106,6 +106,10 @@ export class Altertable {
     });
     this._isInitialized = true;
 
+    if (this._config.debug) {
+      this._logger.logHeader();
+    }
+
     this._initializeTrackingConsent(config.trackingConsent);
     this._handleAutoCaptureChange(config.autoCapture ?? true);
 
