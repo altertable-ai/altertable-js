@@ -65,7 +65,6 @@ export class Altertable {
   private _visitorId: string;
   private _userId: string;
   private _referrer: string | null;
-  private _debug: boolean = false;
   private _logger: Logger = createLogger('Altertable');
   private _storage: StorageApi | undefined;
 
