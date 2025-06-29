@@ -12,8 +12,12 @@ import {
   PROPERTY_VIEWPORT,
   PROPERTY_VISITOR_ID,
   STORAGE_KEY_SESSION_ID,
+  STORAGE_KEY_TRACKING_CONSENT,
   STORAGE_KEY_VISITOR_ID,
+  TrackingConsent,
+  type TrackingConsentType,
 } from './lib/constants';
+import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
 import { createLogger, type Logger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
@@ -55,6 +59,11 @@ export interface Config {
    * @default false
    */
   debug?: boolean;
+  /**
+   * The tracking consent state.
+   * @default "pending"
+   */
+  trackingConsent?: TrackingConsentType;
 }
 
 export class Altertable {
@@ -68,6 +77,8 @@ export class Altertable {
   private _logger: Logger = createLogger('Altertable');
   private _storage: StorageApi | undefined;
   private _cleanupAutoCapture: (() => void) | undefined;
+  private _eventQueue: EventQueue;
+  private _trackingConsent: TrackingConsentType;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -81,6 +92,8 @@ export class Altertable {
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
     this._userId = this._generateId('anonymous');
+    this._eventQueue = new EventQueue();
+    this._trackingConsent = TrackingConsent.PENDING;
   }
 
   init(apiKey: string, config: Config = {}) {
@@ -91,6 +104,8 @@ export class Altertable {
     this._storage = selectStorage(persistence, {
       onError: message => this._logger.error(message),
     });
+
+    this._initializeTrackingConsent(config.trackingConsent);
     this._handleAutoCaptureChange(config.autoCapture ?? true);
 
     return () => {
@@ -120,6 +135,13 @@ export class Altertable {
       updates.autoCapture !== this._config.autoCapture
     ) {
       this._handleAutoCaptureChange(updates.autoCapture);
+    }
+
+    if (
+      updates.trackingConsent !== undefined &&
+      updates.trackingConsent !== this._trackingConsent
+    ) {
+      this._handleTrackingConsentChange(updates.trackingConsent);
     }
 
     this._config = { ...this._config, ...updates };
@@ -158,6 +180,10 @@ export class Altertable {
   identify(userId: string) {
     // FIXME: dummy implementation
     this._userId = userId;
+  }
+
+  getTrackingConsent(): TrackingConsentType {
+    return this._trackingConsent;
   }
 
   page(url: string) {
@@ -202,7 +228,17 @@ export class Altertable {
       },
     };
 
-    this._request('/track', payload);
+    switch (this._trackingConsent) {
+      case TrackingConsent.GRANTED:
+        this._sendEvent(payload);
+        break;
+      case TrackingConsent.PENDING:
+        this._eventQueue.enqueue(payload);
+        break;
+      case TrackingConsent.DENIED:
+        // Do nothing - don't collect or send data
+        break;
+    }
 
     if (this._config.debug) {
       this._logger.logEvent(payload);
@@ -285,5 +321,61 @@ export class Altertable {
       ({ window }) => `${window.innerWidth}x${window.innerHeight}`,
       () => '0x0'
     );
+  }
+
+  private _initializeTrackingConsent(trackingConsent?: TrackingConsentType) {
+    invariant(!!this._storage, 'Storage is not initialized');
+
+    const storedConsent = this._storage.getItem(
+      STORAGE_KEY_TRACKING_CONSENT
+    ) as TrackingConsentType;
+
+    if (trackingConsent !== undefined) {
+      // Tracking consent is provided by the user so we override the stored consent
+      this._trackingConsent = trackingConsent;
+      this._storage.setItem(STORAGE_KEY_TRACKING_CONSENT, trackingConsent);
+    } else if (
+      storedConsent &&
+      Object.values(TrackingConsent).includes(storedConsent)
+    ) {
+      this._trackingConsent = storedConsent;
+    } else {
+      this._trackingConsent = TrackingConsent.PENDING;
+      this._storage.setItem(
+        STORAGE_KEY_TRACKING_CONSENT,
+        TrackingConsent.PENDING
+      );
+    }
+  }
+
+  private _handleTrackingConsentChange(trackingConsent: TrackingConsentType) {
+    invariant(!!this._storage, 'Storage is not initialized');
+
+    const previousConsent = this._trackingConsent;
+    this._trackingConsent = trackingConsent;
+    this._storage.setItem(STORAGE_KEY_TRACKING_CONSENT, trackingConsent);
+
+    if (
+      previousConsent === TrackingConsent.PENDING &&
+      trackingConsent === TrackingConsent.GRANTED
+    ) {
+      const queuedEvents = this._eventQueue.flush();
+      if (queuedEvents.length > 0) {
+        this._logger.log(`Flushing ${queuedEvents.length} queued events`);
+        queuedEvents.forEach(event => this._sendEvent(event));
+      }
+    } else if (trackingConsent === TrackingConsent.DENIED) {
+      const queueSize = this._eventQueue.getSize();
+      if (queueSize > 0) {
+        this._eventQueue.clear();
+        this._logger.log(
+          `Cleared ${queueSize} queued events due to denied consent`
+        );
+      }
+    }
+  }
+
+  private _sendEvent(event: EventPayload): void {
+    this._request('/track', event);
   }
 }
