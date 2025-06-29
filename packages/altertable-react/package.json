@@ -1,18 +1,26 @@
 {
   "name": "@altertable/altertable-react",
-  "version": "0.4.0",
   "description": "React SDK to capture and send events to Altertable.",
-  "main": "dist/index.js",
-  "private": false,
-  "module": "dist/index.mjs",
-  "browser": "dist/index.global.js",
-  "typings": "dist/index.d.ts",
+  "version": "0.4.0",
+  "license": "MIT",
+  "homepage": "https://github.com/altertable-ai/altertable-js",
+  "repository": "altertable-ai/altertable-js",
+  "author": {
+    "name": "Altertable",
+    "url": "https://altertable.ai"
+  },
   "keywords": [
     "analytics",
     "track",
-    "react",
     "altertable"
   ],
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "typings": "dist/index.d.ts",
   "scripts": {
     "dev": "tsup --watch --env.mode development",
     "build": "tsup --env.mode production",
@@ -22,16 +30,6 @@
     "test": "vitest --environment=jsdom --watch=false",
     "test:watch": "vitest --environment=jsdom"
   },
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/altertable-ai/altertable-js"
-  },
-  "author": "Altertable AI Team",
-  "license": "MIT",
-  "homepage": "https://github.com/altertable-ai/altertable-js#readme",
   "peerDependencies": {
     "react": "^16.8 || ^17.0 || ^18.0 || ^19.0"
   },
