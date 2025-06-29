@@ -79,6 +79,7 @@ export class Altertable {
   private _cleanupAutoCapture: (() => void) | undefined;
   private _eventQueue: EventQueue;
   private _trackingConsent: TrackingConsentType;
+  private _isInitialized: boolean = false;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -104,6 +105,7 @@ export class Altertable {
     this._storage = selectStorage(persistence, {
       onError: message => this._logger.error(message),
     });
+    this._isInitialized = true;
 
     this._initializeTrackingConsent(config.trackingConsent);
     this._handleAutoCaptureChange(config.autoCapture ?? true);
@@ -113,8 +115,8 @@ export class Altertable {
     };
   }
 
-    if (!this._isInitialized()) {
   configure(updates: Partial<AltertableConfig>) {
+    if (!this._isInitialized) {
       this._logger.warnDev(
         'The client must be initialized with init() before configuring.'
       );
@@ -187,7 +189,7 @@ export class Altertable {
   }
 
   page(url: string) {
-    if (!this._isInitialized()) {
+    if (!this._isInitialized) {
       this._logger.warnDev(
         'The client must be initialized with init() before tracking page views.'
       );
@@ -207,7 +209,7 @@ export class Altertable {
   }
 
   track(event: string, properties: EventProperties = {}) {
-    if (!this._isInitialized()) {
+    if (!this._isInitialized) {
       this._logger.warnDev(
         'The client must be initialized with init() before tracking events.'
       );
@@ -243,10 +245,6 @@ export class Altertable {
     if (this._config.debug) {
       this._logger.logEvent(payload);
     }
-  }
-
-  private _isInitialized(): boolean {
-    return Boolean(this._apiKey && this._config);
   }
 
   private _checkForChanges() {
