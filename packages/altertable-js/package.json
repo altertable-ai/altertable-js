@@ -1,17 +1,27 @@
 {
   "name": "@altertable/altertable-js",
-  "version": "0.4.0",
   "description": "JavaScript SDK to capture and send events to Altertable.",
-  "main": "dist/index.js",
-  "private": false,
-  "module": "dist/index.mjs",
-  "browser": "dist/index.global.js",
-  "typings": "dist/index.d.ts",
+  "version": "0.4.0",
+  "license": "MIT",
+  "homepage": "https://github.com/altertable-ai/altertable-js",
+  "repository": "altertable-ai/altertable-js",
+  "author": {
+    "name": "Altertable",
+    "url": "https://altertable.ai"
+  },
   "keywords": [
     "analytics",
     "track",
     "altertable"
   ],
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "browser": "dist/index.global.js",
+  "typings": "dist/index.d.ts",
   "scripts": {
     "build": "tsup --env.mode production",
     "dev": "tsup --watch --env.mode development",
@@ -20,15 +30,5 @@
     "lint:fix": "bun run lint --fix",
     "test": "vitest --environment=jsdom --watch=false",
     "test:watch": "vitest --environment=jsdom"
-  },
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/altertable-ai/altertable-js"
-  },
-  "author": "Altertable AI Team",
-  "license": "MIT",
-  "homepage": "https://github.com/altertable-ai/altertable-js#readme"
+  }
 }

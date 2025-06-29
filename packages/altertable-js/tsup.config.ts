@@ -1,5 +1,6 @@
 import { defineConfig } from 'tsup';
 
+import { generateBundleBanner } from '../../scripts/release/bundle-banner';
 import pkg from './package.json';
 
 export default defineConfig(({ env }) => {
@@ -15,6 +16,9 @@ export default defineConfig(({ env }) => {
     dts: true,
     platform: 'neutral',
     globalName: 'Altertable',
+    banner: {
+      js: generateBundleBanner(pkg),
+    },
     define: {
       __DEV__: JSON.stringify(env.mode === 'development'),
       __LIB__: JSON.stringify(pkg.name),
