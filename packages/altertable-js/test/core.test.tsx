@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
-import { Altertable, Config } from '../src/core';
+import { Altertable, AltertableConfig } from '../src/core';
 import {
   AUTO_CAPTURE_INTERVAL,
   PAGEVIEW_EVENT,
@@ -23,7 +23,7 @@ const setWindowLocation = (url: string) => {
   });
 };
 
-const expectBeaconCall = (config: Config, apiKey: string) => {
+const expectBeaconCall = (config: AltertableConfig, apiKey: string) => {
   const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
   expect(callArgs[0]).toBe(
     `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
@@ -32,7 +32,7 @@ const expectBeaconCall = (config: Config, apiKey: string) => {
 };
 
 const expectFetchCall = (
-  config: Config,
+  config: AltertableConfig,
   apiKey: string,
   payload: Record<string, any>
 ) => {
@@ -103,7 +103,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should send a page event on init with the current URL', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: true,
         trackingConsent: TrackingConsent.GRANTED,
@@ -133,7 +133,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should send a track event with the default base URL', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         autoCapture: false,
         trackingConsent: TrackingConsent.GRANTED,
       };
@@ -155,7 +155,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should send a track event', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.GRANTED,
@@ -183,7 +183,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should send a track event with release ID', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         release: '04ed05b',
@@ -214,7 +214,7 @@ modes.forEach(({ mode, description, setup }) => {
 
     it('should detect URL changes and send a page event', () => {
       vi.useFakeTimers();
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: true,
         trackingConsent: TrackingConsent.GRANTED,
@@ -283,7 +283,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should not auto-capture when config.autoCapture is false', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.GRANTED,
@@ -297,7 +297,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should queue events when tracking consent is pending', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.PENDING,
@@ -315,7 +315,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should not collect events when tracking consent is denied', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.DENIED,
@@ -333,7 +333,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should flush queued events when consent changes from pending to granted', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.PENDING,
@@ -363,7 +363,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should clear queued events when consent changes to denied', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.PENDING,
@@ -395,7 +395,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should return current tracking consent state', () => {
-      const config: Config = {
+      const config: AltertableConfig = {
         trackingConsent: TrackingConsent.PENDING,
       };
       altertable.init(apiKey, config);

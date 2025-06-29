@@ -28,7 +28,7 @@ import {
 } from './lib/storage';
 import { EventPayload, EventProperties } from './types';
 
-export interface Config {
+export interface AltertableConfig {
   /**
    * The base URL of the Altertable API.
    * @default https://api.altertable.ai
@@ -69,7 +69,7 @@ export interface Config {
 export class Altertable {
   private _lastUrl: string;
   private _apiKey: string | undefined;
-  private _config: Config | undefined;
+  private _config: AltertableConfig | undefined;
   private _sessionId: string;
   private _visitorId: string;
   private _userId: string;
@@ -96,7 +96,7 @@ export class Altertable {
     this._trackingConsent = TrackingConsent.PENDING;
   }
 
-  init(apiKey: string, config: Config = {}) {
+  init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
     const persistence: StorageType =
@@ -113,8 +113,8 @@ export class Altertable {
     };
   }
 
-  configure(updates: Partial<Config>) {
     if (!this._isInitialized()) {
+  configure(updates: Partial<AltertableConfig>) {
       this._logger.warnDev(
         'The client must be initialized with init() before configuring.'
       );

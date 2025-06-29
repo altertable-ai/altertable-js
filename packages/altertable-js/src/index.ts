@@ -1,7 +1,7 @@
 import { Altertable } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
-export type { Altertable, Config } from './core';
+export type { Altertable, AltertableConfig } from './core';
 export * from './types';
 
 declare global {
