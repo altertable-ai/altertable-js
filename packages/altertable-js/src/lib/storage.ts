@@ -8,228 +8,155 @@ export type StorageType =
   | 'memory'
   | 'localStorage+cookie';
 
-export interface StorageAPI {
+export interface StorageApi {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
 
-class MemoryStore implements StorageAPI {
+class MemoryStore implements StorageApi {
   private store: Record<string, string> = {};
   getItem(key: string): string | null {
     return this.store[key] ?? null;
   }
-  setItem(key: string, value: string): void {
+  setItem(key: string, value: string) {
     this.store[key] = value;
   }
-  removeItem(key: string): void {
+  removeItem(key: string) {
     delete this.store[key];
   }
 }
 
-class CookieStore implements StorageAPI {
+class CookieStore implements StorageApi {
   getItem(key: string): string | null {
-    return safelyRunOnBrowser(
-      ({ window }): string | null => {
+    return safelyRunOnBrowser<string | null>(
+      ({ window }) => {
         const match = window.document.cookie.match(
           new RegExp('(^| )' + key + '=([^;]+)')
         );
         return match ? decodeURIComponent(match[2]) : null;
       },
-      (): string | null => null
+      () => null
     );
   }
-  setItem(key: string, value: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        window.document.cookie = `${key}=${encodeURIComponent(value)}; path=/;`;
-      },
-      (): void => undefined
-    );
+  setItem(key: string, value: string) {
+    safelyRunOnBrowser(({ window }) => {
+      window.document.cookie = `${key}=${encodeURIComponent(value)}; path=/;`;
+    });
   }
-  removeItem(key: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        window.document.cookie = `${key}=; Max-Age=0; path=/;`;
-      },
-      (): void => undefined
-    );
+  removeItem(key: string) {
+    safelyRunOnBrowser(({ window }) => {
+      window.document.cookie = `${key}=; Max-Age=0; path=/;`;
+    });
   }
 }
 
-class LocalStorageStore implements StorageAPI {
+class WebStorageStore implements StorageApi {
+  constructor(private storage: 'localStorage' | 'sessionStorage') {}
   getItem(key: string): string | null {
-    return safelyRunOnBrowser(
-      ({ window }): string | null => {
+    return safelyRunOnBrowser<string | null>(
+      ({ window }) => {
         try {
-          return window.localStorage.getItem(key);
+          return window[this.storage].getItem(key);
         } catch {
           return null;
         }
       },
-      (): string | null => null
+      () => null
     );
   }
-  setItem(key: string, value: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        try {
-          window.localStorage.setItem(key, value);
-        } catch {
-          /* ignore */
-        }
-      },
-      (): void => undefined
-    );
+  setItem(key: string, value: string) {
+    safelyRunOnBrowser(({ window }) => {
+      try {
+        window[this.storage].setItem(key, value);
+      } catch {
+        /* ignore */
+      }
+    });
   }
-  removeItem(key: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        try {
-          window.localStorage.removeItem(key);
-        } catch {
-          /* ignore */
-        }
-      },
-      (): void => undefined
-    );
+  removeItem(key: string) {
+    safelyRunOnBrowser(({ window }) => {
+      try {
+        window[this.storage].removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    });
   }
 }
 
-class SessionStorageStore implements StorageAPI {
+class LocalPlusCookieStore implements StorageApi {
+  private localStore = new WebStorageStore('localStorage');
+  private cookieStore = new CookieStore();
   getItem(key: string): string | null {
-    return safelyRunOnBrowser(
-      ({ window }): string | null => {
-        try {
-          return window.sessionStorage.getItem(key);
-        } catch {
-          return null;
-        }
-      },
-      (): string | null => null
-    );
+    return this.localStore.getItem(key) ?? this.cookieStore.getItem(key);
   }
-  setItem(key: string, value: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        try {
-          window.sessionStorage.setItem(key, value);
-        } catch {
-          /* ignore */
-        }
-      },
-      (): void => undefined
-    );
+  setItem(key: string, value: string) {
+    this.localStore.setItem(key, value);
+    this.cookieStore.setItem(key, value);
   }
-  removeItem(key: string): void {
-    safelyRunOnBrowser(
-      ({ window }): void => {
-        try {
-          window.sessionStorage.removeItem(key);
-        } catch {
-          /* ignore */
-        }
-      },
-      (): void => undefined
-    );
+  removeItem(key: string) {
+    this.localStore.removeItem(key);
+    this.cookieStore.removeItem(key);
   }
 }
 
-class LocalPlusCookieStore implements StorageAPI {
-  private local: LocalStorageStore;
-  private cookie: CookieStore;
-  constructor() {
-    this.local = new LocalStorageStore();
-    this.cookie = new CookieStore();
-  }
-  getItem(key: string): string | null {
-    return this.local.getItem(key) ?? this.cookie.getItem(key);
-  }
-  setItem(key: string, value: string): void {
-    this.local.setItem(key, value);
-    this.cookie.setItem(key, value);
-  }
-  removeItem(key: string): void {
-    this.local.removeItem(key);
-    this.cookie.removeItem(key);
-  }
-}
-
-function isLocalStorageSupported(): boolean {
+function testStorageSupport(
+  storageType: 'localStorage' | 'sessionStorage' | 'cookie'
+) {
   return safelyRunOnBrowser(
-    ({ window }): boolean => {
+    ({ window }) => {
       try {
-        window.localStorage.setItem(STORAGE_KEY_TEST, '1');
-        window.localStorage.removeItem(STORAGE_KEY_TEST);
-        return true;
+        if (storageType === 'cookie') {
+          window.document.cookie = `${STORAGE_KEY_TEST}=1`;
+          const supported =
+            window.document.cookie.indexOf(`${STORAGE_KEY_TEST}=`) !== -1;
+          window.document.cookie = `${STORAGE_KEY_TEST}=; Max-Age=0`;
+          return supported;
+        } else {
+          window[storageType].setItem(STORAGE_KEY_TEST, '1');
+          window[storageType].removeItem(STORAGE_KEY_TEST);
+          return true;
+        }
       } catch {
         return false;
       }
     },
-    (): boolean => false
-  );
-}
-
-function isSessionStorageSupported(): boolean {
-  return safelyRunOnBrowser(
-    ({ window }): boolean => {
-      try {
-        window.sessionStorage.setItem(STORAGE_KEY_TEST, '1');
-        window.sessionStorage.removeItem(STORAGE_KEY_TEST);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    (): boolean => false
-  );
-}
-
-function isCookieSupported(): boolean {
-  return safelyRunOnBrowser(
-    ({ window }): boolean => {
-      try {
-        window.document.cookie = `${STORAGE_KEY_TEST}=1`;
-        const supported =
-          window.document.cookie.indexOf(`${STORAGE_KEY_TEST}=`) !== -1;
-        window.document.cookie = `${STORAGE_KEY_TEST}=; Max-Age=0`;
-        return supported;
-      } catch {
-        return false;
-      }
-    },
-    (): boolean => false
+    () => false
   );
 }
 
 export function selectStorage(
   type: StorageType | 'unknown',
   params: { onError: (message: string) => void }
-): StorageAPI {
+): StorageApi {
   const { onError } = params;
 
   switch (type) {
     case 'localStorage': {
-      if (isLocalStorageSupported()) {
-        return new LocalStorageStore();
-      } else {
-        onError(
-          'localStorage not supported, falling back to localStorage+cookie'
-        );
-        return selectStorage('localStorage+cookie', params);
+      if (testStorageSupport('localStorage')) {
+        return new WebStorageStore('localStorage');
       }
+      onError(
+        'localStorage not supported, falling back to localStorage+cookie'
+      );
+      return selectStorage('localStorage+cookie', params);
     }
+
     case 'localStorage+cookie': {
-      if (isLocalStorageSupported() && isCookieSupported()) {
+      const localStorageSupported = testStorageSupport('localStorage');
+      const cookieSupported = testStorageSupport('cookie');
+
+      if (localStorageSupported && cookieSupported) {
         return new LocalPlusCookieStore();
-      } else if (isCookieSupported()) {
+      } else if (cookieSupported) {
         onError(
           'localStorage+cookie not fully supported, falling back to cookie'
         );
         return new CookieStore();
-      } else if (isLocalStorageSupported()) {
+      } else if (localStorageSupported) {
         onError('Cookie not supported, falling back to localStorage');
-        return new LocalStorageStore();
+        return new WebStorageStore('localStorage');
       } else {
         onError(
           'Neither localStorage nor cookie supported, falling back to memory'
@@ -237,25 +164,27 @@ export function selectStorage(
         return new MemoryStore();
       }
     }
+
     case 'sessionStorage': {
-      if (isSessionStorageSupported()) {
-        return new SessionStorageStore();
-      } else {
-        onError('sessionStorage not supported, falling back to memory');
-        return new MemoryStore();
+      if (testStorageSupport('sessionStorage')) {
+        return new WebStorageStore('sessionStorage');
       }
+      onError('sessionStorage not supported, falling back to memory');
+      return new MemoryStore();
     }
+
     case 'cookie': {
-      if (isCookieSupported()) {
+      if (testStorageSupport('cookie')) {
         return new CookieStore();
-      } else {
-        onError('cookie not supported, falling back to memory');
-        return new MemoryStore();
       }
+      onError('cookie not supported, falling back to memory');
+      return new MemoryStore();
     }
+
     case 'memory': {
       return new MemoryStore();
     }
+
     default: {
       onError('Unknown storage type, falling back to localStorage+cookie');
       return selectStorage('localStorage+cookie', params);
@@ -263,6 +192,8 @@ export function selectStorage(
   }
 }
 
+const STORAGE_KEY_PREFIX = 'atbl';
+
 export function createAltertableStorageKey(...parts: string[]): string {
-  return ['atbl', ...parts].join('.');
+  return [STORAGE_KEY_PREFIX, ...parts].join('.');
 }

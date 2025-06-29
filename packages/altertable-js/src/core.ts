@@ -19,7 +19,7 @@ import { createLogger, type Logger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import {
   selectStorage,
-  type StorageAPI,
+  type StorageApi,
   type StorageType,
 } from './lib/storage';
 
@@ -63,7 +63,7 @@ export class Altertable {
   private _referrer: string | null;
   private _debug: boolean = false;
   private _logger: Logger = createLogger('Altertable');
-  private _storage: StorageAPI | undefined;
+  private _storage: StorageApi | undefined;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
