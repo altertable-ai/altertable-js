@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 
+import { AltertableConfig } from '../core';
 import { EventPayload } from '../types';
+import { TrackingConsent, type TrackingConsentType } from './constants';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -9,13 +11,20 @@ export function createLogger(prefix: string) {
     log: (...args: unknown[]) => {
       console.log(`[${prefix}]`, ...args);
     },
-    logEvent: (payload: EventPayload) => {
+    logEvent: (
+      payload: EventPayload,
+      config: Required<Pick<AltertableConfig, 'trackingConsent'>>
+    ) => {
       const timestamp = new Date().toISOString();
+      const { style: consentBadgeStyle, text: consentBadgeText } =
+        getConsentBadgeElement(config.trackingConsent);
+
       console.groupCollapsed(
-        `[${prefix}] %c${payload.event}%c [${payload.environment}] %c(${formatEventTime(timestamp)})`,
+        `[${prefix}] %c${payload.event}%c [${payload.environment}] %c(${formatEventTime(timestamp)}) %c${consentBadgeText}`,
         'background: #1e293b; color: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
         `color: ${getEnvironmentColor(payload.environment)}; font-weight: 400;`,
-        'color: #64748b; font-weight: 400;'
+        'color: #64748b; font-weight: 400;',
+        consentBadgeStyle
       );
       console.log(
         `%cUser %c${payload.user_id ?? 'Not set'}`,
@@ -83,5 +92,36 @@ function getEnvironmentColor(environment: string) {
       return '#ef4444';
     default:
       return '#3b82f6';
+  }
+}
+
+function getConsentBadgeElement(trackingConsent: TrackingConsentType): {
+  text: string;
+  style: string;
+} {
+  switch (trackingConsent) {
+    case TrackingConsent.GRANTED:
+      return {
+        text: '',
+        style: '',
+      };
+    case TrackingConsent.DENIED:
+      return {
+        text: 'DENIED',
+        style:
+          'background: #ef4444; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      };
+    case TrackingConsent.PENDING:
+      return {
+        text: 'PENDING',
+        style:
+          'background: #f59e0b; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      };
+    default:
+      return {
+        text: 'UNKNOWN',
+        style:
+          'background: #6b7280; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      };
   }
 }

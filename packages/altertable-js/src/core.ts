@@ -242,7 +242,9 @@ export class Altertable {
     }
 
     if (this._config.debug) {
-      this._logger.logEvent(payload);
+      this._logger.logEvent(payload, {
+        trackingConsent: this._trackingConsent,
+      });
     }
   }
 
