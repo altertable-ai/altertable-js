@@ -2,6 +2,7 @@ import { Altertable } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export type { Altertable, AltertableConfig } from './core';
+export { TrackingConsent, type TrackingConsentType } from './lib/constants';
 export * from './types';
 
 declare global {
