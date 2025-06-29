@@ -1,5 +1,13 @@
 import { altertable } from '@altertable/altertable-js';
-import { AltertableProvider } from '@altertable/altertable-react';
+import {
+  AltertableProvider,
+  useAltertable,
+} from '@altertable/altertable-react';
+import {
+  ConsentManagerDialog,
+  ConsentManagerProvider,
+  CookieBanner,
+} from '@c15t/react';
 import { CreditCard, Mail, Sparkles, User } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 
@@ -29,12 +37,43 @@ export function App() {
 
   return (
     <AltertableProvider client={altertable}>
-      <SignupFunnel
-        steps={STEPS}
-        currentStep={currentStep}
-        onStepChange={urlStore.updateStep}
-      />
+      <ConsentProvider>
+        <SignupFunnel
+          steps={STEPS}
+          currentStep={currentStep}
+          onStepChange={urlStore.updateStep}
+        />
+      </ConsentProvider>
     </AltertableProvider>
+  );
+}
+
+function ConsentProvider({ children }: { children: React.ReactNode }) {
+  const altertable = useAltertable();
+
+  return (
+    <ConsentManagerProvider
+      options={{
+        mode: 'offline',
+        callbacks: {
+          onConsentSet: ({ data }) => {
+            if (data?.preferences.necessary) {
+              altertable.configure({
+                trackingConsent: 'granted',
+              });
+            } else {
+              altertable.configure({
+                trackingConsent: 'denied',
+              });
+            }
+          },
+        },
+      }}
+    >
+      {children}
+      <CookieBanner />
+      <ConsentManagerDialog />
+    </ConsentManagerProvider>
   );
 }
 
