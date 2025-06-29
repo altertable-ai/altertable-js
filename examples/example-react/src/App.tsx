@@ -1,4 +1,4 @@
-import { altertable } from '@altertable/altertable-js';
+import { altertable, TrackingConsent } from '@altertable/altertable-js';
 import {
   AltertableProvider,
   useAltertable,
@@ -7,9 +7,10 @@ import {
   ConsentManagerDialog,
   ConsentManagerProvider,
   CookieBanner,
+  useConsentManager,
 } from '@c15t/react';
 import { CreditCard, Mail, Sparkles, User } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { ComponentProps, useEffect, useSyncExternalStore } from 'react';
 
 import { SignupFunnel } from './SignupFunnel';
 
@@ -43,8 +44,36 @@ export function App() {
           currentStep={currentStep}
           onStepChange={urlStore.updateStep}
         />
+        <div className="text-sm absolute bottom-8 left-8">
+          <CookieSettingsTrigger className="text-slate-500 hover:text-slate-700 underline">
+            Cookie Settings
+          </CookieSettingsTrigger>
+        </div>
       </ConsentProvider>
     </AltertableProvider>
+  );
+}
+
+type CookieSettingsTriggerProps = ComponentProps<'button'> & {
+  children: React.ReactNode;
+};
+
+function CookieSettingsTrigger({
+  children,
+  ...props
+}: CookieSettingsTriggerProps) {
+  const { setShowPopup } = useConsentManager();
+
+  return (
+    <button
+      {...props}
+      onClick={event => {
+        setShowPopup(true, true);
+        props.onClick?.(event);
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -57,13 +86,13 @@ function ConsentProvider({ children }: { children: React.ReactNode }) {
         mode: 'offline',
         callbacks: {
           onConsentSet: ({ data }) => {
-            if (data?.preferences.necessary) {
+            if (data?.preferences.measurement) {
               altertable.configure({
-                trackingConsent: 'granted',
+                trackingConsent: TrackingConsent.GRANTED,
               });
             } else {
               altertable.configure({
-                trackingConsent: 'denied',
+                trackingConsent: TrackingConsent.DENIED,
               });
             }
           },
@@ -73,8 +102,22 @@ function ConsentProvider({ children }: { children: React.ReactNode }) {
       {children}
       <CookieBanner />
       <ConsentManagerDialog />
+      <AltertableConsentManager />
     </ConsentManagerProvider>
   );
+}
+
+function AltertableConsentManager() {
+  const altertable = useAltertable();
+  const { setShowPopup } = useConsentManager();
+
+  useEffect(() => {
+    if (altertable.getTrackingConsent() === TrackingConsent.PENDING) {
+      setShowPopup(true, true);
+    }
+  }, [altertable, setShowPopup]);
+
+  return null;
 }
 
 function createURLStore() {

@@ -333,6 +333,7 @@ export class Altertable {
       this._storage.setItem(STORAGE_KEY_TRACKING_CONSENT, trackingConsent);
     } else if (
       storedConsent &&
+      storedConsent !== TrackingConsent.PENDING &&
       Object.values(TrackingConsent).includes(storedConsent)
     ) {
       this._trackingConsent = storedConsent;
