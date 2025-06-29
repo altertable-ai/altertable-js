@@ -2,6 +2,7 @@ import { Altertable } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export type { Altertable };
+export * from './types';
 
 declare global {
   interface Window {

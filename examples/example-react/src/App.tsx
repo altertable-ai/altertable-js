@@ -8,6 +8,7 @@ import { SignupFunnel } from './SignupFunnel';
 altertable.init(import.meta.env.VITE_ALTERTABLE_API_KEY!, {
   baseUrl: import.meta.env.VITE_ALTERTABLE_BASE_URL!,
   environment: import.meta.env.MODE!,
+  debug: true,
 });
 
 const STEPS = [

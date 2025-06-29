@@ -22,6 +22,7 @@ import {
   type StorageApi,
   type StorageType,
 } from './lib/storage';
+import { EventPayload, EventProperties } from './types';
 
 export interface Config {
   /**
@@ -49,9 +50,12 @@ export interface Config {
    * @default "localStorage+cookie"
    */
   persistence?: StorageType;
+  /**
+   * Whether to log events to the console.
+   * @default false
+   */
+  debug?: boolean;
 }
-
-export type EventProperties = Record<string, unknown>;
 
 export class Altertable {
   private _lastUrl: string;
@@ -147,7 +151,7 @@ export class Altertable {
       return;
     }
 
-    const payload = {
+    const payload: EventPayload = {
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
@@ -163,13 +167,9 @@ export class Altertable {
 
     this._request('/track', payload);
 
-    if (this._debug) {
-      this._logger.log('Event', event, JSON.stringify(payload, null, 2));
+    if (this._config.debug) {
+      this._logger.logEvent(payload);
     }
-  }
-
-  debug(value: boolean) {
-    this._debug = value;
   }
 
   private _isInitialized(): boolean {
