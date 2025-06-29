@@ -12,10 +12,13 @@ export function createLogger(prefix: string) {
       console.log(`[${prefix}]`, ...args);
     },
     logHeader: () => {
-      console.log(
-        `Altertable v${__LIB_VERSION__} %c• Debug mode enabled`,
-        'color: #64748b;'
-      );
+      const header = `Altertable v${__LIB_VERSION__} %c• Debug mode enabled`;
+      const hasAlreadyPrinted = loggerCache.current[header];
+
+      if (!hasAlreadyPrinted) {
+        loggerCache.current[header] = true;
+        console.log(header, 'color: #64748b;');
+      }
     },
     logEvent: (
       payload: EventPayload,
@@ -49,10 +52,10 @@ export function createLogger(prefix: string) {
       }
 
       const sanitizedMessage = message.trim();
-      const hasAlreadyPrinted = warnCache.current[sanitizedMessage];
+      const hasAlreadyPrinted = loggerCache.current[sanitizedMessage];
 
       if (!hasAlreadyPrinted) {
-        warnCache.current[sanitizedMessage] = true;
+        loggerCache.current[sanitizedMessage] = true;
         const warning = `[${prefix}] ${sanitizedMessage}`;
 
         console.warn(warning, ...args);
@@ -75,7 +78,7 @@ export function createLogger(prefix: string) {
   };
 }
 
-export const warnCache: { current: Record<string, boolean> } = {
+export const loggerCache: { current: Record<string, boolean> } = {
   current: {},
 };
 
