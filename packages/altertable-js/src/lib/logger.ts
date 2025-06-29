@@ -25,20 +25,33 @@ export function createLogger(prefix: string) {
       config: Required<Pick<AltertableConfig, 'trackingConsent'>>
     ) => {
       const timestamp = new Date().toISOString();
-      const { style: consentBadgeStyle, text: consentBadgeText } =
-        getConsentBadgeElement(config.trackingConsent);
+      const [consentBadgeText, consentBadgeStyle] = createConsentBadgeElement(
+        config.trackingConsent
+      );
+      const [eventBadgeText, eventBadgeStyle] = createEventBadgeElement(
+        payload.event
+      );
+      const [environmentBadgeText, environmentBadgeStyle] =
+        createEnvironmentBadgeElement(payload.environment);
+      const [timestampText, timestampStyle] = createTimestampElement(timestamp);
 
       console.groupCollapsed(
-        `[${prefix}] %c${payload.event}%c [${payload.environment}] %c(${formatEventTime(timestamp)}) %c${consentBadgeText}`,
-        'background: #1e293b; color: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
-        `color: ${getEnvironmentColor(payload.environment)}; font-weight: 400;`,
-        'color: #64748b; font-weight: 400;',
+        `[${prefix}] %c${eventBadgeText}%c [${environmentBadgeText}] %c(${timestampText}) %c${consentBadgeText}`,
+        eventBadgeStyle,
+        environmentBadgeStyle,
+        timestampStyle,
         consentBadgeStyle
       );
+
+      const [userLabelText, userLabelStyle] = createLabelElement('User');
+      const [userValueText, userValueStyle] = createValueElement(
+        payload.user_id ?? 'Not set'
+      );
+
       console.log(
-        `%cUser %c${payload.user_id ?? 'Not set'}`,
-        'color: #64748b; font-size: 11px;',
-        'background: #f8fafc; color: #1e293b; padding: 2px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-family: "SF Mono", "Monaco", monospace; font-size: 11px;'
+        `%c${userLabelText} %c${userValueText}`,
+        userLabelStyle,
+        userValueStyle
       );
       console.table(payload.properties);
       console.groupEnd();
@@ -91,6 +104,39 @@ function formatEventTime(timestamp: string) {
   });
 }
 
+function createConsentBadgeElement(
+  value: TrackingConsentType
+): [string, string] {
+  switch (value) {
+    case TrackingConsent.GRANTED:
+      return ['', ''];
+    case TrackingConsent.DENIED:
+      return [
+        'DENIED',
+        'background: #ef4444; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      ];
+    case TrackingConsent.DISMISSED:
+    case TrackingConsent.PENDING:
+      return [
+        'PENDING',
+        'background: #f59e0b; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      ];
+    default:
+      return ['', ''];
+  }
+}
+
+function createEventBadgeElement(value: string): [string, string] {
+  return [
+    value,
+    'background: #1e293b; color: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
+  ];
+}
+
+function createEnvironmentBadgeElement(value: string): [string, string] {
+  return [value, `color: ${getEnvironmentColor(value)}; font-weight: 400;`];
+}
+
 function getEnvironmentColor(environment: string) {
   const formattedEnv = environment.toLocaleLowerCase().startsWith('prod')
     ? 'production'
@@ -104,34 +150,17 @@ function getEnvironmentColor(environment: string) {
   }
 }
 
-function getConsentBadgeElement(trackingConsent: TrackingConsentType): {
-  text: string;
-  style: string;
-} {
-  switch (trackingConsent) {
-    case TrackingConsent.GRANTED:
-      return {
-        text: '',
-        style: '',
-      };
-    case TrackingConsent.DENIED:
-      return {
-        text: 'DENIED',
-        style:
-          'background: #ef4444; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
-      };
-    case TrackingConsent.DISMISSED:
-    case TrackingConsent.PENDING:
-      return {
-        text: 'PENDING',
-        style:
-          'background: #f59e0b; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
-      };
-    default:
-      return {
-        text: 'UNKNOWN',
-        style:
-          'background: #6b7280; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
-      };
-  }
+function createTimestampElement(value: string): [string, string] {
+  return [formatEventTime(value), 'color: #64748b; font-weight: 400;'];
+}
+
+function createLabelElement(value: string): [string, string] {
+  return [value, 'color: #64748b; font-size: 11px;'];
+}
+
+function createValueElement(value: string): [string, string] {
+  return [
+    value,
+    'background: #f8fafc; color: #1e293b; padding: 2px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-family: "SF Mono", "Monaco", monospace; font-size: 11px;',
+  ];
 }
