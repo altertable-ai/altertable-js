@@ -238,6 +238,7 @@ export class Altertable {
         this._sendEvent(payload);
         break;
       case TrackingConsent.PENDING:
+      case TrackingConsent.DISMISSED:
         this._eventQueue.enqueue(payload);
         break;
       case TrackingConsent.DENIED:
@@ -360,7 +361,8 @@ export class Altertable {
     this._storage.setItem(STORAGE_KEY_TRACKING_CONSENT, trackingConsent);
 
     if (
-      previousConsent === TrackingConsent.PENDING &&
+      (previousConsent === TrackingConsent.PENDING ||
+        previousConsent === TrackingConsent.DISMISSED) &&
       trackingConsent === TrackingConsent.GRANTED
     ) {
       const queuedEvents = this._eventQueue.flush();

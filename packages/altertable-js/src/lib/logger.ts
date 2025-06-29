@@ -117,6 +117,7 @@ function getConsentBadgeElement(trackingConsent: TrackingConsentType): {
         style:
           'background: #ef4444; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
       };
+    case TrackingConsent.DISMISSED:
     case TrackingConsent.PENDING:
       return {
         text: 'PENDING',

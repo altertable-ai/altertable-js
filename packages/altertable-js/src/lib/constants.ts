@@ -21,8 +21,9 @@ export const PROPERTY_LIB = '$lib';
 export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export const TrackingConsent = {
-  GRANTED: 'granted',
   DENIED: 'denied',
+  DISMISSED: 'dismissed',
+  GRANTED: 'granted',
   PENDING: 'pending',
 } as const;
 

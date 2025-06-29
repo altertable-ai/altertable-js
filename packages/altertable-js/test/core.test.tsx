@@ -324,7 +324,23 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.track('eventName', { foo: 'bar' });
 
-      // Events should not be sent when consent is denied
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).not.toHaveBeenCalled();
+      } else {
+        expect(fetch).not.toHaveBeenCalled();
+      }
+    });
+
+    it('should not collect events when tracking consent is dismissed', () => {
+      const config: AltertableConfig = {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: TrackingConsent.DISMISSED,
+      };
+      altertable.init(apiKey, config);
+
+      altertable.track('eventName', { foo: 'bar' });
+
       if (mode === 'beacon') {
         expect(navigator.sendBeacon).not.toHaveBeenCalled();
       } else {
@@ -337,6 +353,36 @@ modes.forEach(({ mode, description, setup }) => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: TrackingConsent.PENDING,
+      };
+      altertable.init(apiKey, config);
+
+      // Queue some events
+      altertable.track('event1', { foo: 'bar' });
+      altertable.track('event2', { baz: 'qux' });
+
+      // Events should not be sent yet
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).not.toHaveBeenCalled();
+      } else {
+        expect(fetch).not.toHaveBeenCalled();
+      }
+
+      // Change consent to granted
+      altertable.configure({ trackingConsent: TrackingConsent.GRANTED });
+
+      // Both events should now be sent
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
+      } else {
+        expect(fetch).toHaveBeenCalledTimes(2);
+      }
+    });
+
+    it('should flush queued events when consent changes from dismissed to granted', () => {
+      const config: AltertableConfig = {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: TrackingConsent.DISMISSED,
       };
       altertable.init(apiKey, config);
 
@@ -407,6 +453,24 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.configure({ trackingConsent: TrackingConsent.DENIED });
       expect(altertable.getTrackingConsent()).toBe(TrackingConsent.DENIED);
+    });
+
+    it('should not collect events when tracking consent is denied', () => {
+      const config: AltertableConfig = {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: TrackingConsent.DENIED,
+      };
+      altertable.init(apiKey, config);
+
+      altertable.track('eventName', { foo: 'bar' });
+
+      // Events should not be sent when consent is denied
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).not.toHaveBeenCalled();
+      } else {
+        expect(fetch).not.toHaveBeenCalled();
+      }
     });
   });
 });
