@@ -97,20 +97,20 @@ export class Altertable {
         this.page(this._lastUrl);
       }
 
-      let intervalId = setInterval(() => {
-        this._checkForChanges();
-      }, AUTO_CAPTURE_INTERVAL);
+      const checkForChanges = this._checkForChanges.bind(this);
+
+      let intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL);
 
       safelyRunOnBrowser(({ window }) => {
-        window.addEventListener('popstate', this._checkForChanges);
-        window.addEventListener('hashchange', this._checkForChanges);
+        window.addEventListener('popstate', checkForChanges);
+        window.addEventListener('hashchange', checkForChanges);
       });
 
       return () => {
         clearInterval(intervalId);
         safelyRunOnBrowser(({ window }) => {
-          window.removeEventListener('popstate', this._checkForChanges);
-          window.removeEventListener('hashchange', this._checkForChanges);
+          window.removeEventListener('popstate', checkForChanges);
+          window.removeEventListener('hashchange', checkForChanges);
         });
       };
     }
