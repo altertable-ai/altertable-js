@@ -122,7 +122,7 @@ export class Altertable {
   page(url: string) {
     if (!this._isInitialized()) {
       this._logger.warnDev(
-        'Altertable must be initialized with init() before calling page()'
+        'The client must be initialized with init() before tracking page views.'
       );
       return;
     }
@@ -142,7 +142,7 @@ export class Altertable {
   track(event: string, properties: EventProperties = {}) {
     if (!this._isInitialized()) {
       this._logger.warnDev(
-        'Altertable must be initialized with init() before calling track()'
+        'The client must be initialized with init() before tracking events.'
       );
       return;
     }

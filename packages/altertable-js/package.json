@@ -13,11 +13,11 @@
     "altertable"
   ],
   "scripts": {
-    "dev": "tsup --watch",
+    "build": "tsup --env.mode production",
+    "dev": "tsup --watch --env.mode development",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext ts",
     "lint:fix": "bun run lint --fix",
-    "build": "tsup",
     "test": "vitest --environment=jsdom --watch=false",
     "test:watch": "vitest --environment=jsdom"
   },

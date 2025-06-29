@@ -1,19 +1,24 @@
-import { readFileSync } from 'fs';
 import { defineConfig } from 'tsup';
 
-const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
+import pkg from './package.json';
 
-export default defineConfig({
-  entry: ['src/index.ts'],
-  sourcemap: true,
-  clean: true,
-  format: ['cjs', 'esm'],
-  dts: true,
-  platform: 'neutral',
-  external: ['@altertable/altertable-js'],
-  define: {
-    __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
-    __LIB__: JSON.stringify(pkg.name),
-    __LIB_VERSION__: JSON.stringify(pkg.version),
-  },
+export default defineConfig(({ env }) => {
+  if (!env?.mode) {
+    throw new Error('`mode` environment variable is not set');
+  }
+
+  return {
+    entry: ['src/index.ts'],
+    sourcemap: true,
+    clean: true,
+    format: ['cjs', 'esm'],
+    dts: true,
+    platform: 'neutral',
+    external: ['@altertable/altertable-js'],
+    define: {
+      __DEV__: JSON.stringify(env.mode === 'development'),
+      __LIB__: JSON.stringify(pkg.name),
+      __LIB_VERSION__: JSON.stringify(pkg.version),
+    },
+  };
 });
