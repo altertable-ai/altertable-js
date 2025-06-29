@@ -413,7 +413,7 @@ export function SignupFunnel({
   }
 
   return (
-    <div className="min-h-screen flex justify-center p-4 md:p-8">
+    <div className="min-h-screen flex justify-center px-4 py-8 md:px-8">
       <div className="w-full max-w-md">
         {/* Progress Bar */}
         <div className="mb-8">
@@ -444,13 +444,6 @@ export function SignupFunnel({
                 </div>
               );
             })}
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Step {currentStep} of {steps.length}:{' '}
-              {steps[currentStep - 1]?.title}
-            </p>
           </div>
         </div>
 
