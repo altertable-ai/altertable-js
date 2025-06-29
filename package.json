@@ -10,7 +10,7 @@
     "clean": "lerna run clean",
     "dev": "bun run scripts/dev.ts",
     "dev:packages": "lerna run dev --scope=@altertable/* --parallel",
-    "dev:examples": "lerna run dev --scope=*-example --parallel",
+    "dev:examples": "lerna run dev --scope=@altertable/example-* --parallel",
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint:fix",
     "test": "lerna run test",
