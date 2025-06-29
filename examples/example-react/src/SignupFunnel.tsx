@@ -1,4 +1,7 @@
-import { useAltertable } from '@altertable/altertable-react';
+import {
+  type FunnelMapping,
+  useAltertable,
+} from '@altertable/altertable-react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
@@ -27,13 +30,14 @@ const SIGNUP_FUNNEL_MAPPING = {
     { name: 'step_completed', properties: { step: 1 } },
     { name: 'step_completed', properties: { step: 2 } },
     { name: 'step_completed', properties: { step: 3 } },
-    { name: 'form_submitted', properties: {} },
+    { name: 'form_submitted' },
     { name: 'plan_selected', properties: { plan: 'starter' as const } },
     { name: 'plan_selected', properties: { plan: 'pro' as const } },
     { name: 'plan_selected', properties: { plan: 'enterprise' as const } },
-    { name: 'form_restarted', properties: {} },
+    { name: 'form_restarted' },
+    { name: 'get_started_clicked' },
   ],
-} as const;
+} as const satisfies FunnelMapping;
 
 const DEFAULT_FORM_DATA: FormData = {
   firstName: 'John',
@@ -139,9 +143,6 @@ export function SignupFunnel({
       track('form_submitted');
 
       onStepChange(4);
-      // Here you would typically send data to your backend
-      // eslint-disable-next-line no-console
-      console.log('Form submitted:', formData);
     }
   }
 
@@ -169,6 +170,10 @@ export function SignupFunnel({
     onStepChange(1);
     setFormData(DEFAULT_FORM_DATA);
     setErrors({});
+  }
+
+  function handleGetStarted() {
+    track('get_started_clicked');
   }
 
   function renderStep() {
@@ -401,7 +406,10 @@ export function SignupFunnel({
               </p>
             </div>
 
-            <button className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+            <button
+              onClick={handleGetStarted}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700"
+            >
               Get Started
             </button>
           </div>
@@ -476,7 +484,7 @@ export function SignupFunnel({
 
               <button
                 onClick={isLastStep ? handleSubmit : nextStep}
-                className="flex items-center bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="flex items-center bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700"
               >
                 {isLastStep ? 'Complete Signup' : 'Continue'}
                 <ChevronRight className="w-4 h-4 ml-1" />
