@@ -67,6 +67,7 @@ export class Altertable {
   private _referrer: string | null;
   private _logger: Logger = createLogger('Altertable');
   private _storage: StorageApi | undefined;
+  private _cleanupAutoCapture: (() => void) | undefined;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -90,31 +91,68 @@ export class Altertable {
     this._storage = selectStorage(persistence, {
       onError: message => this._logger.error(message),
     });
+    this._handleAutoCaptureChange(config.autoCapture ?? true);
 
-    if (config.autoCapture !== false) {
+    return () => {
+      this._cleanupAutoCapture?.();
+    };
+  }
+
+  configure(updates: Partial<Config>) {
+    if (!this._isInitialized()) {
+      this._logger.warnDev(
+        'The client must be initialized with init() before configuring.'
+      );
+      return;
+    }
+
+    if (
+      updates.persistence !== undefined &&
+      updates.persistence !== this._config.persistence
+    ) {
+      this._storage = selectStorage(updates.persistence, {
+        onError: message => this._logger.error(message),
+      });
+    }
+
+    if (
+      updates.autoCapture !== undefined &&
+      updates.autoCapture !== this._config.autoCapture
+    ) {
+      this._handleAutoCaptureChange(updates.autoCapture);
+    }
+
+    this._config = { ...this._config, ...updates };
+  }
+
+  private _handleAutoCaptureChange(enableAutoCapture: boolean) {
+    if (this._cleanupAutoCapture) {
+      this._cleanupAutoCapture();
+    }
+
+    if (enableAutoCapture) {
       if (this._lastUrl) {
         this.page(this._lastUrl);
       }
 
       const checkForChanges = this._checkForChanges.bind(this);
-
-      let intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL);
+      const intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL);
 
       safelyRunOnBrowser(({ window }) => {
         window.addEventListener('popstate', checkForChanges);
         window.addEventListener('hashchange', checkForChanges);
       });
 
-      return () => {
+      this._cleanupAutoCapture = () => {
         clearInterval(intervalId);
         safelyRunOnBrowser(({ window }) => {
           window.removeEventListener('popstate', checkForChanges);
           window.removeEventListener('hashchange', checkForChanges);
         });
       };
+    } else {
+      this._cleanupAutoCapture = undefined;
     }
-
-    return () => {};
   }
 
   identify(userId: string) {
