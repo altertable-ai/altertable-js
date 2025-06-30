@@ -91,10 +91,16 @@ export default defineConfig([
     },
   },
   {
+    files: ['packages/**/*.{js,ts,tsx}'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
+  {
     files: [
-      'test-utils/**/*.{js,ts,tsx}',
       '**/test/**/*.{js,ts,tsx}',
       '**/*.test.{js,ts,tsx}',
+      'examples/**/*.{js,ts,tsx}',
       'packages/altertable-snippet/**/*.{js,ts,tsx}',
     ],
     rules: {
