@@ -21,6 +21,7 @@ export default defineConfig([
       },
       globals: {
         // Build-time constants
+        __DEV__: 'readonly',
         __LIB__: 'readonly',
         __LIB_VERSION__: 'readonly',
         // Browser globals that are safe to use
