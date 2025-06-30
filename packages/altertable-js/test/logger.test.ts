@@ -1,18 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, loggerCache } from '../src/lib/logger';
+import type { EventPayload } from '../src/types';
 
 describe('Logger', () => {
   const originalConsole = {
     log: console.log,
     warn: console.warn,
     error: console.error,
+    groupCollapsed: console.groupCollapsed,
+    groupEnd: console.groupEnd,
+    table: console.table,
   };
 
   beforeEach(() => {
     console.log = vi.fn();
     console.warn = vi.fn();
     console.error = vi.fn();
+    console.groupCollapsed = vi.fn();
+    console.groupEnd = vi.fn();
+    console.table = vi.fn();
 
     loggerCache.current = {};
   });
@@ -21,6 +28,9 @@ describe('Logger', () => {
     console.log = originalConsole.log;
     console.warn = originalConsole.warn;
     console.error = originalConsole.error;
+    console.groupCollapsed = originalConsole.groupCollapsed;
+    console.groupEnd = originalConsole.groupEnd;
+    console.table = originalConsole.table;
 
     vi.clearAllMocks();
   });
@@ -48,6 +58,84 @@ describe('Logger', () => {
         arg1,
         arg2,
         arg3
+      );
+    });
+  });
+
+  describe('logHeader', () => {
+    it('logs header with version and debug mode', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logHeader();
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringMatching(/Altertable v.* %c• Debug mode enabled/),
+        expect.any(String)
+      );
+    });
+
+    it('only logs header once', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logHeader();
+      logger.logHeader();
+
+      expect(console.log).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('logEvent', () => {
+    const mockEventPayload: EventPayload = {
+      event: 'test_event',
+      user_id: 'user123',
+      environment: 'development',
+      properties: {
+        key1: 'value1',
+        key2: 42,
+        key3: { nested: 'object' },
+      },
+    };
+
+    it('logs event with all components', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload);
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\)/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs user information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cUser %cuser123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined user_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutUser: EventPayload = {
+        ...mockEventPayload,
+        user_id: undefined,
+      };
+
+      logger.logEvent(payloadWithoutUser);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cUser %cNot set',
+        expect.any(String),
+        expect.any(String)
       );
     });
   });

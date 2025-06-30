@@ -103,7 +103,10 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     it('should send a page event on init with the current URL', () => {
-      const config: Config = { baseUrl: 'http://localhost', autoCapture: true };
+      const config: Config = {
+        baseUrl: 'http://localhost',
+        autoCapture: true,
+      };
       altertable.init(apiKey, config);
 
       if (mode === 'beacon') {
@@ -207,7 +210,10 @@ modes.forEach(({ mode, description, setup }) => {
 
     it('should detect URL changes and send a page event', () => {
       vi.useFakeTimers();
-      const config: Config = { baseUrl: 'http://localhost', autoCapture: true };
+      const config: Config = {
+        baseUrl: 'http://localhost',
+        autoCapture: true,
+      };
       altertable.init(apiKey, config);
 
       // Clear initial call (from init auto-capture)

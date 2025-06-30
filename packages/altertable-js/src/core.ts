@@ -1,6 +1,7 @@
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import { EventPayload } from './types';
 
 export interface Config {
   /**
@@ -23,6 +24,11 @@ export interface Config {
    * This is helpful to identify the version of the application an event is coming from.
    */
   release?: string;
+  /**
+   * Whether to log events to the console.
+   * @default false
+   */
+  debug?: boolean;
 }
 
 const DEFAULT_BASE_URL = 'https://api.altertable.ai';
@@ -75,6 +81,10 @@ export class Altertable {
     this._config = config;
     this._isInitialized = true;
 
+    if (this._config.debug) {
+      this._logger.logHeader();
+    }
+
     if (config.autoCapture !== false) {
       if (this._lastUrl) {
         this.page(this._lastUrl);
@@ -124,7 +134,7 @@ export class Altertable {
       return;
     }
 
-    this._request('/track', {
+    const payload: EventPayload = {
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
@@ -136,7 +146,13 @@ export class Altertable {
         // and the React library
         ...properties,
       },
-    });
+    };
+
+    this._request('/track', payload);
+
+    if (this._config.debug) {
+      this._logger.logEvent(payload);
+    }
   }
 
   private _checkForChanges() {
