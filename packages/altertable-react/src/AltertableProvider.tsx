@@ -13,8 +13,6 @@ export function AltertableProvider({
   client,
   children,
 }: AltertableProviderProps) {
-  // TODO: throw or warn when the client isn't initialized
-
   return (
     <AltertableContext.Provider value={client}>
       {children}

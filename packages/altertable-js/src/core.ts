@@ -1,4 +1,5 @@
 import { invariant } from './lib/invariant';
+import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export interface Config {
@@ -45,13 +46,15 @@ export const PROPERTY_LIB = '$lib';
 export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
-  private _lastUrl: string;
   private _apiKey: string;
   private _config: Config;
-  private _sessionId: string;
-  private _visitorId: string;
-  private _userId: string;
+  private _isInitialized = false;
+  private _lastUrl: string;
+  private _logger = createLogger('Altertable');
   private _referrer: string | null;
+  private _sessionId: string;
+  private _userId: string;
+  private _visitorId: string;
 
   constructor() {
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -70,6 +73,7 @@ export class Altertable {
   init(apiKey: string, config: Config = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    this._isInitialized = true;
 
     if (config.autoCapture !== false) {
       if (this._lastUrl) {
@@ -93,6 +97,13 @@ export class Altertable {
   }
 
   page(url: string) {
+    if (!this._isInitialized) {
+      this._logger.warnDev(
+        'The client must be initialized with init() before configuring.'
+      );
+      return;
+    }
+
     const parsedUrl = new URL(url);
     const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
     this.track(PAGEVIEW_EVENT, {
@@ -106,6 +117,13 @@ export class Altertable {
   }
 
   track(event: string, properties: EventProperties = {}) {
+    if (!this._isInitialized) {
+      this._logger.warnDev(
+        'The client must be initialized with init() before tracking events.'
+      );
+      return;
+    }
+
     this._request('/track', {
       event,
       user_id: this._userId,

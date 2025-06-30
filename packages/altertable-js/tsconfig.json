@@ -9,6 +9,6 @@
     "target": "esnext",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],
   "exclude": ["node_modules"]
 }
