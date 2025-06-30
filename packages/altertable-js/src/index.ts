@@ -1,7 +1,7 @@
-import { Altertable } from './core';
+import { Altertable, type AltertableConfig } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
-export type { Altertable };
+export type { Altertable, AltertableConfig };
 
 declare global {
   interface Window {
