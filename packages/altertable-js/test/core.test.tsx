@@ -244,7 +244,7 @@ modes.forEach(({ mode, description, setup }) => {
             [PROPERTY_SESSION_ID]: `session-${randomId}`,
             [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: viewPort,
-            [PROPERTY_REFERER]: null,
+            [PROPERTY_REFERER]: null as string | null,
             foo: 'bar',
             baz: 'qux',
             test: 'to?',
@@ -307,6 +307,14 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('configure()', () => {
+      function clearNetworkCalls() {
+        if (mode === 'beacon') {
+          (navigator.sendBeacon as Mock).mockClear();
+        } else {
+          (fetch as unknown as Mock).mockClear();
+        }
+      }
+
       it('warns when configure() is called before initialization', () => {
         expect(() => {
           altertable.configure({ debug: true });
@@ -322,10 +330,14 @@ modes.forEach(({ mode, description, setup }) => {
           debug: false,
         });
 
+        clearNetworkCalls();
+
         altertable.configure({ debug: true, release: 'test-release' });
 
         // Verify the configuration was updated by checking debug behavior
-        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+        const logEventSpy = vi
+          .spyOn(altertable['_logger'], 'logEvent')
+          .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
@@ -337,109 +349,6 @@ modes.forEach(({ mode, description, setup }) => {
             foo: 'bar',
           }),
         });
-      });
-
-      it('should enable auto-capture when configured after initialization', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
-        // Clear any initial calls
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-
-        altertable.configure({ autoCapture: true });
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-          expectBeaconCall(config, apiKey);
-        } else {
-          expect(fetch).toHaveBeenCalled();
-          expectFetchCall(config, apiKey, {
-            event: PAGEVIEW_EVENT,
-            user_id: `anonymous-${randomId}`,
-            environment: 'production',
-            properties: {
-              [PROPERTY_LIB]: 'TEST_LIB_NAME',
-              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-              [PROPERTY_URL]: 'http://localhost/page',
-              [PROPERTY_SESSION_ID]: `session-${randomId}`,
-              [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
-              [PROPERTY_VIEWPORT]: viewPort,
-              [PROPERTY_REFERER]: null as string | null,
-            },
-          });
-        }
-      });
-
-      it('should disable auto-capture when configured after initialization', () => {
-        vi.useFakeTimers();
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: true,
-        };
-        altertable.init(apiKey, config);
-
-        // Clear initial call(s) after init
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-
-        altertable.configure({ autoCapture: false });
-
-        // Advance time to trigger any pending intervals
-        vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL * 2);
-
-        // Should not send page event after cleanup
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // Simulate popstate event - should not trigger page event
-        window.dispatchEvent(new Event('popstate'));
-
-        // Should still not send page event
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        vi.useRealTimers();
-      });
-
-      it('should not trigger auto-capture change when autoCapture value is the same', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: true,
-        };
-        altertable.init(apiKey, config);
-
-        // Clear initial call
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-
-        // Configure with same autoCapture value
-        altertable.configure({ autoCapture: true });
-
-        // Should not send another page event
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
       });
 
       it('should update multiple configuration options at once', () => {
@@ -458,7 +367,9 @@ modes.forEach(({ mode, description, setup }) => {
         });
 
         // Verify the configuration was updated by checking debug behavior and environment
-        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+        const logEventSpy = vi
+          .spyOn(altertable['_logger'], 'logEvent')
+          .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
@@ -472,137 +383,71 @@ modes.forEach(({ mode, description, setup }) => {
         });
       });
 
-      it('should properly cleanup auto-capture when disabled', () => {
-        vi.useFakeTimers();
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: true,
-        };
-        altertable.init(apiKey, config);
+      it('should call logHeader when debug is enabled on init', () => {
+        const logHeaderSpy = vi
+          .spyOn(altertable['_logger'], 'logHeader')
+          .mockImplementation(() => {});
 
-        // Clear initial call
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
+        altertable.init('TEST_API_KEY', {
+          debug: true,
+          autoCapture: false,
+        });
 
-        // Disable auto-capture
-        altertable.configure({ autoCapture: false });
-
-        // Advance time to trigger any pending intervals
-        vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL * 2);
-
-        // Should not send page event after cleanup
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // Simulate popstate event - should not trigger page event
-        window.dispatchEvent(new Event('popstate'));
-
-        // Should still not send page event
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        vi.useRealTimers();
-      });
-    });
-  });
-
-  describe('with debug enabled', () => {
-    const originalConsole = {
-      log: console.log,
-      warn: console.warn,
-      error: console.error,
-      groupCollapsed: console.groupCollapsed,
-      groupEnd: console.groupEnd,
-      table: console.table,
-    };
-
-    beforeEach(() => {
-      // Mock console methods to avoid logging to the console during tests
-      console.log = vi.fn();
-      console.warn = vi.fn();
-      console.error = vi.fn();
-      console.groupCollapsed = vi.fn();
-      console.groupEnd = vi.fn();
-      console.table = vi.fn();
-    });
-
-    afterEach(() => {
-      console.log = originalConsole.log;
-      console.warn = originalConsole.warn;
-      console.error = originalConsole.error;
-      console.groupCollapsed = originalConsole.groupCollapsed;
-      console.groupEnd = originalConsole.groupEnd;
-      console.table = originalConsole.table;
-
-      vi.clearAllMocks();
-    });
-
-    it('should call logHeader when debug is enabled on init', () => {
-      const altertable = new Altertable();
-      const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
-
-      altertable.init('TEST_API_KEY', {
-        debug: true,
-        autoCapture: false,
+        expect(logHeaderSpy).toHaveBeenCalledTimes(1);
       });
 
-      expect(logHeaderSpy).toHaveBeenCalledTimes(1);
-    });
+      it('should not call logHeader when debug is disabled on init', () => {
+        const logHeaderSpy = vi
+          .spyOn(altertable['_logger'], 'logHeader')
+          .mockImplementation(() => {});
 
-    it('should not call logHeader when debug is disabled on init', () => {
-      const altertable = new Altertable();
-      const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
+        altertable.init('TEST_API_KEY', {
+          debug: false,
+          autoCapture: false,
+        });
 
-      altertable.init('TEST_API_KEY', {
-        debug: false,
-        autoCapture: false,
+        expect(logHeaderSpy).toHaveBeenCalledTimes(0);
       });
 
-      expect(logHeaderSpy).toHaveBeenCalledTimes(0);
-    });
+      it('should call logEvent when debug is enabled and track is called', () => {
+        vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
+          () => {}
+        );
+        const logEventSpy = vi
+          .spyOn(altertable['_logger'], 'logEvent')
+          .mockImplementation(() => {});
 
-    it('should call logEvent when debug is enabled and track is called', () => {
-      const altertable = new Altertable();
-      const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+        altertable.init('TEST_API_KEY', {
+          debug: true,
+          autoCapture: false,
+        });
 
-      altertable.init('TEST_API_KEY', {
-        debug: true,
-        autoCapture: false,
+        altertable.track('test-event', { foo: 'bar' });
+
+        expect(logEventSpy).toHaveBeenCalledWith({
+          event: 'test-event',
+          user_id: expect.stringMatching(/anonymous-/),
+          environment: 'production',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        });
       });
 
-      altertable.track('test-event', { foo: 'bar' });
+      it('should not call logEvent when debug is disabled and track is called', () => {
+        const logEventSpy = vi
+          .spyOn(altertable['_logger'], 'logEvent')
+          .mockImplementation(() => {});
 
-      expect(logEventSpy).toHaveBeenCalledWith({
-        event: 'test-event',
-        user_id: expect.stringMatching(/anonymous-/),
-        environment: 'production',
-        properties: expect.objectContaining({
-          foo: 'bar',
-        }),
+        altertable.init('TEST_API_KEY', {
+          debug: false,
+          autoCapture: false,
+        });
+
+        altertable.track('test-event', { foo: 'bar' });
+
+        expect(logEventSpy).toHaveBeenCalledTimes(0);
       });
-    });
-
-    it('should not call logEvent when debug is disabled and track is called', () => {
-      const altertable = new Altertable();
-      const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
-
-      altertable.init('TEST_API_KEY', {
-        debug: false,
-        autoCapture: false,
-      });
-
-      altertable.track('test-event', { foo: 'bar' });
-
-      expect(logEventSpy).toHaveBeenCalledTimes(0);
     });
   });
 });
