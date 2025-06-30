@@ -16,6 +16,7 @@ export default defineConfig(({ env }) => {
     format: ['cjs', 'esm'],
     dts: true,
     platform: 'neutral',
+    external: ['@altertable/altertable-js'],
     banner: {
       js: generateBundleBanner(pkg),
     },
