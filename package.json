@@ -13,8 +13,8 @@
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint:fix",
     "test": "lerna run test",
-    "test:watch": "lerna run test:watch",
-    "bump": "bun run scripts/bump-versions.ts"
+    "test:watch": "lerna run test:watch --parallel",
+    "bump": "bun run scripts/release/bump-versions.ts"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

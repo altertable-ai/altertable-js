@@ -113,4 +113,15 @@ export default defineConfig([
       'no-unused-vars': 'off',
     },
   },
+  {
+    ignores: [
+      '**/*/dist/*',
+      '**/*/build/*',
+      '**/*/out/*',
+      '**/*/lib/*',
+      '**/*/coverage/*',
+      '**/*/.next/*',
+      '**/*/node_modules/*',
+    ],
+  },
 ]);
