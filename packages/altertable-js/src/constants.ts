@@ -1,8 +1,15 @@
+import { createKeyBuilder } from './lib/createKeyBuilder';
+
 export const DEFAULT_BASE_URL = 'https://api.altertable.ai';
 export const DEFAULT_ENVIRONMENT = 'production';
 
 export const SESSION_STORAGE_KEY = 'altertable-session-id';
 export const LOCAL_STORAGE_KEY = 'altertable-visitor-id';
+
+const keyBuilder = createKeyBuilder('atbl', '.');
+export const STORAGE_KEY_TEST = keyBuilder('check');
+export const STORAGE_KEY_SESSION_ID = keyBuilder('session-id');
+export const STORAGE_KEY_VISITOR_ID = keyBuilder('visitor-id');
 
 export const AUTO_CAPTURE_INTERVAL = 100;
 
