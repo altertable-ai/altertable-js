@@ -1,7 +1,23 @@
+import {
+  AUTO_CAPTURE_INTERVAL,
+  DEFAULT_BASE_URL,
+  DEFAULT_ENVIRONMENT,
+  LOCAL_STORAGE_KEY,
+  PAGEVIEW_EVENT,
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+  PROPERTY_REFERER,
+  PROPERTY_RELEASE,
+  PROPERTY_SESSION_ID,
+  PROPERTY_URL,
+  PROPERTY_VIEWPORT,
+  PROPERTY_VISITOR_ID,
+  SESSION_STORAGE_KEY,
+} from './constants';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
-import { EventPayload } from './types';
+import { EventPayload, EventProperties } from './types';
 
 export interface AltertableConfig {
   /**
@@ -30,26 +46,6 @@ export interface AltertableConfig {
    */
   debug?: boolean;
 }
-
-const DEFAULT_BASE_URL = 'https://api.altertable.ai';
-const DEFAULT_ENVIRONMENT = 'production';
-
-export type EventProperties = Record<string, unknown>;
-
-export const PAGEVIEW_EVENT = '$pageview';
-
-export const SESSION_STORAGE_KEY = 'altertable-session-id';
-export const LOCAL_STORAGE_KEY = 'altertable-visitor-id';
-export const AUTO_CAPTURE_INTERVAL = 100;
-
-export const PROPERTY_URL = '$url';
-export const PROPERTY_SESSION_ID = '$session_id';
-export const PROPERTY_VISITOR_ID = '$visitor_id';
-export const PROPERTY_VIEWPORT = '$viewport';
-export const PROPERTY_REFERER = '$referer';
-export const PROPERTY_RELEASE = '$release';
-export const PROPERTY_LIB = '$lib';
-export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
   private _apiKey: string;
