@@ -1,3 +1,4 @@
+import { invariant } from './lib/invariant';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export interface Config {
@@ -132,6 +133,9 @@ export class Altertable {
   }
 
   private _request(path: string, body: unknown): void {
+    invariant(this._apiKey, 'Missing API key');
+    invariant(this._config, 'Missing configuration');
+
     const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
     const payload = JSON.stringify(body);
 
