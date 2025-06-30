@@ -55,7 +55,7 @@ export class Altertable {
   private _apiKey: string;
   private _config: Config;
   private _isInitialized = false;
-  private _lastUrl: string;
+  private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
   private _sessionId: string;
@@ -63,14 +63,8 @@ export class Altertable {
   private _visitorId: string;
 
   constructor() {
-    this._referrer = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.document.referrer || null,
-      () => null
-    );
-    this._lastUrl = safelyRunOnBrowser(
-      ({ window }) => window.location.href,
-      () => ''
-    );
+    this._referrer = null;
+    this._lastUrl = null;
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
     this._userId = this._generateId('anonymous');
@@ -79,6 +73,14 @@ export class Altertable {
   init(apiKey: string, config: Config = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    this._referrer = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.document.referrer || null,
+      () => null
+    );
+    this._lastUrl = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.location.href || null,
+      () => null
+    );
     this._isInitialized = true;
 
     if (this._config.debug) {

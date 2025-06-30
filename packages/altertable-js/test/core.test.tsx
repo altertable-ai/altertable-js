@@ -36,7 +36,7 @@ const expectFetchCall = (
   apiKey: string,
   payload: Record<string, any>
 ) => {
-  const fetchCall = (fetch as Mock).mock.calls[0];
+  const fetchCall = (fetch as unknown as Mock).mock.calls[0];
   expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
   const options = fetchCall[1];
   expect(options.method).toBe('POST');
@@ -220,7 +220,7 @@ modes.forEach(({ mode, description, setup }) => {
       if (mode === 'beacon') {
         (navigator.sendBeacon as Mock).mockClear();
       } else {
-        (fetch as Mock).mockClear();
+        (fetch as unknown as Mock).mockClear();
       }
 
       // Simulate a URL change.
@@ -250,7 +250,7 @@ modes.forEach(({ mode, description, setup }) => {
             test: 'to?',
           },
         };
-        const fetchCall = (fetch as Mock).mock.calls[0];
+        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
         expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
         const options = fetchCall[1];
         expect(options.method).toBe('POST');
@@ -262,7 +262,7 @@ modes.forEach(({ mode, description, setup }) => {
       if (mode === 'beacon') {
         (navigator.sendBeacon as Mock).mockClear();
       } else {
-        (fetch as Mock).mockClear();
+        (fetch as unknown as Mock).mockClear();
       }
       window.dispatchEvent(new Event('popstate'));
       if (mode === 'beacon') {
@@ -271,7 +271,7 @@ modes.forEach(({ mode, description, setup }) => {
           `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
         );
       } else {
-        const fetchCall = (fetch as Mock).mock.calls[0];
+        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
         expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
       }
       vi.useRealTimers();
@@ -304,6 +304,97 @@ modes.forEach(({ mode, description, setup }) => {
       }).toWarnDev(
         '[Altertable] The client must be initialized with init() before tracking events.'
       );
+    });
+  });
+
+  describe('with debug enabled', () => {
+    const originalConsole = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+      groupCollapsed: console.groupCollapsed,
+      groupEnd: console.groupEnd,
+      table: console.table,
+    };
+
+    beforeEach(() => {
+      // Mock console methods to avoid logging to the console during tests
+      console.log = vi.fn();
+      console.warn = vi.fn();
+      console.error = vi.fn();
+      console.groupCollapsed = vi.fn();
+      console.groupEnd = vi.fn();
+      console.table = vi.fn();
+    });
+
+    afterEach(() => {
+      console.log = originalConsole.log;
+      console.warn = originalConsole.warn;
+      console.error = originalConsole.error;
+      console.groupCollapsed = originalConsole.groupCollapsed;
+      console.groupEnd = originalConsole.groupEnd;
+      console.table = originalConsole.table;
+
+      vi.clearAllMocks();
+    });
+
+    it('should call logHeader when debug is enabled on init', () => {
+      const altertable = new Altertable();
+      const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
+
+      altertable.init('TEST_API_KEY', {
+        debug: true,
+        autoCapture: false,
+      });
+
+      expect(logHeaderSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call logHeader when debug is disabled on init', () => {
+      const altertable = new Altertable();
+      const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
+
+      altertable.init('TEST_API_KEY', {
+        debug: false,
+        autoCapture: false,
+      });
+
+      expect(logHeaderSpy).toHaveBeenCalledTimes(0);
+    });
+
+    it('should call logEvent when debug is enabled and track is called', () => {
+      const altertable = new Altertable();
+      const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+
+      altertable.init('TEST_API_KEY', {
+        debug: true,
+        autoCapture: false,
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(logEventSpy).toHaveBeenCalledWith({
+        event: 'test-event',
+        user_id: expect.stringMatching(/anonymous-/),
+        environment: 'production',
+        properties: expect.objectContaining({
+          foo: 'bar',
+        }),
+      });
+    });
+
+    it('should not call logEvent when debug is disabled and track is called', () => {
+      const altertable = new Altertable();
+      const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+
+      altertable.init('TEST_API_KEY', {
+        debug: false,
+        autoCapture: false,
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(logEventSpy).toHaveBeenCalledTimes(0);
     });
   });
 });
