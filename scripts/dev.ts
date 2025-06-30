@@ -122,6 +122,7 @@ async function main() {
       process.exit(0);
     });
 
+    // Keep the process alive
     await new Promise(() => {});
   } else {
     log('⚠️  No examples found, running packages only', 'yellow');
@@ -136,6 +137,7 @@ async function main() {
       process.exit(0);
     });
 
+    // Keep the process alive
     await new Promise(() => {});
   }
 }
