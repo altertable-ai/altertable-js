@@ -91,7 +91,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['packages/altertable-snippet/**/*.{js,ts,tsx}'],
+    files: [
+      'test-utils/**/*.{js,ts,tsx}',
+      '**/test/**/*.{js,ts,tsx}',
+      '**/*.test.{js,ts,tsx}',
+      'packages/altertable-snippet/**/*.{js,ts,tsx}',
+    ],
     rules: {
       'no-restricted-globals': 'off',
     },

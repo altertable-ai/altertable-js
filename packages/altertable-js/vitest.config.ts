@@ -6,4 +6,7 @@ export default defineConfig({
     __LIB__: JSON.stringify('TEST_LIB_NAME'),
     __LIB_VERSION__: JSON.stringify('TEST_LIB_VERSION'),
   },
+  test: {
+    setupFiles: ['../../test-utils/setup.ts'],
+  },
 });
