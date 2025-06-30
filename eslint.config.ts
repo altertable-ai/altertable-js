@@ -91,7 +91,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['packages/**/*.{js,ts,tsx}'],
+    files: ['packages/**/src/**/*.{js,ts,tsx}'],
     rules: {
       'no-console': 'error',
     },

@@ -1,6 +1,7 @@
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import { EventPayload } from './types';
 
 export interface Config {
   /**
@@ -23,6 +24,11 @@ export interface Config {
    * This is helpful to identify the version of the application an event is coming from.
    */
   release?: string;
+  /**
+   * Whether to log events to the console.
+   * @default false
+   */
+  debug?: boolean;
 }
 
 const DEFAULT_BASE_URL = 'https://api.altertable.ai';
@@ -49,7 +55,7 @@ export class Altertable {
   private _apiKey: string;
   private _config: Config;
   private _isInitialized = false;
-  private _lastUrl: string;
+  private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
   private _sessionId: string;
@@ -57,14 +63,8 @@ export class Altertable {
   private _visitorId: string;
 
   constructor() {
-    this._referrer = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.document.referrer || null,
-      () => null
-    );
-    this._lastUrl = safelyRunOnBrowser(
-      ({ window }) => window.location.href,
-      () => ''
-    );
+    this._referrer = null;
+    this._lastUrl = null;
     this._sessionId = this._generateId('session');
     this._visitorId = this._generateId('visitor');
     this._userId = this._generateId('anonymous');
@@ -73,7 +73,19 @@ export class Altertable {
   init(apiKey: string, config: Config = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    this._referrer = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.document.referrer || null,
+      () => null
+    );
+    this._lastUrl = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.location.href || null,
+      () => null
+    );
     this._isInitialized = true;
+
+    if (this._config.debug) {
+      this._logger.logHeader();
+    }
 
     if (config.autoCapture !== false) {
       if (this._lastUrl) {
@@ -124,7 +136,7 @@ export class Altertable {
       return;
     }
 
-    this._request('/track', {
+    const payload: EventPayload = {
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
@@ -136,7 +148,13 @@ export class Altertable {
         // and the React library
         ...properties,
       },
-    });
+    };
+
+    this._request('/track', payload);
+
+    if (this._config.debug) {
+      this._logger.logEvent(payload);
+    }
   }
 
   private _checkForChanges() {
