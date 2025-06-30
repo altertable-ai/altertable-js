@@ -6,6 +6,9 @@
   ],
   "scripts": {
     "build": "lerna run build",
+    "dev": "bun run scripts/dev.ts",
+    "dev:packages": "lerna run dev --scope=@altertable/altertable-* --parallel",
+    "dev:examples": "lerna run dev --scope=@altertable/example-* --parallel",
     "clean": "lerna run clean",
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint:fix",
