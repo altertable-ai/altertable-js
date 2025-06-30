@@ -11,6 +11,7 @@ export default defineConfig(({ env }) => {
     entry: ['src/index.ts'],
     sourcemap: true,
     clean: true,
+    minify: env.mode === 'production',
     format: ['cjs', 'esm', 'iife'],
     dts: true,
     platform: 'neutral',
