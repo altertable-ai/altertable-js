@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
 import {
-  Altertable,
-  type AltertableConfig,
   AUTO_CAPTURE_INTERVAL,
   PAGEVIEW_EVENT,
   PROPERTY_LIB,
@@ -13,7 +11,8 @@ import {
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
   PROPERTY_VISITOR_ID,
-} from '../src/core';
+} from '../src/constants';
+import { Altertable, type AltertableConfig } from '../src/core';
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
