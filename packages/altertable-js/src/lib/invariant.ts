@@ -14,13 +14,11 @@ export function invariant(
     return;
   }
 
-  if (!__DEV__) {
-    throw new Error('Invariant failed');
-  }
-
   if (__DEV__) {
     throw new Error(
       `[Altertable] ${typeof message === 'function' ? message() : message}`
     );
   }
+
+  throw new Error('Invariant failed');
 }
