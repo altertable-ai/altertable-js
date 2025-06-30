@@ -3,7 +3,7 @@ import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { EventPayload } from './types';
 
-export interface Config {
+export interface AltertableConfig {
   /**
    * The base URL of the Altertable API.
    * @default https://api.altertable.ai
@@ -53,7 +53,8 @@ export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export class Altertable {
   private _apiKey: string;
-  private _config: Config;
+  private _cleanupAutoCapture: (() => void) | undefined;
+  private _config: AltertableConfig;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
@@ -70,7 +71,7 @@ export class Altertable {
     this._userId = this._generateId('anonymous');
   }
 
-  init(apiKey: string, config: Config = {}) {
+  init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -87,19 +88,56 @@ export class Altertable {
       this._logger.logHeader();
     }
 
-    if (config.autoCapture !== false) {
+    this._handleAutoCaptureChange(config.autoCapture ?? true);
+
+    return () => {
+      this._cleanupAutoCapture?.();
+    };
+  }
+
+  configure(updates: Partial<AltertableConfig>) {
+    if (!this._isInitialized) {
+      this._logger.warnDev(
+        'The client must be initialized with init() before configuring.'
+      );
+      return;
+    }
+
+    if (
+      updates.autoCapture !== undefined &&
+      updates.autoCapture !== this._config.autoCapture
+    ) {
+      this._handleAutoCaptureChange(updates.autoCapture);
+    }
+
+    this._config = { ...this._config, ...updates };
+  }
+
+  private _handleAutoCaptureChange(enableAutoCapture: boolean) {
+    this._cleanupAutoCapture?.();
+
+    if (enableAutoCapture) {
       if (this._lastUrl) {
         this.page(this._lastUrl);
       }
 
-      setInterval(() => {
-        this._checkForChanges();
-      }, AUTO_CAPTURE_INTERVAL);
+      const checkForChanges = this._checkForChanges.bind(this);
+      const intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL);
 
       safelyRunOnBrowser(({ window }) => {
-        window.addEventListener('popstate', () => this._checkForChanges());
-        window.addEventListener('hashchange', () => this._checkForChanges());
+        window.addEventListener('popstate', checkForChanges);
+        window.addEventListener('hashchange', checkForChanges);
       });
+
+      this._cleanupAutoCapture = () => {
+        clearInterval(intervalId);
+        safelyRunOnBrowser(({ window }) => {
+          window.removeEventListener('popstate', checkForChanges);
+          window.removeEventListener('hashchange', checkForChanges);
+        });
+      };
+    } else {
+      this._cleanupAutoCapture = undefined;
     }
   }
 
@@ -159,6 +197,10 @@ export class Altertable {
 
   private _checkForChanges() {
     safelyRunOnBrowser(({ window }) => {
+      if (!this._config.autoCapture) {
+        return;
+      }
+
       const currentUrl = window.location.href;
       if (currentUrl !== this._lastUrl) {
         this.page(currentUrl);
