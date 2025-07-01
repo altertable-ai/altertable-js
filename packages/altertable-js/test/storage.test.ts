@@ -273,7 +273,7 @@ describe('Storage API', () => {
 
         selectStorage('localStorage', { onError });
         expect(onError).toHaveBeenCalledWith(
-          'localStorage not supported, falling back to localStorage+cookie'
+          'localStorage not supported, falling back to localStorage+cookie.'
         );
       });
 
@@ -284,7 +284,7 @@ describe('Storage API', () => {
 
         selectStorage('localStorage+cookie', { onError });
         expect(onError).toHaveBeenCalledWith(
-          'localStorage+cookie not fully supported, falling back to cookie'
+          'localStorage+cookie not fully supported, falling back to cookie.'
         );
       });
 
@@ -309,7 +309,7 @@ describe('Storage API', () => {
         // The fallback will not be triggered in this mock setup, so we skip the assertion
         selectStorage('localStorage+cookie', { onError });
         expect(onError).toHaveBeenCalledWith(
-          'localStorage+cookie not fully supported, falling back to cookie'
+          'localStorage+cookie not fully supported, falling back to cookie.'
         );
       });
 
@@ -320,7 +320,7 @@ describe('Storage API', () => {
 
         selectStorage('sessionStorage', { onError });
         expect(onError).toHaveBeenCalledWith(
-          'sessionStorage not supported, falling back to memory'
+          'sessionStorage not supported, falling back to memory.'
         );
       });
 
@@ -336,7 +336,7 @@ describe('Storage API', () => {
       it('should fallback to localStorage+cookie for unknown storage type', () => {
         selectStorage('unknown' as StorageType, { onError });
         expect(onError).toHaveBeenCalledWith(
-          'Unknown storage type, falling back to localStorage+cookie'
+          'Unknown storage type, falling back to localStorage+cookie.'
         );
       });
     });

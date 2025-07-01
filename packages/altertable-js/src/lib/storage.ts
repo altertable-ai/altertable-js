@@ -138,7 +138,7 @@ export function selectStorage(
         return new WebStorageStore('localStorage');
       }
       onError(
-        'localStorage not supported, falling back to localStorage+cookie'
+        'localStorage not supported, falling back to localStorage+cookie.'
       );
       return selectStorage('localStorage+cookie', params);
     }
@@ -151,15 +151,15 @@ export function selectStorage(
         return new LocalPlusCookieStore();
       } else if (cookieSupported) {
         onError(
-          'localStorage+cookie not fully supported, falling back to cookie'
+          'localStorage+cookie not fully supported, falling back to cookie.'
         );
         return new CookieStore();
       } else if (localStorageSupported) {
-        onError('Cookie not supported, falling back to localStorage');
+        onError('Cookie not supported, falling back to localStorage.');
         return new WebStorageStore('localStorage');
       } else {
         onError(
-          'Neither localStorage nor cookie supported, falling back to memory'
+          'Neither localStorage nor cookie supported, falling back to memory.'
         );
         return new MemoryStore();
       }
@@ -169,7 +169,7 @@ export function selectStorage(
       if (testStorageSupport('sessionStorage')) {
         return new WebStorageStore('sessionStorage');
       }
-      onError('sessionStorage not supported, falling back to memory');
+      onError('sessionStorage not supported, falling back to memory.');
       return new MemoryStore();
     }
 
@@ -177,7 +177,7 @@ export function selectStorage(
       if (testStorageSupport('cookie')) {
         return new CookieStore();
       }
-      onError('cookie not supported, falling back to memory');
+      onError('Cookie not supported, falling back to memory.');
       return new MemoryStore();
     }
 
@@ -186,7 +186,7 @@ export function selectStorage(
     }
 
     default: {
-      onError('Unknown storage type, falling back to localStorage+cookie');
+      onError('Unknown storage type, falling back to localStorage+cookie.');
       return selectStorage('localStorage+cookie', params);
     }
   }
