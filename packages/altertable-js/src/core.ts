@@ -2,7 +2,7 @@ import {
   AUTO_CAPTURE_INTERVAL,
   DEFAULT_BASE_URL,
   DEFAULT_ENVIRONMENT,
-  LOCAL_STORAGE_KEY,
+  DEFAULT_PERSISTENCE,
   PAGEVIEW_EVENT,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
@@ -12,7 +12,6 @@ import {
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
   PROPERTY_VISITOR_ID,
-  SESSION_STORAGE_KEY,
   STORAGE_KEY_SESSION_ID,
   STORAGE_KEY_VISITOR_ID,
 } from './constants';
@@ -91,8 +90,7 @@ export class Altertable {
       ({ window }) => window.location.href || null,
       () => null
     );
-    const persistence: StorageType =
-      config.persistence ?? 'localStorage+cookie';
+    const persistence: StorageType = config.persistence ?? DEFAULT_PERSISTENCE;
     this._storage = selectStorage(persistence, {
       onFallback: message => this._logger.warn(message),
     });
