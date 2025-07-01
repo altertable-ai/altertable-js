@@ -1,4 +1,5 @@
 export type EventPayload = {
+  timestamp: string;
   event: string;
   user_id: string | undefined;
   environment: string;
