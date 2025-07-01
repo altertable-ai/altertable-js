@@ -28,7 +28,7 @@
     "clean": "rm -rf dist",
     "lint": "eslint src --ext ts",
     "lint:fix": "bun run lint --fix",
-    "test": "vitest --environment=jsdom --watch=false",
-    "test:watch": "vitest --environment=jsdom"
+    "test": "vitest",
+    "test:watch": "vitest"
   }
 }
