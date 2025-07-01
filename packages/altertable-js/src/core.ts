@@ -2,7 +2,7 @@ import {
   AUTO_CAPTURE_INTERVAL,
   DEFAULT_BASE_URL,
   DEFAULT_ENVIRONMENT,
-  LOCAL_STORAGE_KEY,
+  DEFAULT_PERSISTENCE,
   PAGEVIEW_EVENT,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
@@ -12,11 +12,17 @@ import {
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
   PROPERTY_VISITOR_ID,
-  SESSION_STORAGE_KEY,
+  STORAGE_KEY_SESSION_ID,
+  STORAGE_KEY_VISITOR_ID,
 } from './constants';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import {
+  selectStorage,
+  type StorageApi,
+  type StorageType,
+} from './lib/storage';
 import { EventPayload, EventProperties } from './types';
 
 export interface AltertableConfig {
@@ -45,6 +51,11 @@ export interface AltertableConfig {
    * @default false
    */
   debug?: boolean;
+  /**
+   * The persistence strategy for storing IDs.
+   * @default "localStorage+cookie"
+   */
+  persistence?: StorageType;
 }
 
 export class Altertable {
@@ -56,6 +67,7 @@ export class Altertable {
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
   private _sessionId: string;
+  private _storage: StorageApi | undefined;
   private _userId: string;
   private _visitorId: string;
 
@@ -78,6 +90,10 @@ export class Altertable {
       ({ window }) => window.location.href || null,
       () => null
     );
+    const persistence: StorageType = config.persistence ?? DEFAULT_PERSISTENCE;
+    this._storage = selectStorage(persistence, {
+      onFallback: message => this._logger.warn(message),
+    });
     this._isInitialized = true;
 
     if (this._config.debug) {
@@ -231,33 +247,21 @@ export class Altertable {
   }
 
   private _getSessionId(): string {
-    try {
-      /* eslint-disable no-restricted-globals */
-      let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (!id) {
-        id = this._sessionId;
-        sessionStorage.setItem(SESSION_STORAGE_KEY, id);
-      }
-      return id;
-      /* eslint-enable no-restricted-globals */
-    } catch {
-      return this._sessionId;
+    let id = this._storage.getItem(STORAGE_KEY_SESSION_ID);
+    if (!id) {
+      id = this._sessionId;
+      this._storage.setItem(STORAGE_KEY_SESSION_ID, id);
     }
+    return id;
   }
 
   private _getVisitorId(): string {
-    try {
-      /* eslint-disable no-restricted-globals */
-      let id = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!id) {
-        id = this._visitorId;
-        localStorage.setItem(LOCAL_STORAGE_KEY, id);
-      }
-      return id;
-      /* eslint-enable no-restricted-globals */
-    } catch {
-      return this._visitorId;
+    let id = this._storage.getItem(STORAGE_KEY_VISITOR_ID);
+    if (!id) {
+      id = this._visitorId;
+      this._storage.setItem(STORAGE_KEY_VISITOR_ID, id);
     }
+    return id;
   }
 
   private _generateId(prefix: string): string {
