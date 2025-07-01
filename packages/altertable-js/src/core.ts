@@ -187,6 +187,7 @@ export class Altertable {
     }
 
     const payload: EventPayload = {
+      timestamp: new Date().toISOString(),
       event,
       user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,

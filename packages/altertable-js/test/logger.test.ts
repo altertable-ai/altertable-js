@@ -86,6 +86,7 @@ describe('Logger', () => {
 
   describe('logEvent', () => {
     const mockEventPayload: EventPayload = {
+      timestamp: '2021-01-01T00:00:00.000Z',
       event: 'test_event',
       user_id: 'user123',
       environment: 'development',

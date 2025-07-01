@@ -15,6 +15,8 @@ import {
 import { Altertable, type AltertableConfig } from '../src/core';
 import * as storageModule from '../src/lib/storage';
 
+const DATE_ISO_REGEXP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
     value: { href: url },
@@ -42,7 +44,7 @@ const expectFetchCall = (
   expect(options.method).toBe('POST');
   expect(options.headers['Content-Type']).toBe('application/json');
   expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-  expect(options.body).toBe(JSON.stringify(payload));
+  expect(JSON.parse(options.body)).toEqual(payload);
 };
 
 const modes: {
@@ -115,6 +117,7 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
           environment: 'production',
@@ -167,6 +170,7 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: 'eventName',
           user_id: `anonymous-${randomId}`,
           environment: 'production',
@@ -195,6 +199,7 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: 'eventName',
           user_id: `anonymous-${randomId}`,
           environment: 'production',
@@ -233,7 +238,13 @@ modes.forEach(({ mode, description, setup }) => {
           `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
         );
       } else {
-        const expectedPayload = {
+        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
+        const options = fetchCall[1];
+        expect(options.method).toBe('POST');
+        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+        expect(JSON.parse(options.body)).toEqual({
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: PAGEVIEW_EVENT,
           user_id: `anonymous-${randomId}`,
           environment: 'production',
@@ -249,13 +260,7 @@ modes.forEach(({ mode, description, setup }) => {
             baz: 'qux',
             test: 'to?',
           },
-        };
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-        const options = fetchCall[1];
-        expect(options.method).toBe('POST');
-        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-        expect(options.body).toBe(JSON.stringify(expectedPayload));
+        });
       }
 
       // Also test that a manual event (popstate) triggers a check.
@@ -341,6 +346,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: 'test-event',
           user_id: `anonymous-${randomId}`,
           environment: 'production',
@@ -373,6 +379,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: 'test-event',
           user_id: `anonymous-${randomId}`,
           environment: 'staging',
@@ -425,6 +432,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
           event: 'test-event',
           user_id: expect.stringMatching(/anonymous-/),
           environment: 'production',

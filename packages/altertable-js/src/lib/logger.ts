@@ -19,14 +19,14 @@ export function createLogger(prefix: string) {
       }
     },
     logEvent: (payload: EventPayload) => {
-      const timestamp = new Date().toISOString();
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(
         payload.event
       );
       const [environmentBadgeLabel, environmentBadgeStyle] =
         createEnvironmentBadgeElement(payload.environment);
-      const [timestampLabel, timestampStyle] =
-        createTimestampElement(timestamp);
+      const [timestampLabel, timestampStyle] = createTimestampElement(
+        payload.timestamp
+      );
 
       console.groupCollapsed(
         `[${prefix}] %c${eventBadgeLabel}%c [${environmentBadgeLabel}] %c(${timestampLabel})`,
