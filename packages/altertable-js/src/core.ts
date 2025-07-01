@@ -4,6 +4,9 @@ import {
   DEFAULT_ENVIRONMENT,
   DEFAULT_PERSISTENCE,
   PAGEVIEW_EVENT,
+  PREFIX_ANONYMOUS_ID,
+  PREFIX_SESSION_ID,
+  PROPERTY_ANONYMOUS_ID,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
@@ -12,9 +15,11 @@ import {
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
   PROPERTY_VISITOR_ID,
+  STORAGE_KEY_ANONYMOUS_ID,
   STORAGE_KEY_SESSION_ID,
-  STORAGE_KEY_VISITOR_ID,
+  STORAGE_KEY_USER_ID,
 } from './constants';
+import { generateId } from './lib/generateId';
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
@@ -60,6 +65,7 @@ export interface AltertableConfig {
 }
 
 export class Altertable {
+  private _anonymousId: string;
   private _apiKey: string;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _config: AltertableConfig;
@@ -67,22 +73,23 @@ export class Altertable {
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
-  private _sessionId: string;
+  private _sessionId: string | null;
   private _storage: StorageApi | undefined;
-  private _userId: string;
-  private _visitorId: string;
+  private _userId: string | null;
 
   constructor() {
     this._referrer = null;
     this._lastUrl = null;
-    this._sessionId = this._generateId('session');
-    this._visitorId = this._generateId('visitor');
-    this._userId = this._generateId('anonymous');
+    this._sessionId = null;
+    this._anonymousId = null;
+    this._userId = null;
   }
 
   init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    this._sessionId = generateId(PREFIX_SESSION_ID);
+    this._anonymousId = generateId(PREFIX_ANONYMOUS_ID);
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -159,6 +166,11 @@ export class Altertable {
     this._userId = userId;
   }
 
+  reset() {
+    this._anonymousId = generateId(PREFIX_ANONYMOUS_ID);
+    this._userId = null;
+  }
+
   page(url: string) {
     if (!this._isInitialized) {
       this._logger.warnDev(
@@ -172,7 +184,8 @@ export class Altertable {
     this.track(PAGEVIEW_EVENT, {
       [PROPERTY_URL]: urlWithoutSearch,
       [PROPERTY_SESSION_ID]: this._getSessionId(),
-      [PROPERTY_VISITOR_ID]: this._getVisitorId(),
+      [PROPERTY_ANONYMOUS_ID]: this._getAnonymousId(),
+      [PROPERTY_VISITOR_ID]: this._getUserId(), // TODO: change to PROPERTY_USER_ID
       [PROPERTY_VIEWPORT]: getViewport(),
       [PROPERTY_REFERER]: this._referrer,
       ...Object.fromEntries(parsedUrl.searchParams),
@@ -257,26 +270,21 @@ export class Altertable {
     return id;
   }
 
-  private _getVisitorId(): string {
-    let id = this._storage.getItem(STORAGE_KEY_VISITOR_ID);
+  private _getAnonymousId(): string {
+    let id = this._storage.getItem(STORAGE_KEY_ANONYMOUS_ID);
     if (!id) {
-      id = this._visitorId;
-      this._storage.setItem(STORAGE_KEY_VISITOR_ID, id);
+      id = this._anonymousId;
+      this._storage.setItem(STORAGE_KEY_ANONYMOUS_ID, id);
     }
     return id;
   }
 
-  private _generateId(prefix: string): string {
-    if (
-      typeof globalThis.crypto !== 'undefined' &&
-      typeof globalThis.crypto.randomUUID === 'function'
-    ) {
-      try {
-        return `${prefix}-${crypto.randomUUID()}`;
-      } catch {
-        // Continue with Math.random() fallback.
-      }
+  private _getUserId(): string {
+    let id = this._storage.getItem(STORAGE_KEY_USER_ID);
+    if (!id) {
+      id = this._userId;
+      this._storage.setItem(STORAGE_KEY_USER_ID, id);
     }
-    return `${prefix}-${Math.random().toString(36).substring(2)}`;
+    return id;
   }
 }
