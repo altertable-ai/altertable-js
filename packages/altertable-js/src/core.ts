@@ -15,6 +15,7 @@ import {
   STORAGE_KEY_SESSION_ID,
   STORAGE_KEY_VISITOR_ID,
 } from './constants';
+import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
@@ -172,7 +173,7 @@ export class Altertable {
       [PROPERTY_URL]: urlWithoutSearch,
       [PROPERTY_SESSION_ID]: this._getSessionId(),
       [PROPERTY_VISITOR_ID]: this._getVisitorId(),
-      [PROPERTY_VIEWPORT]: this._getViewport(),
+      [PROPERTY_VIEWPORT]: getViewport(),
       [PROPERTY_REFERER]: this._referrer,
       ...Object.fromEntries(parsedUrl.searchParams),
     });
@@ -277,12 +278,5 @@ export class Altertable {
       }
     }
     return `${prefix}-${Math.random().toString(36).substring(2)}`;
-  }
-
-  private _getViewport(): string {
-    return safelyRunOnBrowser(
-      ({ window }) => `${window.innerWidth}x${window.innerHeight}`,
-      () => '0x0'
-    );
   }
 }
