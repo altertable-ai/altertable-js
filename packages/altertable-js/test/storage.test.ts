@@ -21,6 +21,24 @@ describe('Storage API', () => {
   let onFallback: (message: string) => void;
   let originalWindow: typeof window;
 
+  function disableCookieSupport() {
+    // Mock cookie to fail by making the test cookie not persist
+    // This simulates a browser where cookies are disabled
+    let cookieValue = '';
+    Object.defineProperty(mockDocument, 'cookie', {
+      get: () => cookieValue,
+      set: (value: string) => {
+        // Simulate cookies not being supported by not storing them
+        if (value.includes('Max-Age=0')) {
+          // Allow cleanup to work
+          cookieValue = value;
+        }
+        // Don't store other cookies to simulate failure
+      },
+      configurable: true,
+    });
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -293,12 +311,12 @@ describe('Storage API', () => {
         mockLocalStorage.setItem.mockImplementation(() => {});
         mockLocalStorage.removeItem.mockImplementation(() => {});
 
-        // Mock cookie to fail by making the test fail
-        mockDocument.cookie = '';
+        disableCookieSupport();
 
-        // The fallback will not be triggered in this mock setup, so we skip the assertion
         selectStorage('localStorage+cookie', { onFallback });
-        expect(onFallback).not.toHaveBeenCalled();
+        expect(onFallback).toHaveBeenCalledWith(
+          'cookie not supported, falling back to localStorage.'
+        );
       });
 
       it('should fallback to memory when both localStorage and cookie fail', () => {
@@ -306,7 +324,6 @@ describe('Storage API', () => {
           throw new Error('QuotaExceededError');
         });
 
-        // The fallback will not be triggered in this mock setup, so we skip the assertion
         selectStorage('localStorage+cookie', { onFallback });
         expect(onFallback).toHaveBeenCalledWith(
           'localStorage+cookie not fully supported, falling back to cookie.'
@@ -325,12 +342,12 @@ describe('Storage API', () => {
       });
 
       it('should fallback to memory when cookie fails', () => {
-        // Mock cookie to fail by making the test fail
-        mockDocument.cookie = '';
+        disableCookieSupport();
 
-        // The fallback will not be triggered in this mock setup, so we skip the assertion
         selectStorage('cookie', { onFallback });
-        expect(onFallback).not.toHaveBeenCalled();
+        expect(onFallback).toHaveBeenCalledWith(
+          'cookie not supported, falling back to memory.'
+        );
       });
 
       it('should throw for unknown storage type', () => {
