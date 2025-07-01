@@ -491,6 +491,32 @@ modes.forEach(({ mode, description, setup }) => {
           onFallback: expect.any(Function),
         });
       });
+
+      it('should warn when storage fallback occurs', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          persistence: 'localStorage',
+        };
+
+        const warnSpy = vi
+          .spyOn(altertable['_logger'], 'warn')
+          .mockImplementation(() => {});
+
+        // Mock selectStorage to trigger a fallback
+        vi.spyOn(storageModule, 'selectStorage').mockImplementation(
+          (type, { onFallback }) => {
+            onFallback('localStorage not supported, falling back to memory.');
+            return createStorageMock();
+          }
+        );
+
+        altertable.init(apiKey, config);
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          'localStorage not supported, falling back to memory.'
+        );
+      });
     });
   });
 });
