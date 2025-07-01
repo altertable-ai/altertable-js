@@ -330,6 +330,18 @@ describe('Storage API', () => {
         );
       });
 
+      it('should fallback to memory when both localStorage and cookie fail completely', () => {
+        mockLocalStorage.setItem.mockImplementation(() => {
+          throw new Error('QuotaExceededError');
+        });
+        disableCookieSupport();
+
+        selectStorage('localStorage+cookie', { onFallback });
+        expect(onFallback).toHaveBeenCalledWith(
+          'Neither localStorage nor cookie supported, falling back to memory.'
+        );
+      });
+
       it('should fallback to memory when sessionStorage fails', () => {
         mockSessionStorage.setItem.mockImplementation(() => {
           throw new Error('SecurityError');
