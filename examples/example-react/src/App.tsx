@@ -1,8 +1,5 @@
 import { altertable } from '@altertable/altertable-js';
-import {
-  AltertableProvider,
-  useAltertable,
-} from '@altertable/altertable-react';
+import { AltertableProvider } from '@altertable/altertable-react';
 import {
   ConsentManagerDialog,
   ConsentManagerProvider,
