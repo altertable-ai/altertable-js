@@ -29,6 +29,6 @@
     "lint": "eslint src --ext ts",
     "lint:fix": "bun run lint --fix",
     "test": "vitest",
-    "test:watch": "vitest"
+    "test:watch": "vitest --watch"
   }
 }
