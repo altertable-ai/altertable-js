@@ -3,28 +3,26 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_ENVIRONMENT,
   DEFAULT_PERSISTENCE,
-  PAGEVIEW_EVENT,
+  EVENT_PAGEVIEW,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
-  PROPERTY_SESSION_ID,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
-  PROPERTY_VISITOR_ID,
-  STORAGE_KEY_SESSION_ID,
-  STORAGE_KEY_VISITOR_ID,
 } from './constants';
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
+import { SessionManager } from './lib/sessionManager';
 import {
   selectStorage,
   type StorageApi,
   type StorageType,
 } from './lib/storage';
-import { EventPayload, EventProperties } from './types';
+import { validateUserId } from './lib/validateUserId';
+import { EventPayload, EventProperties, UserTraits } from './types';
 
 export interface AltertableConfig {
   /**
@@ -67,17 +65,12 @@ export class Altertable {
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
-  private _sessionId: string;
+  private _sessionManager: SessionManager | undefined;
   private _storage: StorageApi | undefined;
-  private _userId: string;
-  private _visitorId: string;
 
   constructor() {
-    this._referrer = null;
     this._lastUrl = null;
-    this._sessionId = this._generateId('session');
-    this._visitorId = this._generateId('visitor');
-    this._userId = this._generateId('anonymous');
+    this._referrer = null;
   }
 
   init(apiKey: string, config: AltertableConfig = {}) {
@@ -95,6 +88,13 @@ export class Altertable {
     this._storage = selectStorage(persistence, {
       onFallback: message => this._logger.warn(message),
     });
+
+    this._sessionManager = new SessionManager({
+      storage: this._storage,
+      logger: this._logger,
+    });
+    this._sessionManager.init();
+
     this._isInitialized = true;
 
     if (this._config.debug) {
@@ -109,12 +109,10 @@ export class Altertable {
   }
 
   configure(updates: Partial<AltertableConfig>) {
-    if (!this._isInitialized) {
-      this._logger.warnDev(
-        'The client must be initialized with init() before configuring.'
-      );
-      return;
-    }
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before configuring.'
+    );
 
     if (
       updates.autoCapture !== undefined &&
@@ -154,25 +152,67 @@ export class Altertable {
     }
   }
 
-  identify(userId: string) {
-    // FIXME: dummy implementation
-    this._userId = userId;
+  identify(userId: string, traits: UserTraits) {
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before identifying users.'
+    );
+
+    try {
+      validateUserId(userId);
+    } catch (error) {
+      throw new Error(`[Altertable] ${error.message}`);
+    }
+
+    this._sessionManager.setUserId(userId);
+    this._request('/identify', {
+      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+      traits,
+      user_id: userId,
+      visitor_id: this._sessionManager.getVisitorId(),
+    });
+  }
+
+  updateTraits(traits: UserTraits) {
+    const userId = this._sessionManager.getUserId();
+    invariant(
+      userId,
+      'User must be identified with identify() before updating traits.'
+    );
+
+    this._request('/identify', {
+      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+      traits,
+      user_id: userId,
+      visitor_id: this._sessionManager.getVisitorId(),
+    });
+  }
+
+  reset({
+    resetVisitorId = false,
+    resetSessionId = true,
+  }: {
+    resetVisitorId?: boolean;
+    resetSessionId?: boolean;
+  } = {}) {
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before resetting.'
+    );
+
+    this._sessionManager.reset({ resetVisitorId, resetSessionId });
   }
 
   page(url: string) {
-    if (!this._isInitialized) {
-      this._logger.warnDev(
-        'The client must be initialized with init() before configuring.'
-      );
-      return;
-    }
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before tracking page views.'
+    );
 
     const parsedUrl = new URL(url);
     const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
-    this.track(PAGEVIEW_EVENT, {
+    this.track(EVENT_PAGEVIEW, {
       [PROPERTY_URL]: urlWithoutSearch,
-      [PROPERTY_SESSION_ID]: this._getSessionId(),
-      [PROPERTY_VISITOR_ID]: this._getVisitorId(),
       [PROPERTY_VIEWPORT]: getViewport(),
       [PROPERTY_REFERER]: this._referrer,
       ...Object.fromEntries(parsedUrl.searchParams),
@@ -180,18 +220,22 @@ export class Altertable {
   }
 
   track(event: string, properties: EventProperties = {}) {
-    if (!this._isInitialized) {
-      this._logger.warnDev(
-        'The client must be initialized with init() before tracking events.'
-      );
-      return;
-    }
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before tracking events.'
+    );
+
+    this._sessionManager.renewSessionIfNeeded();
+    const timestamp = new Date().toISOString();
+    this._sessionManager.updateLastEventAt(timestamp);
 
     const payload: EventPayload = {
-      timestamp: new Date().toISOString(),
+      timestamp,
       event,
-      user_id: this._userId,
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
+      user_id: this._sessionManager.getUserId(),
+      session_id: this._sessionManager.getSessionId(),
+      visitor_id: this._sessionManager.getVisitorId(),
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -246,37 +290,5 @@ export class Altertable {
         body: payload,
       });
     }
-  }
-
-  private _getSessionId(): string {
-    let id = this._storage.getItem(STORAGE_KEY_SESSION_ID);
-    if (!id) {
-      id = this._sessionId;
-      this._storage.setItem(STORAGE_KEY_SESSION_ID, id);
-    }
-    return id;
-  }
-
-  private _getVisitorId(): string {
-    let id = this._storage.getItem(STORAGE_KEY_VISITOR_ID);
-    if (!id) {
-      id = this._visitorId;
-      this._storage.setItem(STORAGE_KEY_VISITOR_ID, id);
-    }
-    return id;
-  }
-
-  private _generateId(prefix: string): string {
-    if (
-      typeof globalThis.crypto !== 'undefined' &&
-      typeof globalThis.crypto.randomUUID === 'function'
-    ) {
-      try {
-        return `${prefix}-${crypto.randomUUID()}`;
-      } catch {
-        // Continue with Math.random() fallback.
-      }
-    }
-    return `${prefix}-${Math.random().toString(36).substring(2)}`;
   }
 }
