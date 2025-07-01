@@ -155,7 +155,7 @@ export function selectStorage(
         );
         return new CookieStore();
       } else if (localStorageSupported) {
-        onFallback('Cookie not supported, falling back to localStorage.');
+        onFallback('cookie not supported, falling back to localStorage.');
         return new WebStorageStore('localStorage');
       } else {
         onFallback(
@@ -177,7 +177,7 @@ export function selectStorage(
       if (testStorageSupport('cookie')) {
         return new CookieStore();
       }
-      onFallback('Cookie not supported, falling back to memory.');
+      onFallback('cookie not supported, falling back to memory.');
       return new MemoryStore();
     }
 
