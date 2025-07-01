@@ -295,6 +295,45 @@ modes.forEach(({ mode, description, setup }) => {
       }
     });
 
+    it('should set viewport to null when window is not available', () => {
+      // Remove window from global scope to simulate server-side environment
+      const originalWindow = global.window;
+      delete (global as any).window;
+
+      const config: AltertableConfig = {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+      };
+      altertable.init(apiKey, config);
+
+      altertable.page('http://localhost/test-page');
+
+      if (mode === 'beacon') {
+        expect(navigator.sendBeacon).toHaveBeenCalled();
+        expectBeaconCall(config, apiKey);
+      } else {
+        expect(fetch).toHaveBeenCalled();
+        expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          event: PAGEVIEW_EVENT,
+          user_id: `anonymous-${randomId}`,
+          environment: 'production',
+          properties: {
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+            [PROPERTY_URL]: 'http://localhost/test-page',
+            [PROPERTY_SESSION_ID]: `session-${randomId}`,
+            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
+            [PROPERTY_VIEWPORT]: null,
+            [PROPERTY_REFERER]: null,
+          },
+        });
+      }
+
+      // Restore window
+      global.window = originalWindow;
+    });
+
     it('warns when page() is called before initialization', () => {
       expect(() => {
         altertable.page('http://localhost/test');
