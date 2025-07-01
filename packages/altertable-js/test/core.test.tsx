@@ -13,6 +13,7 @@ import {
   PROPERTY_VISITOR_ID,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
+import * as storageModule from '../src/lib/storage';
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
@@ -446,6 +447,49 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledTimes(0);
+      });
+    });
+
+    describe('persistence configuration', () => {
+      const createStorageMock = () => ({
+        getItem: vi.fn().mockReturnValue(null),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+      });
+
+      it('should use localStorage+cookie as default persistence strategy', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const selectStorageSpy = vi
+          .spyOn(storageModule, 'selectStorage')
+          .mockReturnValue(createStorageMock());
+
+        altertable.init(apiKey, config);
+
+        expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
+          onError: expect.any(Function),
+        });
+      });
+
+      it('should use custom persistence strategy when provided', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          persistence: 'memory',
+        };
+
+        const selectStorageSpy = vi
+          .spyOn(storageModule, 'selectStorage')
+          .mockReturnValue(createStorageMock());
+
+        altertable.init(apiKey, config);
+
+        expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
+          onError: expect.any(Function),
+        });
       });
     });
   });
