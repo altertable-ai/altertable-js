@@ -470,7 +470,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.init(apiKey, config);
 
         expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
-          onError: expect.any(Function),
+          onFallback: expect.any(Function),
         });
       });
 
@@ -488,7 +488,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.init(apiKey, config);
 
         expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
-          onError: expect.any(Function),
+          onFallback: expect.any(Function),
         });
       });
     });

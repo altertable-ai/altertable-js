@@ -94,7 +94,7 @@ export class Altertable {
     const persistence: StorageType =
       config.persistence ?? 'localStorage+cookie';
     this._storage = selectStorage(persistence, {
-      onError: message => this._logger.error(message),
+      onFallback: message => this._logger.warn(message),
     });
     this._isInitialized = true;
 

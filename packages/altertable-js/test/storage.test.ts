@@ -18,7 +18,7 @@ describe('Storage API', () => {
   let mockDocument: Partial<Document>;
   let mockLocalStorage: MockStorage;
   let mockSessionStorage: MockStorage;
-  let onError: (message: string) => void;
+  let onFallback: (message: string) => void;
   let originalWindow: typeof window;
 
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe('Storage API', () => {
       configurable: true,
     });
 
-    onError = vi.fn();
+    onFallback = vi.fn();
   });
 
   afterEach(() => {
@@ -65,7 +65,7 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
-      storage = selectStorage('memory', { onError });
+      storage = selectStorage('memory', { onFallback });
     });
 
     it('should store and retrieve values', () => {
@@ -95,7 +95,7 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
-      storage = selectStorage('cookie', { onError });
+      storage = selectStorage('cookie', { onFallback });
     });
 
     it('should store and retrieve values from cookies', () => {
@@ -130,7 +130,7 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
-      storage = selectStorage('localStorage', { onError });
+      storage = selectStorage('localStorage', { onFallback });
     });
 
     it('should store and retrieve values from localStorage', () => {
@@ -177,7 +177,7 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
-      storage = selectStorage('sessionStorage', { onError });
+      storage = selectStorage('sessionStorage', { onFallback });
     });
 
     it('should store and retrieve values from sessionStorage', () => {
@@ -196,7 +196,7 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
-      storage = selectStorage('localStorage+cookie', { onError });
+      storage = selectStorage('localStorage+cookie', { onFallback });
     });
 
     it('should store values in both localStorage and cookies', () => {
@@ -232,7 +232,7 @@ describe('Storage API', () => {
         mockLocalStorage.setItem.mockImplementation(() => {});
         mockLocalStorage.removeItem.mockImplementation(() => {});
 
-        const storage = selectStorage('localStorage', { onError });
+        const storage = selectStorage('localStorage', { onFallback });
         expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
           STORAGE_KEY_TEST,
           '1'
@@ -246,7 +246,7 @@ describe('Storage API', () => {
         mockSessionStorage.setItem.mockImplementation(() => {});
         mockSessionStorage.removeItem.mockImplementation(() => {});
 
-        const storage = selectStorage('sessionStorage', { onError });
+        const storage = selectStorage('sessionStorage', { onFallback });
         expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
           STORAGE_KEY_TEST,
           '1'
@@ -257,7 +257,7 @@ describe('Storage API', () => {
       });
 
       it('should test cookie support correctly', () => {
-        const storage = selectStorage('cookie', { onError });
+        const storage = selectStorage('cookie', { onFallback });
         // Only the cleared cookie will be present due to the mock
         expect(mockDocument.cookie).toContain(
           `${STORAGE_KEY_TEST}=; Max-Age=0`
@@ -271,8 +271,8 @@ describe('Storage API', () => {
           throw new Error('QuotaExceededError');
         });
 
-        selectStorage('localStorage', { onError });
-        expect(onError).toHaveBeenCalledWith(
+        selectStorage('localStorage', { onFallback });
+        expect(onFallback).toHaveBeenCalledWith(
           'localStorage not supported, falling back to localStorage+cookie.'
         );
       });
@@ -282,8 +282,8 @@ describe('Storage API', () => {
           throw new Error('QuotaExceededError');
         });
 
-        selectStorage('localStorage+cookie', { onError });
-        expect(onError).toHaveBeenCalledWith(
+        selectStorage('localStorage+cookie', { onFallback });
+        expect(onFallback).toHaveBeenCalledWith(
           'localStorage+cookie not fully supported, falling back to cookie.'
         );
       });
@@ -297,8 +297,8 @@ describe('Storage API', () => {
         mockDocument.cookie = '';
 
         // The fallback will not be triggered in this mock setup, so we skip the assertion
-        selectStorage('localStorage+cookie', { onError });
-        expect(onError).not.toHaveBeenCalled();
+        selectStorage('localStorage+cookie', { onFallback });
+        expect(onFallback).not.toHaveBeenCalled();
       });
 
       it('should fallback to memory when both localStorage and cookie fail', () => {
@@ -307,8 +307,8 @@ describe('Storage API', () => {
         });
 
         // The fallback will not be triggered in this mock setup, so we skip the assertion
-        selectStorage('localStorage+cookie', { onError });
-        expect(onError).toHaveBeenCalledWith(
+        selectStorage('localStorage+cookie', { onFallback });
+        expect(onFallback).toHaveBeenCalledWith(
           'localStorage+cookie not fully supported, falling back to cookie.'
         );
       });
@@ -318,8 +318,8 @@ describe('Storage API', () => {
           throw new Error('SecurityError');
         });
 
-        selectStorage('sessionStorage', { onError });
-        expect(onError).toHaveBeenCalledWith(
+        selectStorage('sessionStorage', { onFallback });
+        expect(onFallback).toHaveBeenCalledWith(
           'sessionStorage not supported, falling back to memory.'
         );
       });
@@ -329,17 +329,17 @@ describe('Storage API', () => {
         mockDocument.cookie = '';
 
         // The fallback will not be triggered in this mock setup, so we skip the assertion
-        selectStorage('cookie', { onError });
-        expect(onError).not.toHaveBeenCalled();
+        selectStorage('cookie', { onFallback });
+        expect(onFallback).not.toHaveBeenCalled();
       });
 
       it('should throw for unknown storage type', () => {
         expect(() => {
-          selectStorage('unknown' as StorageType, { onError });
+          selectStorage('unknown' as StorageType, { onFallback });
         }).toThrow(
           'Unknown storage type: "unknown". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.'
         );
-        expect(onError).not.toHaveBeenCalled();
+        expect(onFallback).not.toHaveBeenCalled();
       });
     });
 
@@ -351,7 +351,7 @@ describe('Storage API', () => {
           configurable: true,
         });
 
-        const storage = selectStorage('localStorage', { onError });
+        const storage = selectStorage('localStorage', { onFallback });
         expect(storage.getItem('test')).toBeNull();
       });
     });

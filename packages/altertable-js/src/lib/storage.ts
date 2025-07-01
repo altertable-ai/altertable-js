@@ -128,16 +128,16 @@ function testStorageSupport(
 
 export function selectStorage(
   type: StorageType | 'unknown',
-  params: { onError: (message: string) => void }
+  params: { onFallback: (message: string) => void }
 ): StorageApi {
-  const { onError } = params;
+  const { onFallback } = params;
 
   switch (type) {
     case 'localStorage': {
       if (testStorageSupport('localStorage')) {
         return new WebStorageStore('localStorage');
       }
-      onError(
+      onFallback(
         'localStorage not supported, falling back to localStorage+cookie.'
       );
       return selectStorage('localStorage+cookie', params);
@@ -150,15 +150,15 @@ export function selectStorage(
       if (localStorageSupported && cookieSupported) {
         return new LocalPlusCookieStore();
       } else if (cookieSupported) {
-        onError(
+        onFallback(
           'localStorage+cookie not fully supported, falling back to cookie.'
         );
         return new CookieStore();
       } else if (localStorageSupported) {
-        onError('Cookie not supported, falling back to localStorage.');
+        onFallback('Cookie not supported, falling back to localStorage.');
         return new WebStorageStore('localStorage');
       } else {
-        onError(
+        onFallback(
           'Neither localStorage nor cookie supported, falling back to memory.'
         );
         return new MemoryStore();
@@ -169,7 +169,7 @@ export function selectStorage(
       if (testStorageSupport('sessionStorage')) {
         return new WebStorageStore('sessionStorage');
       }
-      onError('sessionStorage not supported, falling back to memory.');
+      onFallback('sessionStorage not supported, falling back to memory.');
       return new MemoryStore();
     }
 
@@ -177,7 +177,7 @@ export function selectStorage(
       if (testStorageSupport('cookie')) {
         return new CookieStore();
       }
-      onError('Cookie not supported, falling back to memory.');
+      onFallback('Cookie not supported, falling back to memory.');
       return new MemoryStore();
     }
 
