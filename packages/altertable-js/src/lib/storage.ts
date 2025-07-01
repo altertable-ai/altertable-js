@@ -186,8 +186,9 @@ export function selectStorage(
     }
 
     default: {
-      onError('Unknown storage type, falling back to localStorage+cookie.');
-      return selectStorage('localStorage+cookie', params);
+      throw new Error(
+        `Unknown storage type: "${type}". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.`
+      );
     }
   }
 }

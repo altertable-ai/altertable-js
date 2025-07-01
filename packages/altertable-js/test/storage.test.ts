@@ -333,11 +333,13 @@ describe('Storage API', () => {
         expect(onError).not.toHaveBeenCalled();
       });
 
-      it('should fallback to localStorage+cookie for unknown storage type', () => {
-        selectStorage('unknown' as StorageType, { onError });
-        expect(onError).toHaveBeenCalledWith(
-          'Unknown storage type, falling back to localStorage+cookie.'
+      it('should throw for unknown storage type', () => {
+        expect(() => {
+          selectStorage('unknown' as StorageType, { onError });
+        }).toThrow(
+          'Unknown storage type: "unknown". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.'
         );
+        expect(onError).not.toHaveBeenCalled();
       });
     });
 
