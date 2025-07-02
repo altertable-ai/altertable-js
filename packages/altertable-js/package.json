@@ -26,7 +26,7 @@
     "build": "tsup --env.mode production",
     "dev": "tsup --watch --env.mode development",
     "clean": "rm -rf dist",
-    "type-check": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "lint:fix": "bun run lint --fix",
     "test": "vitest",
