@@ -85,6 +85,7 @@ export class SessionManager {
 
     if (shouldRenew) {
       this._renewSession();
+      this._persistToStorage();
       return true;
     }
 
