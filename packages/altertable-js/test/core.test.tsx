@@ -1,21 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
 import {
-  AUTO_CAPTURE_INTERVAL,
-  PAGEVIEW_EVENT,
+  AUTO_CAPTURE_INTERVAL_MS,
+  EVENT_PAGEVIEW,
+  PREFIX_SESSION_ID,
+  PREFIX_VISITOR_ID,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
-  PROPERTY_SESSION_ID,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
-  PROPERTY_VISITOR_ID,
+  STORAGE_KEY,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
 import * as storageModule from '../src/lib/storage';
+import { UserId, UserTraits } from '../src/types';
 
-const DATE_ISO_REGEXP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
+const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
@@ -90,12 +94,20 @@ modes.forEach(({ mode, description, setup }) => {
     const apiKey = 'test-api-key';
     const viewPort = '1024x768';
 
-    // Generate a fixed randomId and override crypto.randomUUID
-    const randomId: string = crypto.randomUUID();
-    crypto.randomUUID = vi.fn(() => randomId) as any;
+    // Generate different random IDs for each call to simulate real behavior
+    let idCounter = 0;
+    const originalRandomUUID = crypto.randomUUID;
+    crypto.randomUUID = vi.fn(() => {
+      idCounter++;
+      // Generate a deterministic but unique ID for each call
+      return `test-uuid-${idCounter}-${Date.now()}`;
+    }) as any;
 
     beforeEach(() => {
       setup();
+      if (altertable?.['_isInitialized']) {
+        altertable.reset({ resetVisitorId: true, resetSessionId: true });
+      }
       altertable = new Altertable();
     });
 
@@ -117,16 +129,16 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
-          event: PAGEVIEW_EVENT,
-          user_id: `anonymous-${randomId}`,
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          event: EVENT_PAGEVIEW,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: {
             [PROPERTY_LIB]: 'TEST_LIB_NAME',
             [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_URL]: 'http://localhost/page',
-            [PROPERTY_SESSION_ID]: `session-${randomId}`,
-            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: viewPort,
             [PROPERTY_REFERER]: null,
           },
@@ -170,9 +182,11 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'eventName',
-          user_id: `anonymous-${randomId}`,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: {
             [PROPERTY_LIB]: 'TEST_LIB_NAME',
@@ -199,9 +213,11 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'eventName',
-          user_id: `anonymous-${randomId}`,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: {
             [PROPERTY_LIB]: 'TEST_LIB_NAME',
@@ -230,7 +246,7 @@ modes.forEach(({ mode, description, setup }) => {
 
       // Simulate a URL change.
       setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
-      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL + 1);
+      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS + 1);
 
       if (mode === 'beacon') {
         const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
@@ -244,16 +260,16 @@ modes.forEach(({ mode, description, setup }) => {
         expect(options.method).toBe('POST');
         expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
         expect(JSON.parse(options.body)).toEqual({
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
-          event: PAGEVIEW_EVENT,
-          user_id: `anonymous-${randomId}`,
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          event: EVENT_PAGEVIEW,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: {
             [PROPERTY_LIB]: 'TEST_LIB_NAME',
             [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_URL]: 'http://localhost/new-page',
-            [PROPERTY_SESSION_ID]: `session-${randomId}`,
-            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: viewPort,
             [PROPERTY_REFERER]: null as string | null,
             foo: 'bar',
@@ -300,6 +316,10 @@ modes.forEach(({ mode, description, setup }) => {
       const originalWindow = global.window;
       delete (global as any).window;
 
+      // No storage is available since we delete window, so we suppress the memory
+      // fallback storage warning
+      vi.spyOn(altertable['_logger'], 'warn').mockImplementation(() => {});
+
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
@@ -314,16 +334,16 @@ modes.forEach(({ mode, description, setup }) => {
       } else {
         expect(fetch).toHaveBeenCalled();
         expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
-          event: PAGEVIEW_EVENT,
-          user_id: `anonymous-${randomId}`,
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          event: EVENT_PAGEVIEW,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: {
             [PROPERTY_LIB]: 'TEST_LIB_NAME',
             [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
             [PROPERTY_URL]: 'http://localhost/test-page',
-            [PROPERTY_SESSION_ID]: `session-${randomId}`,
-            [PROPERTY_VISITOR_ID]: `visitor-${randomId}`,
             [PROPERTY_VIEWPORT]: null,
             [PROPERTY_REFERER]: null,
           },
@@ -334,18 +354,18 @@ modes.forEach(({ mode, description, setup }) => {
       global.window = originalWindow;
     });
 
-    it('warns when page() is called before initialization', () => {
+    it('throws when page() is called before initialization', () => {
       expect(() => {
         altertable.page('http://localhost/test');
-      }).toWarnDev(
-        '[Altertable] The client must be initialized with init() before configuring.'
+      }).toThrow(
+        '[Altertable] The client must be initialized with init() before tracking page views.'
       );
     });
 
-    it('warns when track() is called before initialization', () => {
+    it('throws when track() is called before initialization', () => {
       expect(() => {
         altertable.track('test-event', { foo: 'bar' });
-      }).toWarnDev(
+      }).toThrow(
         '[Altertable] The client must be initialized with init() before tracking events.'
       );
     });
@@ -359,10 +379,10 @@ modes.forEach(({ mode, description, setup }) => {
         }
       }
 
-      it('warns when configure() is called before initialization', () => {
+      it('throws when configure() is called before initialization', () => {
         expect(() => {
           altertable.configure({ debug: true });
-        }).toWarnDev(
+        }).toThrow(
           '[Altertable] The client must be initialized with init() before configuring.'
         );
       });
@@ -385,9 +405,11 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'test-event',
-          user_id: `anonymous-${randomId}`,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: expect.objectContaining({
             [PROPERTY_RELEASE]: 'test-release',
@@ -418,9 +440,11 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'test-event',
-          user_id: `anonymous-${randomId}`,
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'staging',
           properties: expect.objectContaining({
             [PROPERTY_RELEASE]: 'v1.0.0',
@@ -471,9 +495,11 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(DATE_ISO_REGEXP),
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'test-event',
-          user_id: expect.stringMatching(/anonymous-/),
+          user_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
           environment: 'production',
           properties: expect.objectContaining({
             foo: 'bar',
@@ -563,6 +589,504 @@ modes.forEach(({ mode, description, setup }) => {
         expect(warnSpy).toHaveBeenCalledWith(
           'localStorage not supported, falling back to memory.'
         );
+      });
+    });
+
+    describe('user identification', () => {
+      it('should identify user with valid user ID and traits', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        const userId: UserId = 'user123';
+        const traits: UserTraits = { email: 'user@example.com' };
+
+        altertable.identify(userId, traits);
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledWith(
+            'http://localhost/identify?apiKey=test-api-key',
+            expect.anything()
+          );
+        } else {
+          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+          expect(fetchCall[0]).toBe('http://localhost/identify');
+          const options = fetchCall[1];
+          expect(options.method).toBe('POST');
+          expect(options.headers['Content-Type']).toBe('application/json');
+          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+
+          const body = JSON.parse(options.body);
+          expect(body).toEqual({
+            environment: 'production',
+            traits,
+            user_id: userId,
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          });
+        }
+      });
+
+      it('should throw error for reserved user ID', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        expect(() => {
+          altertable.identify('anonymous_id', {});
+        }).toThrow(
+          '[Altertable] User ID "anonymous_id" is a reserved identifier and cannot be used.'
+        );
+      });
+
+      it('should throw error for empty user ID', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        expect(() => {
+          altertable.identify('', {});
+        }).toThrow(
+          '[Altertable] User ID cannot be empty or contain only whitespace.'
+        );
+      });
+
+      it('should throw when identify called before init', () => {
+        expect(() => {
+          altertable.identify('user123', {});
+        }).toThrow(
+          '[Altertable] The client must be initialized with init() before identifying users.'
+        );
+      });
+
+      it('should update traits for identified user', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        if (mode === 'beacon') {
+          (navigator.sendBeacon as Mock).mockClear();
+        } else {
+          (fetch as unknown as Mock).mockClear();
+        }
+
+        const newTraits = { name: 'John Doe', plan: 'premium' };
+        altertable.updateTraits(newTraits);
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledWith(
+            'http://localhost/identify?apiKey=test-api-key',
+            expect.anything()
+          );
+        } else {
+          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+          expect(fetchCall[0]).toBe('http://localhost/identify');
+          const options = fetchCall[1];
+          expect(options.method).toBe('POST');
+          expect(options.headers['Content-Type']).toBe('application/json');
+          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+
+          const body = JSON.parse(options.body);
+          expect(body).toEqual({
+            environment: 'production',
+            traits: newTraits,
+            user_id: 'user123',
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          });
+        }
+      });
+
+      it('should throw when updateTraits called without identifying user', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        expect(() => {
+          altertable.updateTraits({ email: 'user@example.com' });
+        }).toThrow(
+          '[Altertable] User must be identified with identify() before updating traits.'
+        );
+      });
+    });
+
+    describe('session management', () => {
+      it('should generate new session ID on initialization', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        const sessionId = altertable['_sessionManager'].getSessionId();
+        expect(sessionId).toMatch(REGEXP_SESSION_ID);
+      });
+
+      it('should persist session ID across page reloads', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const testVisitorId = 'visitor-test-uuid-1-1234567890';
+        const testSessionId = 'session-test-uuid-2-1234567890';
+        const existingSessionData = JSON.stringify({
+          visitorId: testVisitorId,
+          sessionId: testSessionId,
+          userId: null,
+          lastEventAt: null,
+        });
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
+          getItem: vi.fn().mockReturnValue(existingSessionData),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        });
+
+        altertable.init(apiKey, config);
+
+        const sessionId = altertable['_sessionManager'].getSessionId();
+        expect(sessionId).toBe(testSessionId);
+      });
+
+      it('should regenerate session ID when event is sent after 30 minutes since last event', () => {
+        vi.useFakeTimers();
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const testVisitorId = 'visitor-test-uuid-3-1234567890';
+        const testSessionId = 'session-test-uuid-4-1234567890';
+        const thirtyMinutesAgo = new Date(
+          Date.now() - 30 * 60 * 1000 - 1000
+        ).toISOString(); // 30 minutes + 1 second ago
+        const existingSessionData = JSON.stringify({
+          visitorId: testVisitorId,
+          sessionId: testSessionId,
+          userId: null,
+          lastEventAt: thirtyMinutesAgo,
+        });
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
+          getItem: vi.fn().mockReturnValue(existingSessionData),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        });
+
+        altertable.init(apiKey, config);
+
+        const initialSessionId = altertable['_sessionManager'].getSessionId();
+        expect(initialSessionId).toBe(testSessionId);
+
+        if (mode === 'beacon') {
+          (navigator.sendBeacon as Mock).mockClear();
+        } else {
+          (fetch as unknown as Mock).mockClear();
+        }
+
+        // Send an event - this should trigger session renewal
+        altertable.track('test-event', { foo: 'bar' });
+
+        // Verify that a new session ID was generated
+        const newSessionId = altertable['_sessionManager'].getSessionId();
+        expect(newSessionId).not.toBe(testSessionId);
+        expect(newSessionId).toMatch(REGEXP_SESSION_ID);
+
+        // Verify that the event was sent with the new session ID
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalled();
+          expectBeaconCall(config, apiKey);
+        } else {
+          expect(fetch).toHaveBeenCalled();
+          expectFetchCall(config, apiKey, {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: newSessionId,
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: {
+              [PROPERTY_LIB]: 'TEST_LIB_NAME',
+              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+              foo: 'bar',
+            },
+          });
+        }
+
+        vi.useRealTimers();
+      });
+
+      it('should not regenerate session ID when event is sent within 30 minutes of last event', () => {
+        vi.useFakeTimers();
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const testVisitorId = 'visitor-test-uuid-5-1234567890';
+        const testSessionId = 'session-test-uuid-6-1234567890';
+        const twentyNineMinutesAgo = new Date(
+          Date.now() - 29 * 60 * 1000
+        ).toISOString(); // 29 minutes ago (within 30 min window)
+        const existingSessionData = JSON.stringify({
+          visitorId: testVisitorId,
+          sessionId: testSessionId,
+          userId: null,
+          lastEventAt: twentyNineMinutesAgo,
+        });
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
+          getItem: vi.fn().mockReturnValue(existingSessionData),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        });
+
+        altertable.init(apiKey, config);
+
+        const initialSessionId = altertable['_sessionManager'].getSessionId();
+        expect(initialSessionId).toBe(testSessionId);
+
+        if (mode === 'beacon') {
+          (navigator.sendBeacon as Mock).mockClear();
+        } else {
+          (fetch as unknown as Mock).mockClear();
+        }
+
+        // Send an event - this should NOT trigger session renewal
+        altertable.track('test-event', { foo: 'bar' });
+
+        // Verify that the session ID remains the same
+        const currentSessionId = altertable['_sessionManager'].getSessionId();
+        expect(currentSessionId).toBe(testSessionId);
+
+        // Verify that the event was sent with the same session ID
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalled();
+          expectBeaconCall(config, apiKey);
+        } else {
+          expect(fetch).toHaveBeenCalled();
+          expectFetchCall(config, apiKey, {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: testSessionId,
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: {
+              [PROPERTY_LIB]: 'TEST_LIB_NAME',
+              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+              foo: 'bar',
+            },
+          });
+        }
+
+        vi.useRealTimers();
+      });
+
+      it('should reset user ID when reset called', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        altertable.identify('user123', {});
+        const originalUserId = altertable['_sessionManager'].getUserId();
+        expect(originalUserId).toBe('user123');
+
+        altertable.reset();
+        const userId = altertable['_sessionManager'].getUserId();
+        expect(userId).toBeNull();
+      });
+
+      it('should reset session ID when reset called with default parameters', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        altertable.init(apiKey, config);
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        const originalSessionId = altertable['_sessionManager'].getSessionId();
+        const originalUserId = altertable['_sessionManager'].getUserId();
+        const originalVisitorId = altertable['_sessionManager'].getVisitorId();
+
+        expect(originalUserId).toBe('user123');
+
+        altertable.reset();
+
+        const newSessionId = altertable['_sessionManager'].getSessionId();
+        expect(newSessionId).not.toEqual(originalSessionId);
+        expect(newSessionId).toMatch(REGEXP_SESSION_ID);
+
+        const newUserId = altertable['_sessionManager'].getUserId();
+        expect(newUserId).toBeNull();
+        expect(newUserId).not.toEqual(originalUserId);
+
+        // Visitor ID should remain the same (not reset by default)
+        const newVisitorId = altertable['_sessionManager'].getVisitorId();
+        expect(newVisitorId).toEqual(originalVisitorId);
+      });
+
+      it('should reset visitor ID when reset called with resetVisitorId', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        altertable.init(apiKey, config);
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        const originalUserId = altertable['_sessionManager'].getUserId();
+        const originalVisitorId = altertable['_sessionManager'].getVisitorId();
+
+        expect(originalUserId).toBe('user123');
+
+        altertable.reset({ resetVisitorId: true });
+
+        const newVisitorId = altertable['_sessionManager'].getVisitorId();
+        expect(newVisitorId).not.toEqual(originalVisitorId);
+        expect(newVisitorId).toMatch(REGEXP_VISITOR_ID);
+      });
+
+      it('should not reset session ID when reset called with resetSessionId: false', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        altertable.init(apiKey, config);
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        const originalUserId = altertable['_sessionManager'].getUserId();
+        const originalSessionId = altertable['_sessionManager'].getSessionId();
+
+        expect(originalUserId).toBe('user123');
+
+        altertable.reset({ resetSessionId: false });
+
+        const newSessionId = altertable['_sessionManager'].getSessionId();
+        expect(newSessionId).toEqual(originalSessionId);
+      });
+
+      it('should throw when reset called before initialization', () => {
+        expect(() => {
+          altertable.reset();
+        }).toThrow(
+          '[Altertable] The client must be initialized with init() before resetting.'
+        );
+      });
+    });
+
+    describe('storage system', () => {
+      it('should save user data to storage when identify called', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const storageMock = {
+          getItem: vi.fn().mockReturnValue(null),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        };
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        altertable.init(apiKey, config);
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        expect(storageMock.setItem).toHaveBeenCalledWith(
+          STORAGE_KEY,
+          expect.stringContaining('"userId":"user123"')
+        );
+
+        const lastCall =
+          storageMock.setItem.mock.calls[
+            storageMock.setItem.mock.calls.length - 1
+          ];
+        const storedData = JSON.parse(lastCall[1]);
+        expect(storedData).toMatchObject({
+          visitorId: expect.stringMatching(REGEXP_VISITOR_ID),
+          sessionId: expect.stringMatching(REGEXP_SESSION_ID),
+          userId: 'user123',
+          lastEventAt: null,
+        });
+      });
+
+      it('should recover storage data on initialization', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const testVisitorId = 'visitor-test-uuid-3-1234567890';
+        const testSessionId = 'session-test-uuid-4-1234567890';
+        const existingData = JSON.stringify({
+          visitorId: testVisitorId,
+          sessionId: testSessionId,
+          userId: 'user123',
+          lastEventAt: '2023-01-01T00:00:00.000Z',
+        });
+
+        const storageMock = {
+          getItem: vi.fn().mockReturnValue(existingData),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        };
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        altertable.init(apiKey, config);
+
+        const visitorId = altertable['_sessionManager'].getVisitorId();
+        const sessionId = altertable['_sessionManager'].getSessionId();
+        const userId = altertable['_sessionManager'].getUserId();
+        const lastEventAt = altertable['_sessionManager'].getLastEventAt();
+        expect(visitorId).toBe(testVisitorId);
+        expect(sessionId).toBe(testSessionId);
+        expect(userId).toBe('user123');
+        expect(lastEventAt).toBe('2023-01-01T00:00:00.000Z');
+      });
+
+      it('should handle corrupted storage data gracefully', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+
+        const storageMock = {
+          getItem: vi.fn().mockReturnValue('invalid-json'),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        };
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        expect(() => {
+          altertable.init(apiKey, config);
+        }).toWarnDev(
+          '[Altertable] Failed to parse storage data. Resetting session data.'
+        );
+
+        const userId = altertable['_sessionManager'].getUserId();
+        const sessionId = altertable['_sessionManager'].getSessionId();
+        const visitorId = altertable['_sessionManager'].getVisitorId();
+        expect(userId).toBeNull();
+        expect(sessionId).toMatch(REGEXP_SESSION_ID);
+        expect(visitorId).toMatch(REGEXP_VISITOR_ID);
       });
     });
   });
