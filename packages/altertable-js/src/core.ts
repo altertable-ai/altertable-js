@@ -89,16 +89,7 @@ export class Altertable {
   init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
-    this._referrer = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.document.referrer || null,
-      () => null
-    );
-    this._lastUrl = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.location.href || null,
-      () => null
-    );
-    const persistence: StorageType = config.persistence ?? DEFAULT_PERSISTENCE;
-    this._storage = selectStorage(persistence, {
+    this._storage = selectStorage(config.persistence ?? DEFAULT_PERSISTENCE, {
       onFallback: message => this._logger.warn(message),
     });
     this._sessionManager = new SessionManager({
@@ -117,6 +108,14 @@ export class Altertable {
       batchDelay: DEFAULT_BATCH_DELAY,
       maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
     });
+    this._referrer = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.document.referrer || null,
+      () => null
+    );
+    this._lastUrl = safelyRunOnBrowser<string | null>(
+      ({ window }) => window.location.href || null,
+      () => null
+    );
     this._isInitialized = true;
 
     if (this._config.debug) {
