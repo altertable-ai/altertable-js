@@ -8,6 +8,13 @@ export type EventPayload = {
   visitor_id: VisitorId;
 };
 
+export type IdentifyPayload = {
+  environment: string;
+  traits: UserTraits;
+  user_id: UserId;
+  visitor_id: VisitorId;
+};
+
 export type EventProperties = Record<string, unknown>;
 
 export type UserId = string;

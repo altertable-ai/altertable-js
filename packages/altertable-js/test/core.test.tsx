@@ -51,6 +51,11 @@ const expectFetchCall = (
   expect(JSON.parse(options.body)).toEqual(payload);
 };
 
+// Helper to wait for network calls in the new queue-based system
+const waitForNetworkCall = async (altertable: Altertable) => {
+  await altertable.flush();
+};
+
 const modes: {
   mode: 'beacon' | 'fetch';
   description: string;
@@ -63,8 +68,13 @@ const modes: {
       setWindowLocation('http://localhost/page');
       // Setup sendBeacon.
       global.navigator = { sendBeacon: vi.fn() } as any;
-      // Remove fetch if present.
-      global.fetch = undefined as any;
+      // Setup fetch for NetworkManager (it always uses fetch now)
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        })
+      ) as any;
     },
   },
   {
@@ -116,34 +126,33 @@ modes.forEach(({ mode, description, setup }) => {
       vi.useRealTimers();
     });
 
-    it('should send a page event on init with the current URL', () => {
+    it('should send a page event on init with the current URL', async () => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: true,
       };
       altertable.init(apiKey, config);
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/page',
-            [PROPERTY_VIEWPORT]: viewPort,
-            [PROPERTY_REFERER]: null,
-          },
-        });
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      expectFetchCall(config, apiKey, {
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: EVENT_PAGEVIEW,
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          [PROPERTY_URL]: 'http://localhost/page',
+          [PROPERTY_VIEWPORT]: viewPort,
+          [PROPERTY_REFERER]: null,
+        },
+      });
     });
 
     it('should send a track event with the default base URL', () => {

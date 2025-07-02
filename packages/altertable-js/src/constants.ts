@@ -3,6 +3,11 @@ import { createKeyBuilder } from './lib/createKeyBuilder';
 export const DEFAULT_BASE_URL = 'https://api.altertable.ai';
 export const DEFAULT_ENVIRONMENT = 'production';
 export const DEFAULT_PERSISTENCE = 'localStorage+cookie';
+export const DEFAULT_MAX_RETRIES = 3;
+export const DEFAULT_REQUEST_TIMEOUT = 10000;
+export const DEFAULT_MAX_QUEUE_SIZE = 100;
+export const DEFAULT_BATCH_DELAY = 100;
+export const DEFAULT_MAX_BATCH_SIZE = 10;
 
 const STORAGE_KEY_PREFIX = 'atbl';
 const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');

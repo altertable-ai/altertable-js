@@ -1,8 +1,13 @@
 import {
   AUTO_CAPTURE_INTERVAL_MS,
   DEFAULT_BASE_URL,
+  DEFAULT_BATCH_DELAY,
   DEFAULT_ENVIRONMENT,
+  DEFAULT_MAX_BATCH_SIZE,
+  DEFAULT_MAX_QUEUE_SIZE,
+  DEFAULT_MAX_RETRIES,
   DEFAULT_PERSISTENCE,
+  DEFAULT_REQUEST_TIMEOUT,
   EVENT_PAGEVIEW,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
@@ -14,6 +19,7 @@ import {
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
+import { NetworkManager } from './lib/networkManager';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
@@ -22,7 +28,12 @@ import {
   type StorageType,
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
-import { EventPayload, EventProperties, UserTraits } from './types';
+import {
+  EventPayload,
+  EventProperties,
+  IdentifyPayload,
+  UserTraits,
+} from './types';
 
 export interface AltertableConfig {
   /**
@@ -64,6 +75,7 @@ export class Altertable {
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
+  private _networkManager: NetworkManager | undefined;
   private _referrer: string | null;
   private _sessionManager: SessionManager | undefined;
   private _storage: StorageApi | undefined;
@@ -88,12 +100,21 @@ export class Altertable {
     this._storage = selectStorage(persistence, {
       onFallback: message => this._logger.warn(message),
     });
-
     this._sessionManager = new SessionManager({
       storage: this._storage,
       logger: this._logger,
     });
     this._sessionManager.init();
+
+    this._networkManager = new NetworkManager({
+      apiKey: this._apiKey,
+      baseUrl: this._config.baseUrl || DEFAULT_BASE_URL,
+      maxRetries: DEFAULT_MAX_RETRIES,
+      requestTimeout: DEFAULT_REQUEST_TIMEOUT,
+      maxQueueSize: DEFAULT_MAX_QUEUE_SIZE,
+      batchDelay: DEFAULT_BATCH_DELAY,
+      maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
+    });
 
     this._isInitialized = true;
 
@@ -268,27 +289,12 @@ export class Altertable {
     });
   }
 
-  private _request(path: string, body: unknown): void {
-    invariant(this._apiKey, 'Missing API key');
-    invariant(this._config, 'Missing configuration');
+  private _request(
+    path: string,
+    payload: EventPayload | IdentifyPayload
+  ): void {
+    invariant(this._networkManager, 'Network manager not initialized');
 
-    const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
-    const payload = JSON.stringify(body);
-
-    /* eslint-disable no-restricted-globals */
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-      const beaconUrl = `${url}?apiKey=${encodeURIComponent(this._apiKey)}`;
-      const blob = new Blob([payload], { type: 'application/json' });
-      navigator.sendBeacon(beaconUrl, blob);
-    } /* eslint-enable no-restricted-globals */ else {
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this._apiKey}`,
-        },
-        body: payload,
-      });
-    }
+    this._networkManager.enqueue(path, payload);
   }
 }
