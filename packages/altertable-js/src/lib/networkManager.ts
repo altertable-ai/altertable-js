@@ -5,25 +5,9 @@ import { Requester, type RequesterConfig } from './requester';
 
 export interface NetworkManagerConfig {
   requester: Requester;
-  /**
-   * Maximum number of retry attempts for failed requests
-   * @default 3
-   */
   maxRetries: number;
-  /**
-   * Maximum number of events to queue
-   * @default 100
-   */
   maxQueueSize: number;
-  /**
-   * Delay before flushing batch in milliseconds
-   * @default 100
-   */
   batchDelay: number;
-  /**
-   * Maximum number of events per batch
-   * @default 10
-   */
   maxBatchSize: number;
 }
 
@@ -40,7 +24,7 @@ export class NetworkManager {
   private _batchTimeout: NodeJS.Timeout | null = null;
   private _isProcessing = false;
   private _isOnline = true;
-  private _logger = createLogger('NetworkManager');
+  private _logger = createLogger('Altertable:NetworkManager');
   private _onlineHandler: (() => void) | undefined;
   private _offlineHandler: (() => void) | undefined;
   private _requester: Requester;
@@ -54,9 +38,6 @@ export class NetworkManager {
     this._setupOnlineDetection();
   }
 
-  /**
-   * Adds an event to the queue and schedules processing
-   */
   enqueue(path: string, payload: EventPayload | IdentifyPayload): void {
     const event: QueuedEvent = {
       id: this._generateId(),
@@ -78,57 +59,17 @@ export class NetworkManager {
     this._scheduleProcessing();
   }
 
-  /**
-   * Gets the current queue size
-   */
-  getQueueSize(): number {
-    return this._queue.length;
-  }
-
-  /**
-   * Gets the current queue status
-   */
-  getStatus(): {
-    queueSize: number;
-    isProcessing: boolean;
-    maxQueueSize: number;
-    isOnline: boolean;
-  } {
-    return {
-      queueSize: this._queue.length,
-      isProcessing: this._isProcessing,
-      maxQueueSize: this._config.maxQueueSize,
-      isOnline: this._isOnline,
-    };
-  }
-
-  /**
-   * Gets the current online status
-   */
-  isOnline(): boolean {
-    return this._isOnline;
-  }
-
-  /**
-   * Manually flushes the queue (useful for testing or immediate sending)
-   */
   async flush(): Promise<void> {
     this._clearBatchTimeout();
     await this._processQueue();
   }
 
-  /**
-   * Clears all events from the queue
-   */
   clear(): void {
     this._clearBatchTimeout();
     this._queue = [];
     this._logger.log('Queue cleared');
   }
 
-  /**
-   * Destroys the network manager and cleans up event listeners
-   */
   destroy(): void {
     this._clearBatchTimeout();
     this._queue = [];
@@ -149,7 +90,6 @@ export class NetworkManager {
   }
 
   private _setupOnlineDetection(): void {
-    // Check if we're in a browser environment
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
       // Set initial online status
       this._isOnline = navigator.onLine;
