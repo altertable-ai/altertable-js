@@ -13,8 +13,8 @@ export const PREFIX_SESSION_ID = 'session';
 export const PREFIX_VISITOR_ID = 'visitor';
 
 const MINUTE_IN_MS = 1000 * 60;
-export const AUTO_CAPTURE_INTERVAL = 100;
-export const SESSION_EXPIRATION_TIME = 30 * MINUTE_IN_MS;
+export const AUTO_CAPTURE_INTERVAL_MS = 100;
+export const SESSION_EXPIRATION_TIME_MS = 30 * MINUTE_IN_MS;
 
 export const EVENT_PAGEVIEW = '$pageview';
 

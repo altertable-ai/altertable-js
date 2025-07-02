@@ -1,7 +1,7 @@
 import {
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
-  SESSION_EXPIRATION_TIME,
+  SESSION_EXPIRATION_TIME_MS,
   STORAGE_KEY,
 } from '../constants';
 import { generateId } from './generateId';
@@ -139,7 +139,7 @@ export class SessionManager {
     const lastEventTime = new Date(lastEventAt).getTime();
     const timeSinceLastEvent = now - lastEventTime;
 
-    return timeSinceLastEvent > SESSION_EXPIRATION_TIME;
+    return timeSinceLastEvent > SESSION_EXPIRATION_TIME_MS;
   }
 
   private _renewSession(): void {

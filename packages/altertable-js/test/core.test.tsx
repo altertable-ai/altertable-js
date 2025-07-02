@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
 import {
-  AUTO_CAPTURE_INTERVAL,
+  AUTO_CAPTURE_INTERVAL_MS,
   EVENT_PAGEVIEW,
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
@@ -246,7 +246,7 @@ modes.forEach(({ mode, description, setup }) => {
 
       // Simulate a URL change.
       setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
-      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL + 1);
+      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS + 1);
 
       if (mode === 'beacon') {
         const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];

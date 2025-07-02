@@ -1,5 +1,5 @@
 import {
-  AUTO_CAPTURE_INTERVAL,
+  AUTO_CAPTURE_INTERVAL_MS,
   DEFAULT_BASE_URL,
   DEFAULT_ENVIRONMENT,
   DEFAULT_PERSISTENCE,
@@ -133,7 +133,7 @@ export class Altertable {
       }
 
       const checkForChanges = this._checkForChanges.bind(this);
-      const intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL);
+      const intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL_MS);
 
       safelyRunOnBrowser(({ window }) => {
         window.addEventListener('popstate', checkForChanges);
