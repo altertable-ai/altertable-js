@@ -20,6 +20,7 @@ import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { NetworkManager } from './lib/networkManager';
+import { Requester } from './lib/requester';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
@@ -105,17 +106,17 @@ export class Altertable {
       logger: this._logger,
     });
     this._sessionManager.init();
-
     this._networkManager = new NetworkManager({
-      apiKey: this._apiKey,
-      baseUrl: this._config.baseUrl || DEFAULT_BASE_URL,
+      requester: new Requester({
+        baseUrl: this._config.baseUrl || DEFAULT_BASE_URL,
+        apiKey: this._apiKey,
+        requestTimeout: DEFAULT_REQUEST_TIMEOUT,
+      }),
       maxRetries: DEFAULT_MAX_RETRIES,
-      requestTimeout: DEFAULT_REQUEST_TIMEOUT,
       maxQueueSize: DEFAULT_MAX_QUEUE_SIZE,
       batchDelay: DEFAULT_BATCH_DELAY,
       maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
     });
-
     this._isInitialized = true;
 
     if (this._config.debug) {

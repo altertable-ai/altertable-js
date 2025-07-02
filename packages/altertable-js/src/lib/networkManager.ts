@@ -1,26 +1,15 @@
 import { createLogger } from './logger';
 import type { EventPayload, IdentifyPayload } from '../types';
 import { generateId } from './generateId';
+import { Requester, type RequesterConfig } from './requester';
 
 export interface NetworkManagerConfig {
-  /**
-   * Base URL for API requests
-   */
-  baseUrl: string;
-  /**
-   * API key for authentication
-   */
-  apiKey: string;
+  requester: Requester;
   /**
    * Maximum number of retry attempts for failed requests
    * @default 3
    */
   maxRetries: number;
-  /**
-   * Timeout for HTTP requests in milliseconds
-   * @default 10000
-   */
-  requestTimeout: number;
   /**
    * Maximum number of events to queue
    * @default 100
@@ -54,11 +43,13 @@ export class NetworkManager {
   private _logger = createLogger('NetworkManager');
   private _onlineHandler: (() => void) | undefined;
   private _offlineHandler: (() => void) | undefined;
+  private _requester: Requester;
 
   private readonly _config: Required<NetworkManagerConfig>;
 
   constructor(config: NetworkManagerConfig) {
     this._config = config;
+    this._requester = config.requester;
 
     this._setupOnlineDetection();
   }
@@ -252,31 +243,11 @@ export class NetworkManager {
 
   private async _sendSingleEvent(event: QueuedEvent): Promise<void> {
     try {
-      // Use sendBeacon for all endpoints if available and in browser
-      const isBeaconCapable =
-        typeof window !== 'undefined' &&
-        typeof navigator !== 'undefined' &&
-        typeof navigator.sendBeacon === 'function';
-
-      if (isBeaconCapable) {
-        this._sendWithBeacon(event.path, event.payload);
-        this._logger.log(`Event sent with sendBeacon: ${event.id}`);
-      } else {
-        await this._makeRequest(event.path, event.payload);
-        this._logger.log(`Event sent successfully: ${event.id}`);
-      }
+      await this._requester.send(event.path, event.payload);
+      this._logger.log(`Event sent successfully: ${event.id}`);
     } catch (error) {
       await this._handleRequestError(event, error);
     }
-  }
-
-  private _sendWithBeacon(path: string, payload: unknown): void {
-    const url = `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
-    const data = new Blob([JSON.stringify(payload)], {
-      type: 'application/json',
-    });
-    // @ts-ignore
-    navigator.sendBeacon(url, data);
   }
 
   private async _sendBatchRequest(batch: QueuedEvent[]): Promise<void> {
@@ -289,19 +260,8 @@ export class NetworkManager {
     };
 
     try {
-      // Use sendBeacon for batch requests if available and in browser
-      const isBeaconCapable =
-        typeof window !== 'undefined' &&
-        typeof navigator !== 'undefined' &&
-        typeof navigator.sendBeacon === 'function';
-
-      if (isBeaconCapable) {
-        this._sendWithBeacon('/batch', batchPayload);
-        this._logger.log(`Batch sent with sendBeacon: ${batch.length} events`);
-      } else {
-        await this._makeRequest('/batch', batchPayload);
-        this._logger.log(`Batch sent successfully: ${batch.length} events`);
-      }
+      await this._requester.send('/batch', batchPayload);
+      this._logger.log(`Batch sent successfully: ${batch.length} events`);
     } catch (error) {
       // If batch fails, retry individual events
       this._logger.warn(
@@ -340,33 +300,6 @@ export class NetworkManager {
       this._logger.error(
         `Event ${event.id} failed after ${this._config.maxRetries} retries, dropping: ${error}`
       );
-    }
-  }
-
-  private async _makeRequest(path: string, payload: unknown): Promise<void> {
-    const url = `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      this._config.requestTimeout
-    );
-
-    try {
-      const response = await fetch(url, {
-        keepalive: true,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 

@@ -101,6 +101,7 @@ const modes: {
       // Setup window and location
       global.window = {
         location: { href: 'http://localhost/page' },
+        document: { referrer: 'http://localhost/previous-page' },
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
@@ -128,6 +129,7 @@ const modes: {
       // Setup window and location
       global.window = {
         location: { href: 'http://localhost/page' },
+        document: { referrer: 'http://localhost/previous-page' },
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
