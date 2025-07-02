@@ -307,4 +307,65 @@ describe('NetworkManager', () => {
       expect(typeof status.isOnline).toBe('boolean');
     });
   });
+
+  describe('cleanup', () => {
+    it('should clean up event listeners when destroyed', () => {
+      // Mock addEventListener and removeEventListener
+      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+
+      const testNetworkManager = new NetworkManager(mockConfig);
+
+      // Verify event listeners were added
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        'online',
+        expect.any(Function)
+      );
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        'offline',
+        expect.any(Function)
+      );
+
+      // Destroy the network manager
+      testNetworkManager.destroy();
+
+      // Verify event listeners were removed
+      expect(removeEventListenerSpy).toHaveBeenCalledWith(
+        'online',
+        expect.any(Function)
+      );
+      expect(removeEventListenerSpy).toHaveBeenCalledWith(
+        'offline',
+        expect.any(Function)
+      );
+
+      // Clean up spies
+      addEventListenerSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    });
+
+    it('should clear queue and timeouts when destroyed', () => {
+      const testNetworkManager = new NetworkManager(mockConfig);
+
+      // Add an event to the queue
+      const eventPayload: EventPayload = {
+        environment: 'test',
+        event: 'test_event',
+        properties: {},
+        session_id: 'session-123' as any,
+        timestamp: '2023-01-01T00:00:00.000Z',
+        user_id: null,
+        visitor_id: 'visitor-123' as any,
+      };
+
+      testNetworkManager.enqueue('/track', eventPayload);
+      expect(testNetworkManager.getQueueSize()).toBe(1);
+
+      // Destroy the network manager
+      testNetworkManager.destroy();
+
+      // Verify queue is cleared
+      expect(testNetworkManager.getQueueSize()).toBe(0);
+    });
+  });
 });

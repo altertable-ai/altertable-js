@@ -52,6 +52,8 @@ export class NetworkManager {
   private _isProcessing = false;
   private _isOnline = true;
   private _logger = createLogger('NetworkManager');
+  private _onlineHandler: (() => void) | undefined;
+  private _offlineHandler: (() => void) | undefined;
 
   private readonly _config: Required<NetworkManagerConfig>;
 
@@ -133,20 +135,41 @@ export class NetworkManager {
     this._logger.log('Queue cleared');
   }
 
+  /**
+   * Destroys the network manager and cleans up event listeners
+   */
+  destroy(): void {
+    this._clearBatchTimeout();
+    this._queue = [];
+
+    // Remove event listeners
+    if (
+      typeof window !== 'undefined' &&
+      this._onlineHandler &&
+      this._offlineHandler
+    ) {
+      window.removeEventListener('online', this._onlineHandler);
+      window.removeEventListener('offline', this._offlineHandler);
+      this._onlineHandler = undefined;
+      this._offlineHandler = undefined;
+    }
+
+    this._logger.log('NetworkManager destroyed');
+  }
+
   private _setupOnlineDetection(): void {
     // Check if we're in a browser environment
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
       // Set initial online status
       this._isOnline = navigator.onLine;
 
-      // Listen for online/offline events
-      window.addEventListener('online', () => {
-        this._handleOnline();
-      });
+      // Create bound event handlers
+      this._onlineHandler = this._handleOnline.bind(this);
+      this._offlineHandler = this._handleOffline.bind(this);
 
-      window.addEventListener('offline', () => {
-        this._handleOffline();
-      });
+      // Listen for online/offline events
+      window.addEventListener('online', this._onlineHandler);
+      window.addEventListener('offline', this._offlineHandler);
     }
   }
 

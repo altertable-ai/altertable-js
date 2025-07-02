@@ -125,7 +125,7 @@ export class Altertable {
     this._handleAutoCaptureChange(config.autoCapture ?? true);
 
     return () => {
-      this._cleanupAutoCapture?.();
+      this.destroy();
     };
   }
 
@@ -296,5 +296,28 @@ export class Altertable {
     invariant(this._networkManager, 'Network manager not initialized');
 
     this._networkManager.enqueue(path, payload);
+  }
+
+  /**
+   * Flushes the network queue (useful for testing)
+   */
+  async flush(): Promise<void> {
+    invariant(this._networkManager, 'Network manager not initialized');
+    await this._networkManager.flush();
+  }
+
+  /**
+   * Destroys the Altertable instance and cleans up all resources
+   */
+  destroy(): void {
+    this._cleanupAutoCapture?.();
+
+    this._networkManager?.destroy();
+
+    this._isInitialized = false;
+    this._lastUrl = null;
+    this._referrer = null;
+
+    this._logger.log('Altertable instance destroyed');
   }
 }
