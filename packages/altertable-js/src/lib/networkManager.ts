@@ -252,11 +252,31 @@ export class NetworkManager {
 
   private async _sendSingleEvent(event: QueuedEvent): Promise<void> {
     try {
-      await this._makeRequest(event.path, event.payload);
-      this._logger.log(`Event sent successfully: ${event.id}`);
+      // Use sendBeacon for all endpoints if available and in browser
+      const isBeaconCapable =
+        typeof window !== 'undefined' &&
+        typeof navigator !== 'undefined' &&
+        typeof navigator.sendBeacon === 'function';
+
+      if (isBeaconCapable) {
+        this._sendWithBeacon(event.path, event.payload);
+        this._logger.log(`Event sent with sendBeacon: ${event.id}`);
+      } else {
+        await this._makeRequest(event.path, event.payload);
+        this._logger.log(`Event sent successfully: ${event.id}`);
+      }
     } catch (error) {
       await this._handleRequestError(event, error);
     }
+  }
+
+  private _sendWithBeacon(path: string, payload: unknown): void {
+    const url = `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
+    const data = new Blob([JSON.stringify(payload)], {
+      type: 'application/json',
+    });
+    // @ts-ignore
+    navigator.sendBeacon(url, data);
   }
 
   private async _sendBatchRequest(batch: QueuedEvent[]): Promise<void> {
@@ -269,8 +289,19 @@ export class NetworkManager {
     };
 
     try {
-      await this._makeRequest('/batch', batchPayload);
-      this._logger.log(`Batch sent successfully: ${batch.length} events`);
+      // Use sendBeacon for batch requests if available and in browser
+      const isBeaconCapable =
+        typeof window !== 'undefined' &&
+        typeof navigator !== 'undefined' &&
+        typeof navigator.sendBeacon === 'function';
+
+      if (isBeaconCapable) {
+        this._sendWithBeacon('/batch', batchPayload);
+        this._logger.log(`Batch sent with sendBeacon: ${batch.length} events`);
+      } else {
+        await this._makeRequest('/batch', batchPayload);
+        this._logger.log(`Batch sent successfully: ${batch.length} events`);
+      }
     } catch (error) {
       // If batch fails, retry individual events
       this._logger.warn(
@@ -322,6 +353,7 @@ export class NetworkManager {
 
     try {
       const response = await fetch(url, {
+        keepalive: true,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

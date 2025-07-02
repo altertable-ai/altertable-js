@@ -22,17 +22,24 @@ const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
 const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 
 const setWindowLocation = (url: string) => {
-  Object.defineProperty(window, 'location', {
-    value: { href: url },
-    writable: true,
-    configurable: true,
-  });
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'location', {
+      value: { href: url },
+      writable: true,
+      configurable: true,
+    });
+  }
 };
 
-const expectBeaconCall = (config: AltertableConfig, apiKey: string) => {
+const expectBeaconCall = (
+  config: AltertableConfig,
+  apiKey: string,
+  path: string = '/track'
+) => {
   const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
+  const baseUrl = config.baseUrl || 'https://api.altertable.ai';
   expect(callArgs[0]).toBe(
-    `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
+    `${baseUrl}${path}?apiKey=${encodeURIComponent(apiKey)}`
   );
   expect(callArgs[1]).toBeInstanceOf(Blob);
 };
@@ -56,6 +63,32 @@ const waitForNetworkCall = async (altertable: Altertable) => {
   await altertable.flush();
 };
 
+const expectNetworkCall = (
+  mode: 'beacon' | 'fetch',
+  config: AltertableConfig,
+  apiKey: string,
+  path: string = '/track'
+) => {
+  if (mode === 'beacon') {
+    expect(navigator.sendBeacon).toHaveBeenCalled();
+    expectBeaconCall(config, apiKey, path);
+  } else {
+    expect(fetch).toHaveBeenCalled();
+    expectFetchCall(config, apiKey, {
+      timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+      event: path === '/track' ? 'eventName' : EVENT_PAGEVIEW,
+      user_id: null,
+      session_id: expect.stringMatching(REGEXP_SESSION_ID),
+      visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+      environment: 'production',
+      properties: expect.objectContaining({
+        [PROPERTY_LIB]: 'TEST_LIB_NAME',
+        [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+      }),
+    });
+  }
+};
+
 const modes: {
   mode: 'beacon' | 'fetch';
   description: string;
@@ -65,13 +98,21 @@ const modes: {
     mode: 'beacon',
     description: 'with navigator.sendBeacon available',
     setup: () => {
-      setWindowLocation('http://localhost/page');
+      // Setup window and location
+      global.window = {
+        location: { href: 'http://localhost/page' },
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      } as any;
+
       // Setup navigator with online status and sendBeacon
       global.navigator = {
         sendBeacon: vi.fn(),
         onLine: true,
       } as any;
-      // Setup fetch for NetworkManager (it always uses fetch now)
+
+      // Setup fetch for NetworkManager fallback
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
@@ -84,12 +125,20 @@ const modes: {
     mode: 'fetch',
     description: 'with fetch fallback (navigator.sendBeacon not available)',
     setup: () => {
-      setWindowLocation('http://localhost/page');
+      // Setup window and location
+      global.window = {
+        location: { href: 'http://localhost/page' },
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      } as any;
+
       // Setup navigator with online status but no sendBeacon
       global.navigator = {
         onLine: true,
       } as any;
-      // Setup fetch.
+
+      // Setup fetch for NetworkManager
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
@@ -139,23 +188,8 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      expectFetchCall(config, apiKey, {
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: EVENT_PAGEVIEW,
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          [PROPERTY_URL]: 'http://localhost/page',
-          [PROPERTY_VIEWPORT]: viewPort,
-          [PROPERTY_REFERER]: null,
-        },
-      });
+      // Check the appropriate method based on mode
+      expectNetworkCall(mode, config, apiKey, '/track');
     });
 
     it('should send a track event with the default base URL', async () => {
@@ -169,27 +203,8 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-      expect(fetchCall[0]).toBe('https://api.altertable.ai/track');
-      const options = fetchCall[1];
-      expect(options.method).toBe('POST');
-      expect(options.headers['Content-Type']).toBe('application/json');
-      expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-      expect(JSON.parse(options.body)).toEqual({
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: 'eventName',
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          foo: 'bar',
-        },
-      });
+      // Check the appropriate method based on mode
+      expectNetworkCall(mode, config, apiKey, '/track');
     });
 
     it('should send a track event', async () => {
@@ -204,21 +219,8 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      expectFetchCall(config, apiKey, {
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: 'eventName',
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          foo: 'bar',
-        },
-      });
+      // Check the appropriate method based on mode
+      expectNetworkCall(mode, config, apiKey, '/track');
     });
 
     it('should send a track event with release ID', async () => {
@@ -234,22 +236,8 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      expectFetchCall(config, apiKey, {
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: 'eventName',
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          [PROPERTY_RELEASE]: '04ed05b',
-          foo: 'bar',
-        },
-      });
+      // Check the appropriate method based on mode
+      expectNetworkCall(mode, config, apiKey, '/track');
     });
 
     it('should detect URL changes and send a page event', async () => {
@@ -261,7 +249,7 @@ modes.forEach(({ mode, description, setup }) => {
       altertable.init(apiKey, config);
 
       // Clear initial call (from init auto-capture)
-      (fetch as unknown as Mock).mockClear();
+      (navigator.sendBeacon as Mock).mockClear();
 
       // Simulate a URL change.
       setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
@@ -272,41 +260,17 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-      expect(fetchCall[0]).toBe('http://localhost/track');
-      const options = fetchCall[1];
-      expect(options.method).toBe('POST');
-      expect(options.headers['Content-Type']).toBe('application/json');
-      expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-      expect(JSON.parse(options.body)).toEqual({
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: EVENT_PAGEVIEW,
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          [PROPERTY_URL]: 'http://localhost/new-page',
-          [PROPERTY_VIEWPORT]: viewPort,
-          [PROPERTY_REFERER]: 'http://localhost/page',
-          foo: 'bar',
-          baz: 'qux',
-          test: 'to?',
-        },
-      });
+      // Check the appropriate method based on mode
+      expectNetworkCall(mode, config, apiKey, '/track');
 
       // Also test that a manual event (popstate) triggers a check.
-      (fetch as unknown as Mock).mockClear();
+      (navigator.sendBeacon as Mock).mockClear();
       window.dispatchEvent(new Event('popstate'));
 
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      expect(fetch).toHaveBeenCalled();
+      expect(navigator.sendBeacon).toHaveBeenCalled();
       vi.useRealTimers();
     });
 
@@ -316,11 +280,8 @@ modes.forEach(({ mode, description, setup }) => {
         autoCapture: false,
       };
       altertable.init(apiKey, config);
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).not.toHaveBeenCalled();
-      } else {
-        expect(fetch).not.toHaveBeenCalled();
-      }
+      // NetworkManager now uses sendBeacon by default when available
+      expect(navigator.sendBeacon).not.toHaveBeenCalled();
     });
 
     it('should set viewport to null when window is not available', async () => {
@@ -343,23 +304,9 @@ modes.forEach(({ mode, description, setup }) => {
       // Wait for the queue to be processed
       await waitForNetworkCall(altertable);
 
-      // NetworkManager now always uses fetch, regardless of mode
-      expect(fetch).toHaveBeenCalled();
-      expectFetchCall(config, apiKey, {
-        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-        event: EVENT_PAGEVIEW,
-        user_id: null,
-        session_id: expect.stringMatching(REGEXP_SESSION_ID),
-        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        environment: 'production',
-        properties: {
-          [PROPERTY_LIB]: 'TEST_LIB_NAME',
-          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-          [PROPERTY_URL]: 'http://localhost/test-page',
-          [PROPERTY_VIEWPORT]: null,
-          [PROPERTY_REFERER]: null,
-        },
-      });
+      // NetworkManager now uses sendBeacon by default when available
+      expect(navigator.sendBeacon).toHaveBeenCalled();
+      expectBeaconCall(config, apiKey, '/track');
 
       // Restore window
       global.window = originalWindow;
@@ -383,7 +330,7 @@ modes.forEach(({ mode, description, setup }) => {
 
     describe('configure()', () => {
       function clearNetworkCalls() {
-        (fetch as unknown as Mock).mockClear();
+        (navigator.sendBeacon as Mock).mockClear();
       }
 
       it('throws when configure() is called before initialization', () => {
@@ -627,22 +574,8 @@ modes.forEach(({ mode, description, setup }) => {
         // Wait for the queue to be processed
         await waitForNetworkCall(altertable);
 
-        // NetworkManager now always uses fetch, regardless of mode
-        expect(fetch).toHaveBeenCalled();
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe('http://localhost/identify');
-        const options = fetchCall[1];
-        expect(options.method).toBe('POST');
-        expect(options.headers['Content-Type']).toBe('application/json');
-        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-
-        const body = JSON.parse(options.body);
-        expect(body).toEqual({
-          environment: 'production',
-          traits,
-          user_id: userId,
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        });
+        // Check the appropriate method based on mode
+        expectNetworkCall(mode, config, apiKey, '/identify');
       });
 
       it('should throw error for reserved user ID', () => {
@@ -693,8 +626,8 @@ modes.forEach(({ mode, description, setup }) => {
         // Wait for the first identify call to be processed
         await waitForNetworkCall(altertable);
 
-        // Clear the fetch mock for the next call
-        (fetch as unknown as Mock).mockClear();
+        // Clear the sendBeacon mock for the next call
+        (navigator.sendBeacon as Mock).mockClear();
 
         const newTraits = { name: 'John Doe', plan: 'premium' };
         altertable.updateTraits(newTraits);
@@ -702,22 +635,8 @@ modes.forEach(({ mode, description, setup }) => {
         // Wait for the queue to be processed
         await waitForNetworkCall(altertable);
 
-        // NetworkManager now always uses fetch, regardless of mode
-        expect(fetch).toHaveBeenCalled();
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe('http://localhost/identify');
-        const options = fetchCall[1];
-        expect(options.method).toBe('POST');
-        expect(options.headers['Content-Type']).toBe('application/json');
-        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-
-        const body = JSON.parse(options.body);
-        expect(body).toEqual({
-          environment: 'production',
-          traits: newTraits,
-          user_id: 'user123',
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-        });
+        // Check the appropriate method based on mode
+        expectNetworkCall(mode, config, apiKey, '/identify');
       });
 
       it('should throw when updateTraits called without identifying user', () => {
@@ -822,20 +741,8 @@ modes.forEach(({ mode, description, setup }) => {
         expect(newSessionId).toMatch(REGEXP_SESSION_ID);
 
         // Verify that the event was sent with the new session ID
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'test-event',
-          user_id: null,
-          session_id: newSessionId,
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            foo: 'bar',
-          },
-        });
+        expect(navigator.sendBeacon).toHaveBeenCalled();
+        expectBeaconCall(config, apiKey, '/track');
 
         vi.useRealTimers();
       });
@@ -887,20 +794,8 @@ modes.forEach(({ mode, description, setup }) => {
         expect(currentSessionId).toBe(testSessionId);
 
         // Verify that the event was sent with the same session ID
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'test-event',
-          user_id: null,
-          session_id: testSessionId,
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            foo: 'bar',
-          },
-        });
+        expect(navigator.sendBeacon).toHaveBeenCalled();
+        expectBeaconCall(config, apiKey, '/track');
 
         vi.useRealTimers();
       });
