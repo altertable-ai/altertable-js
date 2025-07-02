@@ -2,10 +2,10 @@ export type EventPayload = {
   environment: string;
   event: string;
   properties: EventProperties;
-  session_id: string;
+  session_id: SessionId;
   timestamp: string;
-  user_id: string | null;
-  visitor_id: string;
+  user_id: UserId | null;
+  visitor_id: VisitorId;
 };
 
 export type EventProperties = Record<string, unknown>;
