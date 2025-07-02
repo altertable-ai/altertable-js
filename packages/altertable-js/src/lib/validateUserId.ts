@@ -27,9 +27,7 @@ export function validateUserId(userId: string): void {
     );
   }
 
-  const isCaseSensitiveBlocked = RESERVED_USER_IDS_CASE_SENSITIVE.some(
-    blockedId => userId === blockedId
-  );
+  const isCaseSensitiveBlocked = RESERVED_USER_IDS_CASE_SENSITIVE.has(userId);
 
   if (isCaseSensitiveBlocked) {
     throw new Error(

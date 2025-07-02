@@ -41,11 +41,11 @@ export const RESERVED_USER_IDS = [
   'visitor_id',
   'visitor',
 ];
-export const RESERVED_USER_IDS_CASE_SENSITIVE = [
+export const RESERVED_USER_IDS_CASE_SENSITIVE = new Set([
   '[object Object]',
   '0',
   'NaN',
   'none',
   'None',
   'null',
-];
+]);
