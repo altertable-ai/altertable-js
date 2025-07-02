@@ -299,6 +299,9 @@ describe('NetworkManager', () => {
 
       expect(offlineNetworkManager.getQueueSize()).toBe(0);
       expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Clean up
+      offlineNetworkManager.destroy();
     });
 
     it('should include online status in getStatus', () => {

@@ -66,8 +66,11 @@ const modes: {
     description: 'with navigator.sendBeacon available',
     setup: () => {
       setWindowLocation('http://localhost/page');
-      // Setup sendBeacon.
-      global.navigator = { sendBeacon: vi.fn() } as any;
+      // Setup navigator with online status and sendBeacon
+      global.navigator = {
+        sendBeacon: vi.fn(),
+        onLine: true,
+      } as any;
       // Setup fetch for NetworkManager (it always uses fetch now)
       global.fetch = vi.fn(() =>
         Promise.resolve({
@@ -82,10 +85,10 @@ const modes: {
     description: 'with fetch fallback (navigator.sendBeacon not available)',
     setup: () => {
       setWindowLocation('http://localhost/page');
-      // Remove sendBeacon if present.
-      if ('sendBeacon' in navigator) {
-        delete (navigator as any).sendBeacon;
-      }
+      // Setup navigator with online status but no sendBeacon
+      global.navigator = {
+        onLine: true,
+      } as any;
       // Setup fetch.
       global.fetch = vi.fn(() =>
         Promise.resolve({
@@ -155,7 +158,7 @@ modes.forEach(({ mode, description, setup }) => {
       });
     });
 
-    it('should send a track event with the default base URL', () => {
+    it('should send a track event with the default base URL', async () => {
       const config: AltertableConfig = {
         autoCapture: false,
       };
@@ -163,20 +166,33 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.track('eventName', { foo: 'bar' });
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalledWith(
-          'https://api.altertable.ai/track?apiKey=test-api-key',
-          expect.anything()
-        );
-      } else {
-        expect(fetch).toHaveBeenCalledWith(
-          'https://api.altertable.ai/track',
-          expect.anything()
-        );
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+      expect(fetchCall[0]).toBe('https://api.altertable.ai/track');
+      const options = fetchCall[1];
+      expect(options.method).toBe('POST');
+      expect(options.headers['Content-Type']).toBe('application/json');
+      expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+      expect(JSON.parse(options.body)).toEqual({
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: 'eventName',
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          foo: 'bar',
+        },
+      });
     });
 
-    it('should send a track event', () => {
+    it('should send a track event', async () => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
@@ -185,28 +201,27 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.track('eventName', { foo: 'bar' });
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'eventName',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            foo: 'bar',
-          },
-        });
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      expectFetchCall(config, apiKey, {
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: 'eventName',
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          foo: 'bar',
+        },
+      });
     });
 
-    it('should send a track event with release ID', () => {
+    it('should send a track event with release ID', async () => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
@@ -216,29 +231,28 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.track('eventName', { foo: 'bar' });
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'eventName',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_RELEASE]: '04ed05b',
-            foo: 'bar',
-          },
-        });
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      expectFetchCall(config, apiKey, {
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: 'eventName',
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          [PROPERTY_RELEASE]: '04ed05b',
+          foo: 'bar',
+        },
+      });
     });
 
-    it('should detect URL changes and send a page event', () => {
+    it('should detect URL changes and send a page event', async () => {
       vi.useFakeTimers();
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
@@ -247,63 +261,52 @@ modes.forEach(({ mode, description, setup }) => {
       altertable.init(apiKey, config);
 
       // Clear initial call (from init auto-capture)
-      if (mode === 'beacon') {
-        (navigator.sendBeacon as Mock).mockClear();
-      } else {
-        (fetch as unknown as Mock).mockClear();
-      }
+      (fetch as unknown as Mock).mockClear();
 
       // Simulate a URL change.
       setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
+
+      // Advance timers to trigger the interval
       vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS + 1);
 
-      if (mode === 'beacon') {
-        const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
-        expect(callArgs[0]).toBe(
-          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
-        );
-      } else {
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-        const options = fetchCall[1];
-        expect(options.method).toBe('POST');
-        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-        expect(JSON.parse(options.body)).toEqual({
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/new-page',
-            [PROPERTY_VIEWPORT]: viewPort,
-            [PROPERTY_REFERER]: null as string | null,
-            foo: 'bar',
-            baz: 'qux',
-            test: 'to?',
-          },
-        });
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+      expect(fetchCall[0]).toBe('http://localhost/track');
+      const options = fetchCall[1];
+      expect(options.method).toBe('POST');
+      expect(options.headers['Content-Type']).toBe('application/json');
+      expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+      expect(JSON.parse(options.body)).toEqual({
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: EVENT_PAGEVIEW,
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          [PROPERTY_URL]: 'http://localhost/new-page',
+          [PROPERTY_VIEWPORT]: viewPort,
+          [PROPERTY_REFERER]: 'http://localhost/page',
+          foo: 'bar',
+          baz: 'qux',
+          test: 'to?',
+        },
+      });
 
       // Also test that a manual event (popstate) triggers a check.
-      if (mode === 'beacon') {
-        (navigator.sendBeacon as Mock).mockClear();
-      } else {
-        (fetch as unknown as Mock).mockClear();
-      }
+      (fetch as unknown as Mock).mockClear();
       window.dispatchEvent(new Event('popstate'));
-      if (mode === 'beacon') {
-        const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
-        expect(callArgs[0]).toBe(
-          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
-        );
-      } else {
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-      }
+
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      expect(fetch).toHaveBeenCalled();
       vi.useRealTimers();
     });
 
@@ -320,7 +323,7 @@ modes.forEach(({ mode, description, setup }) => {
       }
     });
 
-    it('should set viewport to null when window is not available', () => {
+    it('should set viewport to null when window is not available', async () => {
       // Remove window from global scope to simulate server-side environment
       const originalWindow = global.window;
       delete (global as any).window;
@@ -337,27 +340,26 @@ modes.forEach(({ mode, description, setup }) => {
 
       altertable.page('http://localhost/test-page');
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/test-page',
-            [PROPERTY_VIEWPORT]: null,
-            [PROPERTY_REFERER]: null,
-          },
-        });
-      }
+      // Wait for the queue to be processed
+      await waitForNetworkCall(altertable);
+
+      // NetworkManager now always uses fetch, regardless of mode
+      expect(fetch).toHaveBeenCalled();
+      expectFetchCall(config, apiKey, {
+        timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+        event: EVENT_PAGEVIEW,
+        user_id: null,
+        session_id: expect.stringMatching(REGEXP_SESSION_ID),
+        visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        environment: 'production',
+        properties: {
+          [PROPERTY_LIB]: 'TEST_LIB_NAME',
+          [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+          [PROPERTY_URL]: 'http://localhost/test-page',
+          [PROPERTY_VIEWPORT]: null,
+          [PROPERTY_REFERER]: null,
+        },
+      });
 
       // Restore window
       global.window = originalWindow;
@@ -381,11 +383,7 @@ modes.forEach(({ mode, description, setup }) => {
 
     describe('configure()', () => {
       function clearNetworkCalls() {
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
+        (fetch as unknown as Mock).mockClear();
       }
 
       it('throws when configure() is called before initialization', () => {
@@ -396,7 +394,7 @@ modes.forEach(({ mode, description, setup }) => {
         );
       });
 
-      it('should update configuration when called after initialization', () => {
+      it('should update configuration when called after initialization', async () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
@@ -413,6 +411,9 @@ modes.forEach(({ mode, description, setup }) => {
           .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
 
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
+
         expect(logEventSpy).toHaveBeenCalledWith({
           timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'test-event',
@@ -427,7 +428,7 @@ modes.forEach(({ mode, description, setup }) => {
         });
       });
 
-      it('should update multiple configuration options at once', () => {
+      it('should update multiple configuration options at once', async () => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
@@ -447,6 +448,9 @@ modes.forEach(({ mode, description, setup }) => {
           .spyOn(altertable['_logger'], 'logEvent')
           .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
+
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
 
         expect(logEventSpy).toHaveBeenCalledWith({
           timestamp: expect.stringMatching(REGEXP_DATE_ISO),
@@ -488,7 +492,7 @@ modes.forEach(({ mode, description, setup }) => {
         expect(logHeaderSpy).toHaveBeenCalledTimes(0);
       });
 
-      it('should call logEvent when debug is enabled and track is called', () => {
+      it('should call logEvent when debug is enabled and track is called', async () => {
         vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
           () => {}
         );
@@ -503,6 +507,9 @@ modes.forEach(({ mode, description, setup }) => {
 
         altertable.track('test-event', { foo: 'bar' });
 
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
+
         expect(logEventSpy).toHaveBeenCalledWith({
           timestamp: expect.stringMatching(REGEXP_DATE_ISO),
           event: 'test-event',
@@ -516,7 +523,7 @@ modes.forEach(({ mode, description, setup }) => {
         });
       });
 
-      it('should not call logEvent when debug is disabled and track is called', () => {
+      it('should not call logEvent when debug is disabled and track is called', async () => {
         const logEventSpy = vi
           .spyOn(altertable['_logger'], 'logEvent')
           .mockImplementation(() => {});
@@ -527,6 +534,9 @@ modes.forEach(({ mode, description, setup }) => {
         });
 
         altertable.track('test-event', { foo: 'bar' });
+
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
 
         expect(logEventSpy).toHaveBeenCalledTimes(0);
       });
@@ -602,7 +612,7 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('user identification', () => {
-      it('should identify user with valid user ID and traits', () => {
+      it('should identify user with valid user ID and traits', async () => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
@@ -614,27 +624,25 @@ modes.forEach(({ mode, description, setup }) => {
 
         altertable.identify(userId, traits);
 
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            'http://localhost/identify?apiKey=test-api-key',
-            expect.anything()
-          );
-        } else {
-          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-          expect(fetchCall[0]).toBe('http://localhost/identify');
-          const options = fetchCall[1];
-          expect(options.method).toBe('POST');
-          expect(options.headers['Content-Type']).toBe('application/json');
-          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
 
-          const body = JSON.parse(options.body);
-          expect(body).toEqual({
-            environment: 'production',
-            traits,
-            user_id: userId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          });
-        }
+        // NetworkManager now always uses fetch, regardless of mode
+        expect(fetch).toHaveBeenCalled();
+        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+        expect(fetchCall[0]).toBe('http://localhost/identify');
+        const options = fetchCall[1];
+        expect(options.method).toBe('POST');
+        expect(options.headers['Content-Type']).toBe('application/json');
+        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+
+        const body = JSON.parse(options.body);
+        expect(body).toEqual({
+          environment: 'production',
+          traits,
+          user_id: userId,
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        });
       });
 
       it('should throw error for reserved user ID', () => {
@@ -673,7 +681,7 @@ modes.forEach(({ mode, description, setup }) => {
         );
       });
 
-      it('should update traits for identified user', () => {
+      it('should update traits for identified user', async () => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
@@ -682,36 +690,34 @@ modes.forEach(({ mode, description, setup }) => {
 
         altertable.identify('user123', { email: 'user@example.com' });
 
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
+        // Wait for the first identify call to be processed
+        await waitForNetworkCall(altertable);
+
+        // Clear the fetch mock for the next call
+        (fetch as unknown as Mock).mockClear();
 
         const newTraits = { name: 'John Doe', plan: 'premium' };
         altertable.updateTraits(newTraits);
 
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            'http://localhost/identify?apiKey=test-api-key',
-            expect.anything()
-          );
-        } else {
-          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-          expect(fetchCall[0]).toBe('http://localhost/identify');
-          const options = fetchCall[1];
-          expect(options.method).toBe('POST');
-          expect(options.headers['Content-Type']).toBe('application/json');
-          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
 
-          const body = JSON.parse(options.body);
-          expect(body).toEqual({
-            environment: 'production',
-            traits: newTraits,
-            user_id: 'user123',
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          });
-        }
+        // NetworkManager now always uses fetch, regardless of mode
+        expect(fetch).toHaveBeenCalled();
+        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+        expect(fetchCall[0]).toBe('http://localhost/identify');
+        const options = fetchCall[1];
+        expect(options.method).toBe('POST');
+        expect(options.headers['Content-Type']).toBe('application/json');
+        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+
+        const body = JSON.parse(options.body);
+        expect(body).toEqual({
+          environment: 'production',
+          traits: newTraits,
+          user_id: 'user123',
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        });
       });
 
       it('should throw when updateTraits called without identifying user', () => {
@@ -768,7 +774,7 @@ modes.forEach(({ mode, description, setup }) => {
         expect(sessionId).toBe(testSessionId);
       });
 
-      it('should regenerate session ID when event is sent after 30 minutes since last event', () => {
+      it('should regenerate session ID when event is sent after 30 minutes since last event', async () => {
         vi.useFakeTimers();
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
@@ -807,36 +813,34 @@ modes.forEach(({ mode, description, setup }) => {
         // Send an event - this should trigger session renewal
         altertable.track('test-event', { foo: 'bar' });
 
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
+
         // Verify that a new session ID was generated
         const newSessionId = altertable['_sessionManager'].getSessionId();
         expect(newSessionId).not.toBe(testSessionId);
         expect(newSessionId).toMatch(REGEXP_SESSION_ID);
 
         // Verify that the event was sent with the new session ID
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-          expectBeaconCall(config, apiKey);
-        } else {
-          expect(fetch).toHaveBeenCalled();
-          expectFetchCall(config, apiKey, {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            event: 'test-event',
-            user_id: null,
-            session_id: newSessionId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
-            properties: {
-              [PROPERTY_LIB]: 'TEST_LIB_NAME',
-              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-              foo: 'bar',
-            },
-          });
-        }
+        expect(fetch).toHaveBeenCalled();
+        expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          event: 'test-event',
+          user_id: null,
+          session_id: newSessionId,
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          environment: 'production',
+          properties: {
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+            foo: 'bar',
+          },
+        });
 
         vi.useRealTimers();
       });
 
-      it('should not regenerate session ID when event is sent within 30 minutes of last event', () => {
+      it('should not regenerate session ID when event is sent within 30 minutes of last event', async () => {
         vi.useFakeTimers();
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
@@ -875,30 +879,28 @@ modes.forEach(({ mode, description, setup }) => {
         // Send an event - this should NOT trigger session renewal
         altertable.track('test-event', { foo: 'bar' });
 
+        // Wait for the queue to be processed
+        await waitForNetworkCall(altertable);
+
         // Verify that the session ID remains the same
         const currentSessionId = altertable['_sessionManager'].getSessionId();
         expect(currentSessionId).toBe(testSessionId);
 
         // Verify that the event was sent with the same session ID
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-          expectBeaconCall(config, apiKey);
-        } else {
-          expect(fetch).toHaveBeenCalled();
-          expectFetchCall(config, apiKey, {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            event: 'test-event',
-            user_id: null,
-            session_id: testSessionId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
-            properties: {
-              [PROPERTY_LIB]: 'TEST_LIB_NAME',
-              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-              foo: 'bar',
-            },
-          });
-        }
+        expect(fetch).toHaveBeenCalled();
+        expectFetchCall(config, apiKey, {
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          event: 'test-event',
+          user_id: null,
+          session_id: testSessionId,
+          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          environment: 'production',
+          properties: {
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+            foo: 'bar',
+          },
+        });
 
         vi.useRealTimers();
       });

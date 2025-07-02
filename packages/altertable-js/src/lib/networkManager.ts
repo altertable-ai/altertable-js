@@ -313,7 +313,7 @@ export class NetworkManager {
   }
 
   private async _makeRequest(path: string, payload: unknown): Promise<void> {
-    const url = `${this._config.baseUrl}${path}`;
+    const url = `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -325,7 +325,6 @@ export class NetworkManager {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this._config.apiKey}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
