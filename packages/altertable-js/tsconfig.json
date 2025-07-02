@@ -7,7 +7,8 @@
     "noImplicitAny": true,
     "outDir": ".",
     "target": "esnext",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],
   "exclude": ["node_modules"]
