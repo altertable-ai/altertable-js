@@ -11,7 +11,7 @@
     "dev:packages": "lerna run dev --scope=@altertable/altertable-* --parallel",
     "dev:examples": "lerna run dev --scope=@altertable/example-* --parallel",
     "clean": "lerna run clean",
-    "type-check": "lerna run type-check",
+    "typecheck": "lerna run typecheck",
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint:fix",
     "test": "lerna run test",
