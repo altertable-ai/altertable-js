@@ -4,6 +4,7 @@ import {
   DEFAULT_ENVIRONMENT,
   DEFAULT_PERSISTENCE,
   EVENT_PAGEVIEW,
+  MAX_EVENT_QUEUE_SIZE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
@@ -11,7 +12,10 @@ import {
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
   STORAGE_KEY,
+  TrackingConsent,
+  TrackingConsentType,
 } from './constants';
+import { EventQueue } from './lib/eventQueue';
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
@@ -23,7 +27,14 @@ import {
   type StorageType,
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
-import { EventPayload, EventProperties, UserTraits } from './types';
+import {
+  EventContext,
+  EventPayload,
+  EventProperties,
+  EventType,
+  IdentifyPayload,
+  UserTraits,
+} from './types';
 
 export interface AltertableConfig {
   /**
@@ -56,12 +67,18 @@ export interface AltertableConfig {
    * @default "localStorage+cookie"
    */
   persistence?: StorageType;
+  /**
+   * The tracking consent state.
+   * @default "pending"
+   */
+  trackingConsent?: TrackingConsentType;
 }
 
 export class Altertable {
   private _apiKey: string;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _config: AltertableConfig;
+  private _eventQueue: EventQueue<EventPayload | IdentifyPayload>;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
@@ -72,6 +89,7 @@ export class Altertable {
   constructor() {
     this._lastUrl = null;
     this._referrer = null;
+    this._eventQueue = new EventQueue(MAX_EVENT_QUEUE_SIZE);
   }
 
   init(apiKey: string, config: AltertableConfig = {}) {
@@ -93,6 +111,7 @@ export class Altertable {
     this._sessionManager = new SessionManager({
       storage: this._storage,
       logger: this._logger,
+      defaultTrackingConsent: config.trackingConsent ?? TrackingConsent.PENDING,
     });
     this._sessionManager.init();
 
@@ -131,6 +150,28 @@ export class Altertable {
         onFallback: message => this._logger.warn(message),
       });
       this._storage.migrate(previousStorage, [STORAGE_KEY]);
+    }
+
+    const currentTrackingConsent = this._sessionManager.getTrackingConsent();
+    if (
+      updates.trackingConsent !== undefined &&
+      updates.trackingConsent !== currentTrackingConsent
+    ) {
+      this._sessionManager.setTrackingConsent(updates.trackingConsent);
+
+      if (
+        currentTrackingConsent !== TrackingConsent.GRANTED &&
+        updates.trackingConsent === TrackingConsent.GRANTED
+      ) {
+        const queuedEvents = this._eventQueue.flush();
+        if (queuedEvents.length > 0) {
+          queuedEvents.forEach(event => {
+            this._processEvent(event.eventType, event.payload);
+          });
+        }
+      } else if (updates.trackingConsent === TrackingConsent.DENIED) {
+        this._eventQueue.clear();
+      }
     }
 
     this._config = { ...this._config, ...updates };
@@ -177,11 +218,12 @@ export class Altertable {
     }
 
     this._sessionManager.setUserId(userId);
-    this._request('/identify', {
-      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+    const { environment, visitor_id } = this._getEventContext();
+    this._processEvent('identify', {
+      environment,
       traits,
       user_id: userId,
-      visitor_id: this._sessionManager.getVisitorId(),
+      visitor_id,
     });
   }
 
@@ -192,11 +234,12 @@ export class Altertable {
       'User must be identified with identify() before updating traits.'
     );
 
-    this._request('/identify', {
-      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+    const { environment, visitor_id } = this._getEventContext();
+    this._processEvent('identify', {
+      environment,
       traits,
       user_id: userId,
-      visitor_id: this._sessionManager.getVisitorId(),
+      visitor_id,
     });
   }
 
@@ -241,13 +284,15 @@ export class Altertable {
     const timestamp = new Date().toISOString();
     this._sessionManager.updateLastEventAt(timestamp);
 
+    const { environment, user_id, visitor_id, session_id } =
+      this._getEventContext();
     const payload: EventPayload = {
       timestamp,
       event,
-      environment: this._config.environment || DEFAULT_ENVIRONMENT,
-      user_id: this._sessionManager.getUserId(),
-      session_id: this._sessionManager.getSessionId(),
-      visitor_id: this._sessionManager.getVisitorId(),
+      environment,
+      user_id,
+      session_id,
+      visitor_id,
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -258,11 +303,16 @@ export class Altertable {
       },
     };
 
-    this._request('/track', payload);
+    this._processEvent('track', payload);
 
     if (this._config.debug) {
-      this._logger.logEvent(payload);
+      const trackingConsent = this._sessionManager.getTrackingConsent();
+      this._logger.logEvent(payload, { trackingConsent });
     }
+  }
+
+  getTrackingConsent(): TrackingConsentType {
+    return this._sessionManager.getTrackingConsent();
   }
 
   private _checkForChanges() {
@@ -278,6 +328,35 @@ export class Altertable {
         this._lastUrl = currentUrl;
       }
     });
+  }
+
+  private _getEventContext(): EventContext {
+    return {
+      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+      user_id: this._sessionManager.getUserId(),
+      visitor_id: this._sessionManager.getVisitorId(),
+      session_id: this._sessionManager.getSessionId(),
+    };
+  }
+
+  private _processEvent<TPayload extends EventPayload | UserTraits>(
+    eventType: EventType,
+    payload: TPayload
+  ) {
+    const trackingConsent = this._sessionManager.getTrackingConsent();
+
+    switch (trackingConsent) {
+      case TrackingConsent.GRANTED:
+        this._request(`/${eventType}`, payload);
+        break;
+      case TrackingConsent.PENDING:
+      case TrackingConsent.DISMISSED:
+        this._eventQueue.enqueue(eventType, payload, this._getEventContext());
+        break;
+      case TrackingConsent.DENIED:
+        // Do nothing (don't collect or send data)
+        break;
+    }
   }
 
   private _request(path: string, body: unknown): void {

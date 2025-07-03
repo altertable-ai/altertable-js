@@ -102,12 +102,13 @@ describe('Logger', () => {
     it('logs event with all components', () => {
       const logger = createLogger('TestLogger');
 
-      logger.logEvent(mockEventPayload);
+      logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\)/
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %c/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -117,7 +118,7 @@ describe('Logger', () => {
     it('logs user information', () => {
       const logger = createLogger('TestLogger');
 
-      logger.logEvent(mockEventPayload);
+      logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cUser ID %cuser123',
@@ -133,7 +134,7 @@ describe('Logger', () => {
         user_id: undefined,
       };
 
-      logger.logEvent(payloadWithoutUser);
+      logger.logEvent(payloadWithoutUser, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cUser ID %cNot set',
@@ -145,7 +146,7 @@ describe('Logger', () => {
     it('logs visitor information', () => {
       const logger = createLogger('TestLogger');
 
-      logger.logEvent(mockEventPayload);
+      logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cVisitor ID %cvisitor-123',
@@ -161,7 +162,7 @@ describe('Logger', () => {
         visitor_id: undefined,
       };
 
-      logger.logEvent(payloadWithoutVisitor);
+      logger.logEvent(payloadWithoutVisitor, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cVisitor ID %cNot set',
@@ -173,7 +174,7 @@ describe('Logger', () => {
     it('logs session information', () => {
       const logger = createLogger('TestLogger');
 
-      logger.logEvent(mockEventPayload);
+      logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cSession ID %csession-123',
@@ -189,10 +190,90 @@ describe('Logger', () => {
         session_id: undefined,
       };
 
-      logger.logEvent(payloadWithoutSession);
+      logger.logEvent(payloadWithoutSession, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cSession ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays no badge when tracking consent is granted', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays DENIED badge when tracking consent is denied', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload, { trackingConsent: 'denied' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cDENIED$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays PENDING badge when tracking consent is pending', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload, { trackingConsent: 'pending' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cPENDING$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays PENDING badge when tracking consent is dismissed', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload, { trackingConsent: 'dismissed' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cPENDING$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays UNKNOWN badge for unknown tracking consent values', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload, { trackingConsent: 'unknown' as any });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cUNKNOWN$/
+        ),
+        expect.any(String),
+        expect.any(String),
         expect.any(String),
         expect.any(String)
       );

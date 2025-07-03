@@ -1,12 +1,4 @@
-export type EventPayload = {
-  environment: string;
-  event: string;
-  properties: EventProperties;
-  session_id: SessionId;
-  timestamp: string;
-  user_id: UserId | null;
-  visitor_id: VisitorId;
-};
+export type EventType = 'track' | 'identify';
 
 export type EventProperties = Record<string, unknown>;
 
@@ -17,3 +9,18 @@ export type SessionId = `session-${string}`;
 export interface UserTraits extends Record<string, unknown> {
   email?: string;
 }
+
+export type EventContext = {
+  environment: string;
+  user_id: UserId | null;
+  visitor_id: VisitorId;
+  session_id: SessionId;
+};
+
+export type EventPayload = EventContext & {
+  event: string;
+  properties: EventProperties;
+  timestamp: string;
+};
+
+export type IdentifyPayload = UserTraits;

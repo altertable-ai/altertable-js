@@ -1,5 +1,8 @@
-import { altertable } from '@altertable/altertable-js';
-import { AltertableProvider } from '@altertable/altertable-react';
+import { altertable, TrackingConsent } from '@altertable/altertable-js';
+import {
+  AltertableProvider,
+  useAltertable,
+} from '@altertable/altertable-react';
 import {
   ConsentManagerDialog,
   ConsentManagerProvider,
@@ -7,7 +10,7 @@ import {
   useConsentManager,
 } from '@c15t/react';
 import { CreditCard, Mail, Sparkles, User } from 'lucide-react';
-import { ComponentProps, useSyncExternalStore } from 'react';
+import { ComponentProps, useEffect, useSyncExternalStore } from 'react';
 
 import { SignupFunnel } from './SignupFunnel';
 
@@ -79,12 +82,23 @@ function ConsentProvider({ children }: { children: React.ReactNode }) {
     <ConsentManagerProvider
       options={{
         mode: 'offline',
+        consentCategories: [
+          'necessary',
+          'measurement',
+          'experience',
+          'functionality',
+          'marketing',
+        ],
         callbacks: {
           onConsentSet: ({ data }) => {
             if (data?.preferences.measurement) {
-              // TODO: Enable tracking
+              altertable.configure({
+                trackingConsent: TrackingConsent.GRANTED,
+              });
             } else {
-              // TODO: Disable tracking
+              altertable.configure({
+                trackingConsent: TrackingConsent.DENIED,
+              });
             }
           },
         },
@@ -93,8 +107,22 @@ function ConsentProvider({ children }: { children: React.ReactNode }) {
       {children}
       <CookieBanner />
       <ConsentManagerDialog />
+      <AltertableConsentManager />
     </ConsentManagerProvider>
   );
+}
+
+function AltertableConsentManager() {
+  const altertable = useAltertable();
+  const { setShowPopup } = useConsentManager();
+
+  useEffect(() => {
+    if (altertable.getTrackingConsent() === TrackingConsent.PENDING) {
+      setShowPopup(true, true);
+    }
+  }, [altertable, setShowPopup]);
+
+  return null;
 }
 
 function createURLStore() {
