@@ -752,6 +752,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(existingSessionData),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         });
 
         altertable.init(apiKey, config);
