@@ -13,6 +13,7 @@ describe('SessionManager with tracking consent', () => {
     getItem: ReturnType<typeof vi.fn>;
     setItem: ReturnType<typeof vi.fn>;
     removeItem: ReturnType<typeof vi.fn>;
+    migrate: ReturnType<typeof vi.fn>;
   };
   let mockLogger: ReturnType<typeof createLogger>;
   let sessionManager: SessionManager;
@@ -22,6 +23,7 @@ describe('SessionManager with tracking consent', () => {
       getItem: vi.fn(),
       setItem: vi.fn(),
       removeItem: vi.fn(),
+      migrate: vi.fn(),
     };
     mockLogger = createLogger('test');
   });
@@ -31,6 +33,7 @@ describe('SessionManager with tracking consent', () => {
       sessionManager = new SessionManager({
         storage: mockStorage,
         logger: mockLogger,
+        defaultTrackingConsent: TrackingConsent.PENDING,
       });
       sessionManager.init();
 

@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MAX_EVENT_QUEUE_SIZE } from '../src/constants';
 import { EventQueue } from '../src/lib/eventQueue';
-import type { EventPayload } from '../src/types';
+import type { EventContext, EventPayload } from '../src/types';
 
 describe('EventQueue', () => {
   let eventQueue: EventQueue<EventPayload>;
+  const mockContext: EventContext = {
+    environment: 'production',
+    user_id: null,
+    visitor_id: 'visitor-test-1',
+    session_id: 'session-test-1',
+  };
   const mockEvent: EventPayload = {
     timestamp: '2023-01-01T00:00:00.000Z',
     event: 'test-event',
@@ -22,7 +28,7 @@ describe('EventQueue', () => {
 
   describe('enqueue', () => {
     it('should add events to the queue', () => {
-      eventQueue.enqueue('track', mockEvent);
+      eventQueue.enqueue('track', mockEvent, mockContext);
 
       expect(eventQueue.getSize()).toBe(1);
     });
@@ -32,9 +38,9 @@ describe('EventQueue', () => {
       const event2 = { ...mockEvent, event: 'event-2' };
       const event3 = { ...mockEvent, event: 'event-3' };
 
-      eventQueue.enqueue('track', event1);
-      eventQueue.enqueue('track', event2);
-      eventQueue.enqueue('track', event3);
+      eventQueue.enqueue('track', event1, mockContext);
+      eventQueue.enqueue('track', event2, mockContext);
+      eventQueue.enqueue('track', event3, mockContext);
 
       expect(eventQueue.getSize()).toBe(3);
     });
@@ -42,13 +48,21 @@ describe('EventQueue', () => {
     it('should remove oldest event when queue is full', () => {
       // Fill the queue to capacity
       for (let i = 0; i < MAX_EVENT_QUEUE_SIZE; i++) {
-        eventQueue.enqueue('track', { ...mockEvent, event: `event-${i}` });
+        eventQueue.enqueue(
+          'track',
+          { ...mockEvent, event: `event-${i}` },
+          mockContext
+        );
       }
 
       expect(eventQueue.getSize()).toBe(MAX_EVENT_QUEUE_SIZE);
 
       // Add one more event
-      eventQueue.enqueue('track', { ...mockEvent, event: 'new-event' });
+      eventQueue.enqueue(
+        'track',
+        { ...mockEvent, event: 'new-event' },
+        mockContext
+      );
 
       // Queue should still be at max size
       expect(eventQueue.getSize()).toBe(MAX_EVENT_QUEUE_SIZE);
@@ -68,9 +82,9 @@ describe('EventQueue', () => {
       const event2 = { ...mockEvent, event: 'event-2' };
       const event3 = { ...mockEvent, event: 'event-3' };
 
-      eventQueue.enqueue('track', event1);
-      eventQueue.enqueue('track', event2);
-      eventQueue.enqueue('track', event3);
+      eventQueue.enqueue('track', event1, mockContext);
+      eventQueue.enqueue('track', event2, mockContext);
+      eventQueue.enqueue('track', event3, mockContext);
 
       const flushedEvents = eventQueue.flush();
 
@@ -95,8 +109,12 @@ describe('EventQueue', () => {
 
   describe('clear', () => {
     it('should remove all events from the queue', () => {
-      eventQueue.enqueue('track', mockEvent);
-      eventQueue.enqueue('track', { ...mockEvent, event: 'event-2' });
+      eventQueue.enqueue('track', mockEvent, mockContext);
+      eventQueue.enqueue(
+        'track',
+        { ...mockEvent, event: 'event-2' },
+        mockContext
+      );
 
       expect(eventQueue.getSize()).toBe(2);
 
@@ -118,10 +136,14 @@ describe('EventQueue', () => {
     it('should return correct queue size', () => {
       expect(eventQueue.getSize()).toBe(0);
 
-      eventQueue.enqueue('track', mockEvent);
+      eventQueue.enqueue('track', mockEvent, mockContext);
       expect(eventQueue.getSize()).toBe(1);
 
-      eventQueue.enqueue('track', { ...mockEvent, event: 'event-2' });
+      eventQueue.enqueue(
+        'track',
+        { ...mockEvent, event: 'event-2' },
+        mockContext
+      );
       expect(eventQueue.getSize()).toBe(2);
 
       eventQueue.flush();

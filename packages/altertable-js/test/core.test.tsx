@@ -1142,6 +1142,7 @@ modes.forEach(({ mode, description, setup }) => {
         getItem: vi.fn().mockReturnValue(null),
         setItem: vi.fn(),
         removeItem: vi.fn(),
+        migrate: vi.fn(),
       });
 
       beforeEach(() => {
