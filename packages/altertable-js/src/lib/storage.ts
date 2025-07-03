@@ -12,6 +12,21 @@ export interface StorageApi {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
+  migrate(fromStorage: StorageApi, keys: string[]): void;
+}
+
+function migrateKeys(
+  toStorage: StorageApi,
+  fromStorage: StorageApi,
+  keys: string[]
+): void {
+  for (const key of keys) {
+    const value = fromStorage.getItem(key);
+    if (value !== null) {
+      toStorage.setItem(key, value);
+      fromStorage.removeItem(key);
+    }
+  }
 }
 
 class MemoryStore implements StorageApi {
@@ -24,6 +39,9 @@ class MemoryStore implements StorageApi {
   }
   removeItem(key: string) {
     delete this.store[key];
+  }
+  migrate(fromStorage: StorageApi, keys: string[]) {
+    migrateKeys(this, fromStorage, keys);
   }
 }
 
@@ -48,6 +66,9 @@ class CookieStore implements StorageApi {
     safelyRunOnBrowser(({ window }) => {
       window.document.cookie = `${key}=; Max-Age=0; path=/;`;
     });
+  }
+  migrate(fromStorage: StorageApi, keys: string[]) {
+    migrateKeys(this, fromStorage, keys);
   }
 }
 
@@ -83,6 +104,9 @@ class WebStorageStore implements StorageApi {
       }
     });
   }
+  migrate(fromStorage: StorageApi, keys: string[]) {
+    migrateKeys(this, fromStorage, keys);
+  }
 }
 
 class LocalPlusCookieStore implements StorageApi {
@@ -98,6 +122,20 @@ class LocalPlusCookieStore implements StorageApi {
   removeItem(key: string) {
     this.localStore.removeItem(key);
     this.cookieStore.removeItem(key);
+  }
+  migrate(fromStorage: StorageApi, keys: string[]) {
+    // Migrate to both localStorage and cookie without removing from source yet
+    for (const key of keys) {
+      const value = fromStorage.getItem(key);
+      if (value !== null) {
+        this.localStore.setItem(key, value);
+        this.cookieStore.setItem(key, value);
+      }
+    }
+
+    for (const key of keys) {
+      fromStorage.removeItem(key);
+    }
   }
 }
 

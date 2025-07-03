@@ -10,6 +10,7 @@ import {
   PROPERTY_RELEASE,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
+  STORAGE_KEY,
 } from './constants';
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
@@ -119,6 +120,17 @@ export class Altertable {
       updates.autoCapture !== this._config.autoCapture
     ) {
       this._handleAutoCaptureChange(updates.autoCapture);
+    }
+
+    if (
+      updates.persistence !== undefined &&
+      updates.persistence !== this._config.persistence
+    ) {
+      const previousStorage = this._storage;
+      this._storage = selectStorage(updates.persistence, {
+        onFallback: message => this._logger.warn(message),
+      });
+      this._storage.migrate(previousStorage, [STORAGE_KEY]);
     }
 
     this._config = { ...this._config, ...updates };

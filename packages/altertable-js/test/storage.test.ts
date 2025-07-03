@@ -20,11 +20,12 @@ describe('Storage API', () => {
   let mockSessionStorage: MockStorage;
   let onFallback: (message: string) => void;
   let originalWindow: typeof window;
+  let cookieValue = '';
+  let cookieStore = new Map<string, string>();
 
   function disableCookieSupport() {
     // Mock cookie to fail by making the test cookie not persist
     // This simulates a browser where cookies are disabled
-    let cookieValue = '';
     Object.defineProperty(mockDocument, 'cookie', {
       get: () => cookieValue,
       set: (value: string) => {
@@ -41,6 +42,8 @@ describe('Storage API', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    cookieValue = '';
+    cookieStore.clear();
 
     originalWindow = global.window;
     mockLocalStorage = {
@@ -53,9 +56,49 @@ describe('Storage API', () => {
       setItem: vi.fn(),
       removeItem: vi.fn(),
     };
-    mockDocument = {
-      cookie: '',
-    };
+    mockDocument = {};
+
+    // Mock cookie setter to append cookies instead of overwriting
+    Object.defineProperty(mockDocument, 'cookie', {
+      get: () => {
+        // Convert cookie store to string format and include removal strings
+        const cookieString = Array.from(cookieStore.entries())
+          .map(([key, value]) => `${key}=${value}`)
+          .join('; ');
+        return cookieString + (cookieValue ? `; ${cookieValue}` : '');
+      },
+      set: (value: string) => {
+        // Support direct assignment for test setup
+        if (
+          value.includes('=') &&
+          !value.includes('Max-Age=0') &&
+          value.includes(';')
+        ) {
+          // Parse multiple cookies from direct assignment
+          const cookies = value.split(';').map(c => c.trim());
+          cookies.forEach(cookie => {
+            if (cookie.includes('=')) {
+              const [name, val] = cookie.split('=');
+              cookieStore.set(name.trim(), val.trim());
+            }
+          });
+          return;
+        }
+        if (value.includes('Max-Age=0')) {
+          // Remove cookie from store and append removal string
+          const cookieName = value.split('=')[0];
+          cookieStore.delete(cookieName);
+          cookieValue = cookieValue ? `${cookieValue}; ${value}` : value;
+        } else {
+          // Add or update cookie
+          if (value.includes('=')) {
+            const [cookieName, cookieVal] = value.split('=');
+            cookieStore.set(cookieName.trim(), cookieVal.trim());
+          }
+        }
+      },
+      configurable: true,
+    });
     mockWindow = {
       localStorage: mockLocalStorage as unknown as Storage,
       sessionStorage: mockSessionStorage as unknown as Storage,
@@ -107,6 +150,19 @@ describe('Storage API', () => {
       expect(storage.getItem('key1')).toBe('value1');
       expect(storage.getItem('key2')).toBe('value2');
     });
+
+    it('should migrate data from another storage', () => {
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('key1', 'value1');
+      sourceStorage.setItem('key2', 'value2');
+      sourceStorage.setItem('key3', 'value3');
+
+      storage.migrate(sourceStorage, ['key1', 'key2']);
+
+      expect(storage.getItem('key1')).toBe('value1');
+      expect(storage.getItem('key2')).toBe('value2');
+      expect(storage.getItem('key3')).toBeNull(); // Not migrated
+    });
   });
 
   describe('CookieStore', () => {
@@ -141,6 +197,26 @@ describe('Storage API', () => {
       mockDocument.cookie = 'test-key=value; other-cookie=value2';
       storage.removeItem('test-key');
       expect(mockDocument.cookie).toContain('test-key=; Max-Age=0');
+    });
+
+    it('should migrate data from another storage', () => {
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('key1', 'value1');
+      sourceStorage.setItem('key2', 'value2');
+
+      storage.migrate(sourceStorage, ['key1', 'key2']);
+
+      expect(mockDocument.cookie).toContain('key1=value1');
+      expect(mockDocument.cookie).toContain('key2=value2');
+    });
+
+    it('should not migrate when empty keys array is specified', () => {
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('key1', 'value1');
+
+      storage.migrate(sourceStorage, []);
+
+      expect(mockDocument.cookie).not.toContain('key1=value1');
     });
   });
 
@@ -214,7 +290,18 @@ describe('Storage API', () => {
     let storage: StorageApi;
 
     beforeEach(() => {
+      cookieStore.clear();
+      cookieValue = '';
+
+      // Mock localStorage to work for this test
+      mockLocalStorage.setItem.mockImplementation(() => {});
+      mockLocalStorage.removeItem.mockImplementation(() => {});
+
       storage = selectStorage('localStorage+cookie', { onFallback });
+
+      // Clear any artifacts from storage support test
+      cookieStore.clear();
+      cookieValue = '';
     });
 
     it('should store values in both localStorage and cookies', () => {
@@ -241,6 +328,19 @@ describe('Storage API', () => {
       storage.removeItem('test-key');
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('test-key');
       expect(mockDocument.cookie).toContain('test-key=; Max-Age=0');
+    });
+
+    it('should migrate data to both localStorage and cookies', () => {
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('key1', 'value1');
+      sourceStorage.setItem('key2', 'value2');
+
+      storage.migrate(sourceStorage, ['key1', 'key2']);
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('key1', 'value1');
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('key2', 'value2');
+      expect(mockDocument.cookie).toContain('key1=value1');
+      expect(mockDocument.cookie).toContain('key2=value2');
     });
   });
 

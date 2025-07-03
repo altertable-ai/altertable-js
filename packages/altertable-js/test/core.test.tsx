@@ -524,10 +524,11 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('persistence configuration', () => {
-      const createStorageMock = () => ({
+      const createStorageMock: () => storageModule.StorageApi = () => ({
         getItem: vi.fn().mockReturnValue(null),
         setItem: vi.fn(),
         removeItem: vi.fn(),
+        migrate: vi.fn(),
       });
 
       it('should use localStorage+cookie as default persistence strategy', () => {
