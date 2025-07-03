@@ -3,7 +3,7 @@ import type { EventContext, EventType } from '../types';
 type QueuedEvent<TPayload> = {
   eventType: EventType;
   payload: TPayload;
-  sentAt: string;
+  sentAt: Date;
   context: EventContext;
 };
 
@@ -28,7 +28,7 @@ export class EventQueue<TPayload> {
       eventType,
       payload,
       context,
-      sentAt: new Date().toISOString(),
+      sentAt: new Date(),
     });
   }
 
