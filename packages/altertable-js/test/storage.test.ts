@@ -65,7 +65,9 @@ describe('Storage API', () => {
         const cookieString = Array.from(cookieStore.entries())
           .map(([key, value]) => `${key}=${value}`)
           .join('; ');
-        return cookieString + (cookieValue ? `; ${cookieValue}` : '');
+        return cookieString
+          ? cookieString + (cookieValue ? `; ${cookieValue}` : '')
+          : cookieValue;
       },
       set: (value: string) => {
         // Support direct assignment for test setup
