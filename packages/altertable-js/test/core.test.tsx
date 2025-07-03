@@ -594,6 +594,40 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('user identification', () => {
+      it('should identify user with valid user ID and empty traits', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        };
+        altertable.init(apiKey, config);
+
+        const userId: UserId = 'user123';
+
+        altertable.identify(userId);
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledWith(
+            'http://localhost/identify?apiKey=test-api-key',
+            expect.anything()
+          );
+        } else {
+          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
+          expect(fetchCall[0]).toBe('http://localhost/identify');
+          const options = fetchCall[1];
+          expect(options.method).toBe('POST');
+          expect(options.headers['Content-Type']).toBe('application/json');
+          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
+
+          const body = JSON.parse(options.body);
+          expect(body).toEqual({
+            environment: 'production',
+            traits: {},
+            user_id: userId,
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          });
+        }
+      });
+
       it('should identify user with valid user ID and traits', () => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',

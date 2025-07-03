@@ -164,7 +164,7 @@ export class Altertable {
     }
   }
 
-  identify(userId: string, traits: UserTraits) {
+  identify(userId: string, traits: UserTraits = {}) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before identifying users.'
