@@ -1497,11 +1497,15 @@ modes.forEach(({ mode, description, setup }) => {
           debug: true,
           trackingConsent: 'pending',
         };
-        altertable.init(apiKey, config);
 
         const logEventSpy = vi
           .spyOn(altertable['_logger'], 'logEvent')
           .mockImplementation(() => {});
+        vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
+          () => {}
+        );
+
+        altertable.init(apiKey, config);
 
         // Track event should be logged even when queued
         altertable.track('test-event', { foo: 'bar' });
