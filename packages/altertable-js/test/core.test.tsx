@@ -524,10 +524,11 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('persistence configuration', () => {
-      const createStorageMock = () => ({
+      const createStorageMock: () => storageModule.StorageApi = () => ({
         getItem: vi.fn().mockReturnValue(null),
         setItem: vi.fn(),
         removeItem: vi.fn(),
+        migrate: vi.fn(),
       });
 
       it('should use localStorage+cookie as default persistence strategy', () => {
@@ -751,6 +752,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(existingSessionData),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         });
 
         altertable.init(apiKey, config);
@@ -782,6 +784,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(existingSessionData),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         });
 
         altertable.init(apiKey, config);
@@ -850,6 +853,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(existingSessionData),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         });
 
         altertable.init(apiKey, config);
@@ -1001,6 +1005,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(null),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         };
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1045,6 +1050,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue(existingData),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         };
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1071,6 +1077,7 @@ modes.forEach(({ mode, description, setup }) => {
           getItem: vi.fn().mockReturnValue('invalid-json'),
           setItem: vi.fn(),
           removeItem: vi.fn(),
+          migrate: vi.fn(),
         };
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
