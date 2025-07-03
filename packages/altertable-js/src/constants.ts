@@ -15,6 +15,7 @@ export const PREFIX_VISITOR_ID = 'visitor';
 const MINUTE_IN_MS = 1000 * 60;
 export const AUTO_CAPTURE_INTERVAL_MS = 100;
 export const SESSION_EXPIRATION_TIME_MS = 30 * MINUTE_IN_MS;
+export const MAX_EVENT_QUEUE_SIZE = 1000;
 
 export const EVENT_PAGEVIEW = '$pageview';
 
@@ -24,6 +25,16 @@ export const PROPERTY_REFERER = '$referer';
 export const PROPERTY_RELEASE = '$release';
 export const PROPERTY_URL = '$url';
 export const PROPERTY_VIEWPORT = '$viewport';
+
+export const TrackingConsent = {
+  DENIED: 'denied',
+  DISMISSED: 'dismissed',
+  GRANTED: 'granted',
+  PENDING: 'pending',
+} as const;
+
+export type TrackingConsentType =
+  (typeof TrackingConsent)[keyof typeof TrackingConsent];
 
 export const RESERVED_USER_IDS = [
   'anonymous_id',

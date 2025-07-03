@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import { TrackingConsent, TrackingConsentType } from '../constants';
 import { EventPayload } from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
@@ -18,7 +19,10 @@ export function createLogger(prefix: string) {
         console.log(header, 'color: #64748b;');
       }
     },
-    logEvent: (payload: EventPayload) => {
+    logEvent: (
+      payload: EventPayload,
+      { trackingConsent }: { trackingConsent: TrackingConsentType }
+    ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(
         payload.event
       );
@@ -27,12 +31,15 @@ export function createLogger(prefix: string) {
       const [timestampLabel, timestampStyle] = createTimestampElement(
         payload.timestamp
       );
+      const [consentBadgeLabel, consentBadgeStyle] =
+        getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c [${environmentBadgeLabel}] %c(${timestampLabel})`,
+        `[${prefix}] %c${eventBadgeLabel}%c [${environmentBadgeLabel}] %c(${timestampLabel}) %c${consentBadgeLabel}`,
         eventBadgeStyle,
         environmentBadgeStyle,
-        timestampStyle
+        timestampStyle,
+        consentBadgeStyle
       );
 
       const [userLabelLabel, userLabelStyle] = createLabelElement('User ID');
@@ -153,4 +160,29 @@ function createValueElement(value: string): [string, string] {
     value,
     'background: #f8fafc; color: #1e293b; padding: 2px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-family: "SF Mono", "Monaco", monospace; font-size: 11px;',
   ];
+}
+
+function getConsentBadgeElement(
+  trackingConsent: TrackingConsentType
+): [string, string] {
+  switch (trackingConsent) {
+    case TrackingConsent.GRANTED:
+      return ['', ''];
+    case TrackingConsent.DENIED:
+      return [
+        'DENIED',
+        'background: #ef4444; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      ];
+    case TrackingConsent.PENDING:
+    case TrackingConsent.DISMISSED:
+      return [
+        'PENDING',
+        'background: #f59e0b; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      ];
+    default:
+      return [
+        'UNKNOWN',
+        'background: #6b7280; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;',
+      ];
+  }
 }

@@ -120,6 +120,7 @@ modes.forEach(({ mode, description, setup }) => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: true,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -149,6 +150,7 @@ modes.forEach(({ mode, description, setup }) => {
     it('should send a track event with the default base URL', () => {
       const config: AltertableConfig = {
         autoCapture: false,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -171,6 +173,7 @@ modes.forEach(({ mode, description, setup }) => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -202,6 +205,7 @@ modes.forEach(({ mode, description, setup }) => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         release: '04ed05b',
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -234,6 +238,7 @@ modes.forEach(({ mode, description, setup }) => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: true,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -302,6 +307,7 @@ modes.forEach(({ mode, description, setup }) => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
       if (mode === 'beacon') {
@@ -323,6 +329,7 @@ modes.forEach(({ mode, description, setup }) => {
       const config: AltertableConfig = {
         baseUrl: 'http://localhost',
         autoCapture: false,
+        trackingConsent: 'granted',
       };
       altertable.init(apiKey, config);
 
@@ -392,6 +399,7 @@ modes.forEach(({ mode, description, setup }) => {
           baseUrl: 'http://localhost',
           autoCapture: false,
           debug: false,
+          trackingConsent: 'granted',
         });
 
         clearNetworkCalls();
@@ -404,18 +412,21 @@ modes.forEach(({ mode, description, setup }) => {
           .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
 
-        expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'test-event',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: expect.objectContaining({
-            [PROPERTY_RELEASE]: 'test-release',
-            foo: 'bar',
-          }),
-        });
+        expect(logEventSpy).toHaveBeenCalledWith(
+          {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: expect.objectContaining({
+              [PROPERTY_RELEASE]: 'test-release',
+              foo: 'bar',
+            }),
+          },
+          { trackingConsent: 'granted' }
+        );
       });
 
       it('should update multiple configuration options at once', () => {
@@ -424,6 +435,7 @@ modes.forEach(({ mode, description, setup }) => {
           autoCapture: false,
           debug: false,
           environment: 'production',
+          trackingConsent: 'granted',
         };
         altertable.init(apiKey, config);
 
@@ -439,18 +451,21 @@ modes.forEach(({ mode, description, setup }) => {
           .mockImplementation(() => {});
         altertable.track('test-event', { foo: 'bar' });
 
-        expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'test-event',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'staging',
-          properties: expect.objectContaining({
-            [PROPERTY_RELEASE]: 'v1.0.0',
-            foo: 'bar',
-          }),
-        });
+        expect(logEventSpy).toHaveBeenCalledWith(
+          {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'staging',
+            properties: expect.objectContaining({
+              [PROPERTY_RELEASE]: 'v1.0.0',
+              foo: 'bar',
+            }),
+          },
+          { trackingConsent: 'granted' }
+        );
       });
 
       it('should call logHeader when debug is enabled on init', () => {
@@ -461,6 +476,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.init('TEST_API_KEY', {
           debug: true,
           autoCapture: false,
+          trackingConsent: 'granted',
         });
 
         expect(logHeaderSpy).toHaveBeenCalledTimes(1);
@@ -474,6 +490,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.init('TEST_API_KEY', {
           debug: false,
           autoCapture: false,
+          trackingConsent: 'granted',
         });
 
         expect(logHeaderSpy).toHaveBeenCalledTimes(0);
@@ -490,21 +507,25 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.init('TEST_API_KEY', {
           debug: true,
           autoCapture: false,
+          trackingConsent: 'granted',
         });
 
         altertable.track('test-event', { foo: 'bar' });
 
-        expect(logEventSpy).toHaveBeenCalledWith({
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'test-event',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: expect.objectContaining({
-            foo: 'bar',
-          }),
-        });
+        expect(logEventSpy).toHaveBeenCalledWith(
+          {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          },
+          { trackingConsent: 'granted' }
+        );
       });
 
       it('should not call logEvent when debug is disabled and track is called', () => {
@@ -778,6 +799,7 @@ modes.forEach(({ mode, description, setup }) => {
           sessionId: testSessionId,
           userId: null,
           lastEventAt: thirtyMinutesAgo,
+          trackingConsent: 'granted',
         });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
@@ -847,6 +869,7 @@ modes.forEach(({ mode, description, setup }) => {
           sessionId: testSessionId,
           userId: null,
           lastEventAt: twentyNineMinutesAgo,
+          trackingConsent: 'granted',
         });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
@@ -902,6 +925,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
         altertable.init(apiKey, config);
 
@@ -918,6 +942,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         altertable.init(apiKey, config);
@@ -948,6 +973,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         altertable.init(apiKey, config);
@@ -969,6 +995,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         altertable.init(apiKey, config);
@@ -999,6 +1026,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         const storageMock = {
@@ -1035,6 +1063,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         const testVisitorId = 'visitor-test-uuid-3-1234567890';
@@ -1044,6 +1073,7 @@ modes.forEach(({ mode, description, setup }) => {
           sessionId: testSessionId,
           userId: 'user123',
           lastEventAt: '2023-01-01T00:00:00.000Z',
+          trackingConsent: 'granted',
         });
 
         const storageMock = {
@@ -1071,6 +1101,7 @@ modes.forEach(({ mode, description, setup }) => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          trackingConsent: 'granted',
         };
 
         const storageMock = {
@@ -1094,6 +1125,405 @@ modes.forEach(({ mode, description, setup }) => {
         expect(userId).toBeNull();
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
         expect(visitorId).toMatch(REGEXP_VISITOR_ID);
+      });
+    });
+
+    describe('tracking consent', () => {
+      function clearNetworkCalls() {
+        if (mode === 'beacon') {
+          (navigator.sendBeacon as Mock).mockClear();
+        } else {
+          (fetch as unknown as Mock).mockClear();
+        }
+      }
+
+      // Mock storage for tracking consent tests
+      const createStorageMock = () => ({
+        getItem: vi.fn().mockReturnValue(null),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        migrate: vi.fn(),
+      });
+
+      beforeEach(() => {
+        // Mock storage for each test to ensure clean state
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+      });
+
+      it('should send events immediately when consent is granted', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        };
+        altertable.init(apiKey, config);
+
+        altertable.track('test-event', { foo: 'bar' });
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalled();
+        } else {
+          expect(fetch).toHaveBeenCalled();
+        }
+      });
+
+      it('should queue events when consent is pending', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+
+        // No network calls should be made
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // Events should be queued
+        expect(altertable['_eventQueue'].getSize()).toBe(2);
+      });
+
+      it('should queue events when consent is dismissed', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'dismissed',
+        };
+        altertable.init(apiKey, config);
+
+        altertable.track('test-event', { foo: 'bar' });
+
+        // No network calls should be made
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // Event should be queued
+        expect(altertable['_eventQueue'].getSize()).toBe(1);
+      });
+
+      it('should not collect or send events when consent is denied', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'denied',
+        };
+        altertable.init(apiKey, config);
+
+        altertable.track('test-event', { foo: 'bar' });
+
+        // No network calls should be made
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // Event should not be queued
+        expect(altertable['_eventQueue'].getSize()).toBe(0);
+      });
+
+      it('should flush queued events when consent changes from pending to granted', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        // Queue some events
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+
+        expect(altertable['_eventQueue'].getSize()).toBe(2);
+
+        // Clear network calls
+        clearNetworkCalls();
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Queued events should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(2);
+        }
+
+        // Queue should be empty
+        expect(altertable['_eventQueue'].getSize()).toBe(0);
+      });
+
+      it('should flush queued events when consent changes from dismissed to granted', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'dismissed',
+        };
+        altertable.init(apiKey, config);
+
+        // Queue some events
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+
+        expect(altertable['_eventQueue'].getSize()).toBe(2);
+
+        // Clear network calls
+        clearNetworkCalls();
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Queued events should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(2);
+        }
+
+        // Queue should be empty
+        expect(altertable['_eventQueue'].getSize()).toBe(0);
+      });
+
+      it('should clear queued events when consent changes to denied', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        // Queue some events
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+
+        expect(altertable['_eventQueue'].getSize()).toBe(2);
+
+        // Change consent to denied
+        altertable.configure({ trackingConsent: 'denied' });
+
+        // Queue should be cleared
+        expect(altertable['_eventQueue'].getSize()).toBe(0);
+      });
+
+      it('should not flush events when consent changes from granted to pending', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        };
+        altertable.init(apiKey, config);
+
+        // Send an event
+        altertable.track('test-event-1', { foo: 'bar' });
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(1);
+        }
+
+        // Clear network calls
+        clearNetworkCalls();
+
+        // Change consent to pending
+        altertable.configure({ trackingConsent: 'pending' });
+
+        altertable.track('test-event-2', { foo: 'bar' });
+
+        // No additional network calls should be made
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+      });
+
+      it('should get current tracking consent state', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        expect(altertable.getTrackingConsent()).toBe('pending');
+
+        altertable.configure({ trackingConsent: 'granted' });
+        expect(altertable.getTrackingConsent()).toBe('granted');
+      });
+
+      it('should handle page events with different consent states', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        // Page event should be queued when consent is pending
+        altertable.page('http://localhost/test-page');
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        expect(altertable['_eventQueue'].getSize()).toBe(1);
+
+        // Clear network calls
+        clearNetworkCalls();
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Queued page event should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(1);
+        }
+      });
+
+      it('should handle identify events with different consent states', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        // No network calls should be made when consent is pending
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // User should be set in session manager regardless of consent
+        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Queued identify event should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(1);
+        }
+      });
+
+      it('should handle updateTraits with different consent states', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        // First identify the user
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        // Clear network calls
+        clearNetworkCalls();
+
+        // Update traits should respect consent
+        altertable.updateTraits({ name: 'John Doe' });
+
+        // No network calls should be made when consent is pending
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Both queued identify and updateTraits events should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
+        } else {
+          expect(fetch).toHaveBeenCalledTimes(2);
+        }
+      });
+
+      it('should handle auto-capture with different consent states', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: true,
+          trackingConsent: 'pending',
+        };
+        altertable.init(apiKey, config);
+
+        // Initial page event should be queued
+        expect(altertable['_eventQueue'].getSize()).toBe(1);
+
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).not.toHaveBeenCalled();
+        } else {
+          expect(fetch).not.toHaveBeenCalled();
+        }
+
+        // Change consent to granted
+        altertable.configure({ trackingConsent: 'granted' });
+
+        // Queued page event should be sent
+        if (mode === 'beacon') {
+          expect(navigator.sendBeacon).toHaveBeenCalled();
+        } else {
+          expect(fetch).toHaveBeenCalled();
+        }
+      });
+
+      it('should handle debug logging with different consent states', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          debug: true,
+          trackingConsent: 'pending',
+        };
+
+        const logEventSpy = vi
+          .spyOn(altertable['_logger'], 'logEvent')
+          .mockImplementation(() => {});
+        vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
+          () => {}
+        );
+
+        altertable.init(apiKey, config);
+
+        // Track event should be logged even when queued
+        altertable.track('test-event', { foo: 'bar' });
+
+        expect(logEventSpy).toHaveBeenCalledWith(
+          {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            event: 'test-event',
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          },
+          { trackingConsent: 'pending' }
+        );
       });
     });
   });

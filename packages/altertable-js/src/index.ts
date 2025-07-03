@@ -1,7 +1,9 @@
+import { TrackingConsent } from './constants';
 import { Altertable, type AltertableConfig } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export type { Altertable, AltertableConfig };
+export { TrackingConsent };
 
 declare global {
   interface Window {
