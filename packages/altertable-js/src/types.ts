@@ -23,4 +23,6 @@ export type EventPayload = EventContext & {
   timestamp: string;
 };
 
-export type IdentifyPayload = UserTraits;
+export type IdentifyPayload = Omit<EventContext, 'session_id'> & {
+  traits: UserTraits;
+};

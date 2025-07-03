@@ -346,7 +346,7 @@ export class Altertable {
     };
   }
 
-  private _processEvent<TPayload extends EventPayload | UserTraits>(
+  private _processEvent<TPayload extends EventPayload | IdentifyPayload>(
     eventType: EventType,
     payload: TPayload,
     context: EventContext
