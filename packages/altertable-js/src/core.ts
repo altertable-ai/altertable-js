@@ -166,7 +166,7 @@ export class Altertable {
         const queuedEvents = this._eventQueue.flush();
         if (queuedEvents.length > 0) {
           queuedEvents.forEach(event => {
-            this._processEvent(event.eventType, event.payload);
+            this._processEvent(event.eventType, event.payload, event.context);
           });
         }
       } else if (updates.trackingConsent === TrackingConsent.DENIED) {
@@ -218,13 +218,17 @@ export class Altertable {
     }
 
     this._sessionManager.setUserId(userId);
-    const { environment, visitor_id } = this._getEventContext();
-    this._processEvent('identify', {
-      environment,
-      traits,
-      user_id: userId,
-      visitor_id,
-    });
+    const context = this._getEventContext();
+    this._processEvent(
+      'identify',
+      {
+        environment: context.environment,
+        traits,
+        user_id: userId,
+        visitor_id: context.visitor_id,
+      },
+      context
+    );
   }
 
   updateTraits(traits: UserTraits) {
@@ -234,13 +238,17 @@ export class Altertable {
       'User must be identified with identify() before updating traits.'
     );
 
-    const { environment, visitor_id } = this._getEventContext();
-    this._processEvent('identify', {
-      environment,
-      traits,
-      user_id: userId,
-      visitor_id,
-    });
+    const context = this._getEventContext();
+    this._processEvent(
+      'identify',
+      {
+        environment: context.environment,
+        traits,
+        user_id: userId,
+        visitor_id: context.visitor_id,
+      },
+      context
+    );
   }
 
   reset({
@@ -284,15 +292,14 @@ export class Altertable {
     const timestamp = new Date().toISOString();
     this._sessionManager.updateLastEventAt(timestamp);
 
-    const { environment, user_id, visitor_id, session_id } =
-      this._getEventContext();
+    const context = this._getEventContext();
     const payload: EventPayload = {
       timestamp,
       event,
-      environment,
-      user_id,
-      session_id,
-      visitor_id,
+      environment: context.environment,
+      user_id: context.user_id,
+      session_id: context.session_id,
+      visitor_id: context.visitor_id,
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -303,7 +310,7 @@ export class Altertable {
       },
     };
 
-    this._processEvent('track', payload);
+    this._processEvent('track', payload, context);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
@@ -341,7 +348,8 @@ export class Altertable {
 
   private _processEvent<TPayload extends EventPayload | UserTraits>(
     eventType: EventType,
-    payload: TPayload
+    payload: TPayload,
+    context: EventContext
   ) {
     const trackingConsent = this._sessionManager.getTrackingConsent();
 
@@ -351,7 +359,7 @@ export class Altertable {
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
-        this._eventQueue.enqueue(eventType, payload, this._getEventContext());
+        this._eventQueue.enqueue(eventType, payload, context);
         break;
       case TrackingConsent.DENIED:
         // Do nothing (don't collect or send data)
