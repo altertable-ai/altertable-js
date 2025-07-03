@@ -120,7 +120,7 @@ describe('Logger', () => {
       logger.logEvent(mockEventPayload);
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser %cuser123',
+        '%cUser ID %cuser123',
         expect.any(String),
         expect.any(String)
       );
@@ -136,7 +136,63 @@ describe('Logger', () => {
       logger.logEvent(payloadWithoutUser);
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser %cNot set',
+        '%cUser ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs visitor information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cVisitor ID %cvisitor-123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined visitor_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutVisitor: EventPayload = {
+        ...mockEventPayload,
+        visitor_id: undefined,
+      };
+
+      logger.logEvent(payloadWithoutVisitor);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cVisitor ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs session information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logEvent(mockEventPayload);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cSession ID %csession-123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined session_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutSession: EventPayload = {
+        ...mockEventPayload,
+        session_id: undefined,
+      };
+
+      logger.logEvent(payloadWithoutSession);
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cSession ID %cNot set',
         expect.any(String),
         expect.any(String)
       );

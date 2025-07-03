@@ -35,15 +35,35 @@ export function createLogger(prefix: string) {
         timestampStyle
       );
 
-      const [userLabelLabel, userLabelStyle] = createLabelElement('User');
+      const [userLabelLabel, userLabelStyle] = createLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
         payload.user_id ?? 'Not set'
+      );
+      const [visitorLabelLabel, visitorLabelStyle] =
+        createLabelElement('Visitor ID');
+      const [visitorValueLabel, visitorValueStyle] = createValueElement(
+        payload.visitor_id ?? 'Not set'
+      );
+      const [sessionLabelLabel, sessionLabelStyle] =
+        createLabelElement('Session ID');
+      const [sessionValueLabel, sessionValueStyle] = createValueElement(
+        payload.session_id ?? 'Not set'
       );
 
       console.log(
         `%c${userLabelLabel} %c${userValueLabel}`,
         userLabelStyle,
         userValueStyle
+      );
+      console.log(
+        `%c${visitorLabelLabel} %c${visitorValueLabel}`,
+        visitorLabelStyle,
+        visitorValueStyle
+      );
+      console.log(
+        `%c${sessionLabelLabel} %c${sessionValueLabel}`,
+        sessionLabelStyle,
+        sessionValueStyle
       );
       console.table(payload.properties);
       console.groupEnd();
