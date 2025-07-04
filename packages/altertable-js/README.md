@@ -23,7 +23,7 @@ import { altertable } from '@altertable/altertable-js';
 altertable.init('YOUR_API_KEY');
 
 // Track an event
-altertable.track('step_completed', {
+altertable.track('Step Completed', {
   step: 1,
 });
 
@@ -90,7 +90,7 @@ Tracks a custom event with optional properties.
 **Example:**
 
 ```javascript
-altertable.track('purchase_completed', {
+altertable.track('Purchase Completed', {
   product_id: 'p_01jza8fr5efvgbxxdd1bwkd0m5',
   amount: 29.99,
   currency: 'USD',

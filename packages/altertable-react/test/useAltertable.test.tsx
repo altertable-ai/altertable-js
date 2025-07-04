@@ -8,15 +8,15 @@ import { AltertableProvider, useAltertable } from '../src';
 type SignupFunnelMapping = {
   signup: [
     {
-      name: 'SignupStart';
+      name: 'Signup Started';
       properties: { source: string };
     },
     {
-      name: 'SignupSubmit';
+      name: 'Signup Submitted';
       properties: { email: string; signupMethod: string };
     },
     {
-      name: 'SignupComplete';
+      name: 'Signup Completed';
       properties: { userId: string };
     },
   ];
@@ -27,7 +27,7 @@ function SignupPage() {
   const { track: trackSignup } = useFunnel('signup');
 
   useEffect(() => {
-    track('SignupStart', { source: 'test' });
+    track('Signup Started', { source: 'test' });
   }, [track]);
 
   return (
@@ -35,7 +35,7 @@ function SignupPage() {
       <button
         data-testid="signup-button"
         onClick={() => {
-          trackSignup('SignupComplete', { userId: 'test' });
+          trackSignup('Signup Completed', { userId: 'test' });
         }}
       >
         Signup
@@ -64,7 +64,7 @@ describe('useAltertable()', () => {
     render(<App />);
 
     expect(altertable.track).toHaveBeenCalledTimes(1);
-    expect(altertable.track).toHaveBeenLastCalledWith('SignupStart', {
+    expect(altertable.track).toHaveBeenLastCalledWith('Signup Started', {
       $lib: 'TEST_LIB_NAME',
       $lib_version: 'TEST_LIB_VERSION',
       source: 'test',
@@ -74,7 +74,7 @@ describe('useAltertable()', () => {
     fireEvent.click(signupButton);
 
     expect(altertable.track).toHaveBeenCalledTimes(2);
-    expect(altertable.track).toHaveBeenLastCalledWith('SignupComplete', {
+    expect(altertable.track).toHaveBeenLastCalledWith('Signup Completed', {
       $lib: 'TEST_LIB_NAME',
       $lib_version: 'TEST_LIB_VERSION',
       userId: 'test',
