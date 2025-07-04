@@ -4,6 +4,7 @@ import {
   DEFAULT_ENVIRONMENT,
   DEFAULT_PERSISTENCE,
   EVENT_PAGEVIEW,
+  keyBuilder,
   MAX_EVENT_QUEUE_SIZE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
@@ -11,7 +12,6 @@ import {
   PROPERTY_RELEASE,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
-  STORAGE_KEY,
   TrackingConsent,
   TrackingConsentType,
 } from './constants';
@@ -85,6 +85,7 @@ export class Altertable {
   private _referrer: string | null;
   private _sessionManager: SessionManager | undefined;
   private _storage: StorageApi | undefined;
+  private _storageKey: string | undefined;
 
   constructor() {
     this._lastUrl = null;
@@ -95,6 +96,10 @@ export class Altertable {
   init(apiKey: string, config: AltertableConfig = {}) {
     this._apiKey = apiKey;
     this._config = config;
+    this._storageKey = keyBuilder(
+      apiKey,
+      this._config.environment || DEFAULT_ENVIRONMENT
+    );
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -110,6 +115,7 @@ export class Altertable {
 
     this._sessionManager = new SessionManager({
       storage: this._storage,
+      storageKey: this._storageKey,
       logger: this._logger,
       defaultTrackingConsent: config.trackingConsent ?? TrackingConsent.PENDING,
     });
@@ -149,7 +155,7 @@ export class Altertable {
       this._storage = selectStorage(updates.persistence, {
         onFallback: message => this._logger.warn(message),
       });
-      this._storage.migrate(previousStorage, [STORAGE_KEY]);
+      this._storage.migrate(previousStorage, [this._storageKey]);
     }
 
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
