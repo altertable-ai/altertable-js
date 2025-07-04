@@ -391,6 +391,24 @@ modes.forEach(({ mode, description, setup }) => {
       );
     });
 
+    it('throws when init() is called with empty API key', () => {
+      expect(() => {
+        altertable.init('', { baseUrl: 'http://localhost' });
+      }).toThrow('[Altertable] Missing API key');
+    });
+
+    it('throws when init() is called with null API key', () => {
+      expect(() => {
+        altertable.init(null as any, { baseUrl: 'http://localhost' });
+      }).toThrow('[Altertable] Missing API key');
+    });
+
+    it('throws when init() is called with undefined API key', () => {
+      expect(() => {
+        altertable.init(undefined as any, { baseUrl: 'http://localhost' });
+      }).toThrow('[Altertable] Missing API key');
+    });
+
     describe('configure()', () => {
       function clearNetworkCalls() {
         if (mode === 'beacon') {
