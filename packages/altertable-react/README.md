@@ -100,10 +100,10 @@ Provides the Altertable client to the React component tree.
 
 **Props:**
 
-| Parameter  | Type                                                                      | Required | Description                    |
-| ---------- | ------------------------------------------------------------------------- | -------- | ------------------------------ |
-| `client`   | [`Altertable`](https://github.com/altertable-ai/altertable-js#altertable) | Yes      | The Altertable client instance |
-| `children` | `ReactNode`                                                               | Yes      | React children                 |
+| Parameter  | Type                                                                                                                    | Required | Description                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client`   | [`Altertable`](https://github.com/altertable-ai/altertable-js/blob/main/packages/altertable-js/README.md#api-reference) | Yes      | The Altertable client instance (see core SDK [API Reference](https://github.com/altertable-ai/altertable-js/blob/main/packages/altertable-js/README.md#api-reference)) |
+| `children` | `ReactNode`                                                                                                             | Yes      | React children                                                                                                                                                         |
 
 **Example:**
 
@@ -212,6 +212,10 @@ function SignupPage() {
 
 ## Types
 
+### `AltertableConfig`
+
+Configuration options for the Altertable SDK. See the [core SDK documentation](https://github.com/altertable-ai/altertable-js/blob/main/packages/altertable-js/README.md#altertableconfig) for full details.
+
 ### `FunnelMapping`
 
 Type mapping of funnel names to their step definitions.
@@ -255,6 +259,16 @@ type FunnelStep = {
 | ------------ | ---------------------- | -------- | --------------------------------- |
 | `name`       | `string`               | Yes      | The name of the funnel step       |
 | `properties` | `FunnelStepProperties` | No       | Expected properties for this step |
+
+### `FunnelTracker`
+
+Type-safe tracker for a specific funnel.
+
+```typescript
+type FunnelTracker = {
+  track: (stepName: FunnelStepName, properties?: FunnelStepProperties) => void;
+};
+```
 
 ## License
 
