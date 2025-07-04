@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  STORAGE_KEY,
-  TrackingConsent,
-  TrackingConsentType,
-} from '../src/constants';
+import { TrackingConsent, TrackingConsentType } from '../src/constants';
 import { createLogger } from '../src/lib/logger';
 import { SessionManager } from '../src/lib/sessionManager';
 
@@ -17,6 +13,7 @@ describe('SessionManager with tracking consent', () => {
   };
   let mockLogger: ReturnType<typeof createLogger>;
   let sessionManager: SessionManager;
+  const testStorageKey = 'test-storage-key';
 
   beforeEach(() => {
     mockStorage = {
@@ -32,6 +29,7 @@ describe('SessionManager with tracking consent', () => {
     it('should initialize with default pending consent when not provided', () => {
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.PENDING,
       });
@@ -43,6 +41,7 @@ describe('SessionManager with tracking consent', () => {
     it('should initialize with provided default consent', () => {
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.GRANTED,
       });
@@ -64,6 +63,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.PENDING,
       });
@@ -85,6 +85,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.GRANTED,
       });
@@ -98,6 +99,7 @@ describe('SessionManager with tracking consent', () => {
     beforeEach(() => {
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.PENDING,
       });
@@ -109,7 +111,7 @@ describe('SessionManager with tracking consent', () => {
 
       expect(sessionManager.getTrackingConsent()).toBe(TrackingConsent.GRANTED);
       expect(mockStorage.setItem).toHaveBeenCalledWith(
-        STORAGE_KEY,
+        testStorageKey,
         expect.stringContaining('"trackingConsent":"granted"')
       );
     });
@@ -134,14 +136,14 @@ describe('SessionManager with tracking consent', () => {
       sessionManager.setTrackingConsent(TrackingConsent.GRANTED);
 
       expect(mockStorage.setItem).toHaveBeenCalledWith(
-        STORAGE_KEY,
+        testStorageKey,
         expect.stringContaining('"trackingConsent":"granted"')
       );
 
       sessionManager.setTrackingConsent(TrackingConsent.DENIED);
 
       expect(mockStorage.setItem).toHaveBeenCalledWith(
-        STORAGE_KEY,
+        testStorageKey,
         expect.stringContaining('"trackingConsent":"denied"')
       );
     });
@@ -159,6 +161,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.PENDING,
       });
@@ -183,6 +186,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.GRANTED,
       });
@@ -204,6 +208,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.PENDING,
       });
@@ -225,6 +230,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager = new SessionManager({
         storage: mockStorage,
+        storageKey: testStorageKey,
         logger: mockLogger,
         defaultTrackingConsent: TrackingConsent.DENIED,
       });

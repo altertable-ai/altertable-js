@@ -5,9 +5,8 @@ export const DEFAULT_ENVIRONMENT = 'production';
 export const DEFAULT_PERSISTENCE = 'localStorage+cookie';
 
 const STORAGE_KEY_PREFIX = 'atbl';
-const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');
+export const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');
 export const STORAGE_KEY_TEST = keyBuilder('check');
-export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
 export const PREFIX_SESSION_ID = 'session';
 export const PREFIX_VISITOR_ID = 'visitor';

@@ -11,15 +11,29 @@ import {
   PROPERTY_RELEASE,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
-  STORAGE_KEY,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
 import * as storageModule from '../src/lib/storage';
+import { StorageApi } from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
 
 const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
 const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
+
+function createStorageMock(
+  storageMock: Partial<{
+    [key in keyof StorageApi]: Mock<() => StorageApi[key]>;
+  }> = {}
+) {
+  return {
+    getItem: vi.fn().mockReturnValue(null),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    migrate: vi.fn(),
+    ...storageMock,
+  };
+}
 
 const setWindowLocation = (url: string) => {
   Object.defineProperty(window, 'location', {
@@ -545,13 +559,6 @@ modes.forEach(({ mode, description, setup }) => {
     });
 
     describe('persistence configuration', () => {
-      const createStorageMock: () => storageModule.StorageApi = () => ({
-        getItem: vi.fn().mockReturnValue(null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        migrate: vi.fn(),
-      });
-
       it('should use localStorage+cookie as default persistence strategy', () => {
         const config: AltertableConfig = {
           baseUrl: 'http://localhost',
@@ -1063,12 +1070,7 @@ modes.forEach(({ mode, description, setup }) => {
           trackingConsent: 'granted',
         };
 
-        const storageMock = {
-          getItem: vi.fn().mockReturnValue(null),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        };
+        const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
@@ -1076,7 +1078,7 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.identify('user123', { email: 'user@example.com' });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          STORAGE_KEY,
+          'atbl.test-api-key.production',
           expect.stringContaining('"userId":"user123"')
         );
 
@@ -1110,12 +1112,9 @@ modes.forEach(({ mode, description, setup }) => {
           trackingConsent: 'granted',
         });
 
-        const storageMock = {
+        const storageMock = createStorageMock({
           getItem: vi.fn().mockReturnValue(existingData),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        };
+        });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
@@ -1138,12 +1137,9 @@ modes.forEach(({ mode, description, setup }) => {
           trackingConsent: 'granted',
         };
 
-        const storageMock = {
+        const storageMock = createStorageMock({
           getItem: vi.fn().mockReturnValue('invalid-json'),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        };
+        });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
@@ -1159,6 +1155,45 @@ modes.forEach(({ mode, description, setup }) => {
         expect(userId).toBeNull();
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
         expect(visitorId).toMatch(REGEXP_VISITOR_ID);
+      });
+
+      it('should construct storage key with default environment when not specified', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        };
+
+        const storageMock = createStorageMock();
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        altertable.init(apiKey, config);
+
+        expect(storageMock.setItem).toHaveBeenCalledWith(
+          'atbl.test-api-key.production',
+          expect.anything()
+        );
+      });
+
+      it('should construct storage key with development environment', () => {
+        const config: AltertableConfig = {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          environment: 'development',
+          trackingConsent: 'granted',
+        };
+
+        const storageMock = createStorageMock();
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        altertable.init(apiKey, config);
+
+        expect(storageMock.setItem).toHaveBeenCalledWith(
+          'atbl.test-api-key.development',
+          expect.anything()
+        );
       });
     });
 

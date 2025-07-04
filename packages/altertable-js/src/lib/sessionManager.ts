@@ -2,7 +2,6 @@ import {
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
   SESSION_EXPIRATION_TIME_MS,
-  STORAGE_KEY,
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
@@ -20,17 +19,20 @@ type SessionData = {
 };
 
 export class SessionManager {
-  private _logger: Logger;
-  private _storage: StorageApi;
-  private _sessionData: SessionData;
   private _defaultTrackingConsent: TrackingConsentType;
+  private _logger: Logger;
+  private _sessionData: SessionData;
+  private _storage: StorageApi;
+  private _storageKey: string;
 
   constructor(options: {
     storage: StorageApi;
+    storageKey: string;
     logger: Logger;
     defaultTrackingConsent: TrackingConsentType;
   }) {
     this._storage = options.storage;
+    this._storageKey = options.storageKey;
     this._logger = options.logger;
     this._defaultTrackingConsent =
       options.defaultTrackingConsent ?? TrackingConsent.PENDING;
@@ -38,7 +40,7 @@ export class SessionManager {
   }
 
   init(): void {
-    const storedData = this._storage.getItem(STORAGE_KEY);
+    const storedData = this._storage.getItem(this._storageKey);
 
     if (!storedData) {
       this._sessionData = this._createDefaultSessionData();
@@ -180,7 +182,10 @@ export class SessionManager {
 
   private _persistToStorage(): void {
     try {
-      this._storage.setItem(STORAGE_KEY, JSON.stringify(this._sessionData));
+      this._storage.setItem(
+        this._storageKey,
+        JSON.stringify(this._sessionData)
+      );
     } catch (error) {
       this._logger.warnDev('Failed to persist session data to storage.');
     }
