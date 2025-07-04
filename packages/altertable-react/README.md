@@ -136,14 +136,15 @@ Returns an object with tracking methods and funnel utilities.
 
 **Returns:**
 
-| Property             | Type                                                             | Description                 |
-| -------------------- | ---------------------------------------------------------------- | --------------------------- |
-| `track`              | `(event: string, properties?: EventProperties) => void`          | Track a custom event        |
-| `identify`           | `(userId: string, traits?: UserTraits) => void`                  | Identify a user             |
-| `updateTraits`       | `(traits: UserTraits) => void`                                   | Update user traits          |
-| `configure`          | `(updates: Partial<AltertableConfig>) => void`                   | Update configuration        |
-| `getTrackingConsent` | `() => TrackingConsentType`                                      | Get current consent state   |
-| `useFunnel`          | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }` | Get funnel-specific tracker |
+| Property             | Type                                                                         | Description                       |
+| -------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
+| `track`              | `(event: string, properties?: EventProperties) => void`                      | Track a custom event              |
+| `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                   |
+| `reset`              | `(options?: { resetVisitorId?: boolean; resetSessionId?: boolean }) => void` | Reset the visitor and session IDs |
+| `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                |
+| `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration              |
+| `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state         |
+| `useFunnel`          | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker       |
 
 **Example:**
 
