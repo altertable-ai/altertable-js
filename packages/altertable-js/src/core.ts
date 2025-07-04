@@ -94,6 +94,7 @@ export class Altertable {
   }
 
   init(apiKey: string, config: AltertableConfig = {}) {
+    invariant(apiKey, 'Missing API key');
     this._apiKey = apiKey;
     this._config = config;
     this._storageKey = keyBuilder(
