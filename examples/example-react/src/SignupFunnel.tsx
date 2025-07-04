@@ -23,19 +23,19 @@ type FormErrors = Partial<Record<keyof FormData, string>>;
 
 const SIGNUP_FUNNEL_MAPPING = {
   signup: [
-    { name: 'step_viewed', properties: { step: 1 } },
-    { name: 'step_viewed', properties: { step: 2 } },
-    { name: 'step_viewed', properties: { step: 3 } },
-    { name: 'step_viewed', properties: { step: 4 } },
-    { name: 'step_completed', properties: { step: 1 } },
-    { name: 'step_completed', properties: { step: 2 } },
-    { name: 'step_completed', properties: { step: 3 } },
-    { name: 'form_submitted' },
-    { name: 'plan_selected', properties: { plan: 'starter' as const } },
-    { name: 'plan_selected', properties: { plan: 'pro' as const } },
-    { name: 'plan_selected', properties: { plan: 'enterprise' as const } },
-    { name: 'form_restarted' },
-    { name: 'get_started_clicked' },
+    { name: 'Step Viewed', properties: { step: 1 } },
+    { name: 'Step Viewed', properties: { step: 2 } },
+    { name: 'Step Viewed', properties: { step: 3 } },
+    { name: 'Step Viewed', properties: { step: 4 } },
+    { name: 'Step Completed', properties: { step: 1 } },
+    { name: 'Step Completed', properties: { step: 2 } },
+    { name: 'Step Completed', properties: { step: 3 } },
+    { name: 'Form Submitted' },
+    { name: 'Plan Selected', properties: { plan: 'starter' } },
+    { name: 'Plan Selected', properties: { plan: 'pro' } },
+    { name: 'Plan Selected', properties: { plan: 'enterprise' } },
+    { name: 'Form Restarted' },
+    { name: 'Button Clicked', properties: { button: 'get_started' } },
   ],
 } as const satisfies FunnelMapping;
 
@@ -121,7 +121,7 @@ export function SignupFunnel({
 
   function nextStep() {
     if (validateStep(currentStep)) {
-      track('step_completed', { step: currentStep });
+      track('Step Completed', { step: currentStep });
 
       onStepChange(Math.min(currentStep + 1, steps.length));
     }
@@ -140,7 +140,7 @@ export function SignupFunnel({
 
   function handleSubmit() {
     if (validateStep(3)) {
-      track('form_submitted');
+      track('Form Submitted');
 
       onStepChange(4);
     }
@@ -158,14 +158,14 @@ export function SignupFunnel({
 
   function handlePlanSelect(plan: Plan) {
     return () => {
-      track('plan_selected', { plan });
+      track('Plan Selected', { plan });
 
       updateFormData('plan', plan);
     };
   }
 
   function handleRestart() {
-    track('form_restarted');
+    track('Form Restarted');
 
     onStepChange(1);
     setFormData(DEFAULT_FORM_DATA);
@@ -173,7 +173,7 @@ export function SignupFunnel({
   }
 
   function handleGetStarted() {
-    track('get_started_clicked');
+    track('Button Clicked', { button: 'get_started' });
   }
 
   function renderStep() {

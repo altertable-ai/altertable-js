@@ -38,11 +38,11 @@ function SignupPage() {
   const { track } = useAltertable();
 
   function handleStart() {
-    track('signup_started', { source: 'homepage' });
+    track('Signup Started', { source: 'homepage' });
   }
 
   function handleSubmit(email: string) {
-    track('signup_submitted', { email });
+    track('Signup Submitted', { email });
   }
 
   return (
@@ -152,7 +152,7 @@ function MyComponent() {
   const { track, identify, useFunnel } = useAltertable<MyFunnelMapping>();
 
   function handleClick() {
-    track('button_clicked', { button: 'signup' });
+    track('Button Clicked', { button: 'signup' });
   }
 
   function handleLogin(userId: string) {
@@ -194,11 +194,11 @@ function SignupPage() {
   const { track } = useFunnel('signup');
 
   function handleStart() {
-    track('signup_started', { source: 'homepage' });
+    track('Signup Started', { source: 'homepage' });
   }
 
   function handleComplete(userId: string) {
-    track('signup_completed', { userId });
+    track('Signup Completed', { userId });
   }
 
   return (
