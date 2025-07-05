@@ -45,6 +45,10 @@ describe('Requester', () => {
     requestTimeout: 5000,
   };
 
+  function forceFetchInTest() {
+    delete (global.navigator as any).sendBeacon;
+  }
+
   beforeEach(() => {
     // Store original globals
     originalFetch = global.fetch;
@@ -91,7 +95,6 @@ describe('Requester', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // Restore original globals
     global.fetch = originalFetch;
     global.navigator = originalNavigator;
     global.window = originalWindow;
@@ -203,8 +206,7 @@ describe('Requester', () => {
 
   describe('fetch fallback behavior', () => {
     it('should use fetch when sendBeacon is not available', async () => {
-      // Remove sendBeacon
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       await requester.send('/track', createTrackEventPayload());
 
@@ -213,8 +215,7 @@ describe('Requester', () => {
     });
 
     it('should configure fetch with correct options', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       await requester.send('/track', createTrackEventPayload());
 
@@ -227,8 +228,7 @@ describe('Requester', () => {
     });
 
     it('should serialize payload as JSON string in fetch', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       const payload = createTrackEventPayload();
       await requester.send('/track', payload);
@@ -238,8 +238,7 @@ describe('Requester', () => {
     });
 
     it('should handle fetch network errors', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       mockFetch.mockRejectedValue(new Error('Network error'));
 
@@ -249,8 +248,7 @@ describe('Requester', () => {
     });
 
     it('should handle HTTP error responses', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       mockFetch.mockResolvedValue({
         ok: false,
@@ -264,8 +262,7 @@ describe('Requester', () => {
     });
 
     it('should handle different HTTP error status codes', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       mockFetch.mockResolvedValue({
         ok: false,
@@ -279,8 +276,7 @@ describe('Requester', () => {
     });
 
     it('should respect timeout configuration', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       const configWithTimeout: RequesterConfig = {
         ...defaultConfig,
@@ -307,7 +303,13 @@ describe('Requester', () => {
       expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10000);
 
       // Get the timeout callback and abort function
-      const timeoutCallback = mockSetTimeout.mock.calls[0][0] as () => void;
+      let timeoutCallback: (() => void) | undefined = undefined;
+      if (
+        mockSetTimeout.mock.calls.length > 0 &&
+        typeof mockSetTimeout.mock.calls[0][0] === 'function'
+      ) {
+        timeoutCallback = mockSetTimeout.mock.calls[0][0] as () => void;
+      }
       const [, options] = mockFetch.mock.calls[0];
       const abortSignal = options.signal as AbortSignal;
 
@@ -315,9 +317,10 @@ describe('Requester', () => {
       expect(abortSignal.aborted).toBe(false);
 
       // Trigger the timeout
-      if (timeoutCallback) {
-        timeoutCallback();
-      }
+      if (timeoutCallback) timeoutCallback();
+
+      // Verify the signal is now aborted
+      expect(abortSignal.aborted).toBe(true);
 
       // Clean up
       global.setTimeout = originalSetTimeout;
@@ -325,8 +328,7 @@ describe('Requester', () => {
     });
 
     it('should clear timeout when request completes successfully', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       const configWithTimeout: RequesterConfig = {
         ...defaultConfig,
@@ -366,8 +368,7 @@ describe('Requester', () => {
     });
 
     it('should handle identify payloads with fetch', async () => {
-      // Remove sendBeacon to force fetch usage
-      delete (global.navigator as any).sendBeacon;
+      forceFetchInTest();
 
       const identifyPayload = createIdentifyEventPayload();
       await requester.send('/identify', identifyPayload);
