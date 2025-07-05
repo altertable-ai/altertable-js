@@ -36,7 +36,7 @@ describe('Requester', () => {
   let mockSendBeacon: Mock;
   let originalFetch: typeof fetch;
   let originalNavigator: Navigator;
-  let originalWindow: typeof globalThis;
+  let originalWindow: Window;
   let originalBlob: typeof Blob;
 
   const defaultConfig: RequesterConfig = {
@@ -74,6 +74,7 @@ describe('Requester', () => {
     } as unknown as Navigator;
 
     // Mock window
+    // @ts-expect-error
     global.window = {} as unknown as typeof globalThis;
 
     // Mock Blob to support text() method for testing
@@ -97,6 +98,7 @@ describe('Requester', () => {
     vi.restoreAllMocks();
     global.fetch = originalFetch;
     global.navigator = originalNavigator;
+    // @ts-expect-error
     global.window = originalWindow;
     global.Blob = originalBlob;
   });
@@ -303,13 +305,12 @@ describe('Requester', () => {
       expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10000);
 
       // Get the timeout callback and abort function
-      let timeoutCallback: (() => void) | undefined = undefined;
-      if (
-        mockSetTimeout.mock.calls.length > 0 &&
-        typeof mockSetTimeout.mock.calls[0][0] === 'function'
-      ) {
-        timeoutCallback = mockSetTimeout.mock.calls[0][0] as () => void;
-      }
+      const mockCalls = mockSetTimeout.mock.calls;
+      const timeoutCallback =
+        mockCalls.length > 0 && typeof mockCalls[0][0] === 'function'
+          ? (mockCalls[0][0] as () => void)
+          : undefined;
+
       const [, options] = mockFetch.mock.calls[0];
       const abortSignal = options.signal as AbortSignal;
 
@@ -317,7 +318,9 @@ describe('Requester', () => {
       expect(abortSignal.aborted).toBe(false);
 
       // Trigger the timeout
-      if (timeoutCallback) timeoutCallback();
+      if (timeoutCallback) {
+        timeoutCallback();
+      }
 
       // Verify the signal is now aborted
       expect(abortSignal.aborted).toBe(true);
