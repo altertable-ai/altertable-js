@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 import { TrackingConsent, TrackingConsentType } from '../constants';
-import { EventPayload } from '../types';
+import { TrackPayload } from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -20,7 +20,7 @@ export function createLogger(prefix: string) {
       }
     },
     logEvent: (
-      payload: EventPayload,
+      payload: TrackPayload,
       { trackingConsent }: { trackingConsent: TrackingConsentType }
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(

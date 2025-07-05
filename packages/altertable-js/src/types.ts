@@ -17,7 +17,9 @@ export type EventContext = {
   session_id: SessionId;
 };
 
-export type EventPayload = EventContext & {
+export type EventPayload = TrackPayload | IdentifyPayload;
+
+export type TrackPayload = EventContext & {
   event: string;
   properties: EventProperties;
   timestamp: string;
