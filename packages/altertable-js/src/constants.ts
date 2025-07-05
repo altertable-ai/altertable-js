@@ -7,10 +7,11 @@ export const STORAGE_KEY_TEST = keyBuilder('check');
 export const PREFIX_SESSION_ID = 'session';
 export const PREFIX_VISITOR_ID = 'visitor';
 
-const MINUTE_IN_MS = 1000 * 60;
+const MINUTE_IN_MS = 1_000 * 60;
 export const AUTO_CAPTURE_INTERVAL_MS = 100;
 export const SESSION_EXPIRATION_TIME_MS = 30 * MINUTE_IN_MS;
-export const MAX_EVENT_QUEUE_SIZE = 1000;
+export const MAX_EVENT_QUEUE_SIZE = 1_000;
+export const DEFAULT_REQUEST_TIMEOUT = 10_000;
 
 export const EVENT_PAGEVIEW = '$pageview';
 

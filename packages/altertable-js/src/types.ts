@@ -22,7 +22,9 @@ export type AltertableContext = {
   session_id: SessionId;
 };
 
-export type EventPayload = AltertableContext & {
+export type EventPayload = TrackPayload | IdentifyPayload;
+
+export type TrackPayload = AltertableContext & {
   event: string;
   properties: EventProperties;
   timestamp: string;

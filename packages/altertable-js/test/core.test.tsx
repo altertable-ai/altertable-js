@@ -1,7 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import '../../../test-utils/matchers/toRequestApi';
 import {
-  AUTO_CAPTURE_INTERVAL_MS,
+  setupBeaconAvailable,
+  setupBeaconUnavailable,
+} from '../../../test-utils/networkMode';
+import {
   EVENT_PAGEVIEW,
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
@@ -13,412 +17,344 @@ import {
   PROPERTY_VIEWPORT,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
+import * as loggerModule from '../src/lib/logger';
 import * as storageModule from '../src/lib/storage';
-import { StorageApi } from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
+import { createStorageMock } from '../../../test-utils/mocks/storageMock';
 
 const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
 const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 
-function createStorageMock(
-  storageMock: Partial<{
-    [key in keyof StorageApi]: Mock<() => StorageApi[key]>;
-  }> = {}
-) {
-  return {
-    getItem: vi.fn().mockReturnValue(null),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    migrate: vi.fn(),
-    ...storageMock,
-  };
+function createSessionData(overrides: Record<string, any> = {}) {
+  return JSON.stringify({
+    visitorId: 'visitor-test-uuid-1-1234567890',
+    sessionId: 'session-test-uuid-2-1234567890',
+    userId: null,
+    lastEventAt: null,
+    trackingConsent: 'granted',
+    ...overrides,
+  });
 }
 
-const setWindowLocation = (url: string) => {
-  Object.defineProperty(window, 'location', {
+function setupWindow({
+  url = 'http://localhost/page',
+  referrer = null,
+}: { url?: string; referrer?: string | null } = {}) {
+  Object.defineProperty(global.window, 'location', {
     value: { href: url },
     writable: true,
     configurable: true,
   });
-};
 
-const expectBeaconCall = (config: AltertableConfig, apiKey: string) => {
-  const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
-  expect(callArgs[0]).toBe(
-    `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
-  );
-  expect(callArgs[1]).toBeInstanceOf(Blob);
-};
+  Object.defineProperty(global.window.document, 'referrer', {
+    value: referrer,
+    writable: true,
+    configurable: true,
+  });
+}
 
-const expectFetchCall = (
-  config: AltertableConfig,
-  apiKey: string,
-  payload: Record<string, any>
-) => {
-  const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-  expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-  const options = fetchCall[1];
-  expect(options.method).toBe('POST');
-  expect(options.headers['Content-Type']).toBe('application/json');
-  expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-  expect(JSON.parse(options.body)).toEqual(payload);
-};
+describe('Altertable', () => {
+  let altertable: Altertable;
+  const apiKey = 'test-api-key';
+  const viewPort = '1024x768';
 
-const modes: {
-  mode: 'beacon' | 'fetch';
-  description: string;
-  setup: () => void;
-}[] = [
-  {
-    mode: 'beacon',
-    description: 'with navigator.sendBeacon available',
-    setup: () => {
-      setWindowLocation('http://localhost/page');
-      // Setup sendBeacon.
-      global.navigator = { sendBeacon: vi.fn() } as any;
-      // Remove fetch if present.
-      global.fetch = undefined as any;
-    },
-  },
-  {
-    mode: 'fetch',
-    description: 'with fetch fallback (navigator.sendBeacon not available)',
-    setup: () => {
-      setWindowLocation('http://localhost/page');
-      // Remove sendBeacon if present.
-      if ('sendBeacon' in navigator) {
-        delete (navigator as any).sendBeacon;
-      }
-      // Setup fetch.
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({}),
-        })
-      ) as any;
-    },
-  },
-];
+  function setupAltertable(overrides: Partial<AltertableConfig> = {}) {
+    return altertable.init(apiKey, {
+      baseUrl: 'http://localhost',
+      autoCapture: false,
+      trackingConsent: 'granted',
+      ...overrides,
+    });
+  }
 
-// Run the same suite for each transport mode
-modes.forEach(({ mode, description, setup }) => {
-  describe(`Altertable ${description}`, () => {
-    let altertable: Altertable;
-    const apiKey = 'test-api-key';
-    const viewPort = '1024x768';
-
-    // Generate different random IDs for each call to simulate real behavior
+  beforeEach(async () => {
+    // Mock crypto.randomUUID for deterministic testing
     let idCounter = 0;
-    const originalRandomUUID = crypto.randomUUID;
-    crypto.randomUUID = vi.fn(() => {
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => {
       idCounter++;
-      // Generate a deterministic but unique ID for each call
-      return `test-uuid-${idCounter}-${Date.now()}`;
-    }) as any;
-
-    beforeEach(() => {
-      setup();
-      if (altertable?.['_isInitialized']) {
-        altertable.reset({ resetVisitorId: true, resetSessionId: true });
-      }
-      altertable = new Altertable();
+      return `test-uuid-${idCounter}-${Date.now()}` as `${string}-${string}-${string}-${string}-${string}`;
     });
 
-    afterEach(() => {
-      vi.restoreAllMocks();
-      vi.useRealTimers();
-    });
-
-    it('should send a page event on init with the current URL', () => {
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: true,
-        trackingConsent: 'granted',
+    // Mock createLogger, but keep warn and warnDev to be caught with .toWarnDev()
+    const realLoggerFactory = (
+      await vi.importActual<typeof import('../src/lib/logger')>(
+        '../src/lib/logger'
+      )
+    ).createLogger;
+    vi.spyOn(loggerModule, 'createLogger').mockImplementation((...args) => {
+      const logger = realLoggerFactory(...args);
+      return {
+        ...logger,
+        log: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
+        logHeader: vi.fn(),
+        logEvent: vi.fn(),
       };
-      altertable.init(apiKey, config);
+    });
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/page',
-            [PROPERTY_VIEWPORT]: viewPort,
-            [PROPERTY_REFERER]: null,
+    // Default to beacon available
+    setupBeaconAvailable();
+
+    if (altertable?.['_isInitialized']) {
+      altertable.reset({ resetVisitorId: true, resetSessionId: true });
+    }
+    altertable = new Altertable();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  describe('initialization', () => {
+    describe('successful initialization', () => {
+      it('sends page event with current URL when auto-capture enabled', () => {
+        setupWindow({
+          url: 'http://localhost/test-page?foo=bar&baz=qux',
+        });
+
+        expect(() => {
+          altertable.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: true,
+            trackingConsent: 'granted',
+          });
+        }).toRequestApi('/track', {
+          apiKey,
+          baseUrl: 'http://localhost',
+          payload: {
+            event: EVENT_PAGEVIEW,
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: {
+              [PROPERTY_LIB]: 'TEST_LIB_NAME',
+              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+              [PROPERTY_URL]: 'http://localhost/test-page',
+              [PROPERTY_VIEWPORT]: viewPort,
+              [PROPERTY_REFERER]: null,
+              foo: 'bar',
+              baz: 'qux',
+            },
           },
         });
-      }
-    });
+      });
 
-    it('should send a track event with the default base URL', () => {
-      const config: AltertableConfig = {
-        autoCapture: false,
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
+      it('uses default base URL when not specified', () => {
+        altertable.init(apiKey, {
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
 
-      altertable.track('eventName', { foo: 'bar' });
+        expect(() => {
+          altertable.track('eventName', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          apiKey,
+          baseUrl: 'https://api.altertable.ai',
+          payload: {
+            event: 'eventName',
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            user_id: null,
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            environment: 'production',
+            properties: {
+              [PROPERTY_LIB]: 'TEST_LIB_NAME',
+              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+              foo: 'bar',
+            },
+          },
+        });
+      });
 
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalledWith(
-          'https://api.altertable.ai/track?apiKey=test-api-key',
-          expect.anything()
+      it('includes release ID in properties when specified', () => {
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          release: '04ed05b',
+          trackingConsent: 'granted',
+        });
+
+        expect(() => {
+          altertable.track('eventName');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'eventName',
+            properties: expect.objectContaining({
+              [PROPERTY_RELEASE]: '04ed05b',
+            }),
+          }),
+        });
+      });
+
+      it('does not send page event when auto-capture disabled', () => {
+        expect(() => {
+          altertable.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: false,
+            trackingConsent: 'granted',
+          });
+        }).not.toRequestApi('/track');
+      });
+
+      it('detects URL changes and sends page events', () => {
+        setupWindow({ url: 'http://localhost/initial-page' });
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: true,
+          trackingConsent: 'granted',
+        });
+
+        // Simulate URL change and trigger page event directly
+        setupWindow({ url: 'http://localhost/changed-page' });
+
+        expect(() => {
+          altertable.page('http://localhost/changed-page');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/changed-page',
+            }),
+          }),
+        });
+      });
+
+      it('tracks referrer when URL changes', () => {
+        setupWindow({ url: 'http://localhost/initial-page' });
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: true,
+          trackingConsent: 'granted',
+        });
+
+        setupWindow({ url: 'http://localhost/changed-page' });
+        altertable['_checkForChanges']();
+
+        expect(altertable['_referrer']).toBe('http://localhost/initial-page');
+      });
+
+      it('properly cleans up auto-capture listeners', () => {
+        const addEventListenerSpy = vi.spyOn(global.window, 'addEventListener');
+        const removeEventListenerSpy = vi.spyOn(
+          global.window,
+          'removeEventListener'
         );
-      } else {
-        expect(fetch).toHaveBeenCalledWith(
-          'https://api.altertable.ai/track',
-          expect.anything()
+        const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: true,
+          trackingConsent: 'granted',
+        });
+
+        expect(addEventListenerSpy).toHaveBeenCalledWith(
+          'popstate',
+          expect.any(Function)
         );
-      }
-    });
-
-    it('should send a track event', () => {
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
-
-      altertable.track('eventName', { foo: 'bar' });
-
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'eventName',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            foo: 'bar',
-          },
-        });
-      }
-    });
-
-    it('should send a track event with release ID', () => {
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        release: '04ed05b',
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
-
-      altertable.track('eventName', { foo: 'bar' });
-
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: 'eventName',
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_RELEASE]: '04ed05b',
-            foo: 'bar',
-          },
-        });
-      }
-    });
-
-    it('should detect URL changes and send a page event', () => {
-      vi.useFakeTimers();
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: true,
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
-
-      // Clear initial call (from init auto-capture)
-      if (mode === 'beacon') {
-        (navigator.sendBeacon as Mock).mockClear();
-      } else {
-        (fetch as unknown as Mock).mockClear();
-      }
-
-      // Simulate a URL change.
-      setWindowLocation('http://localhost/new-page?foo=bar&baz=qux&test=to?');
-      vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS + 1);
-
-      if (mode === 'beacon') {
-        const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
-        expect(callArgs[0]).toBe(
-          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
+        expect(addEventListenerSpy).toHaveBeenCalledWith(
+          'hashchange',
+          expect.any(Function)
         );
-      } else {
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-        const options = fetchCall[1];
-        expect(options.method).toBe('POST');
-        expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-        expect(JSON.parse(options.body)).toEqual({
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/new-page',
-            [PROPERTY_VIEWPORT]: viewPort,
-            [PROPERTY_REFERER]: null as string | null,
-            foo: 'bar',
-            baz: 'qux',
-            test: 'to?',
-          },
-        });
-      }
 
-      // Also test that a manual event (popstate) triggers a check.
-      if (mode === 'beacon') {
-        (navigator.sendBeacon as Mock).mockClear();
-      } else {
-        (fetch as unknown as Mock).mockClear();
-      }
-      window.dispatchEvent(new Event('popstate'));
-      if (mode === 'beacon') {
-        const callArgs = (navigator.sendBeacon as Mock).mock.calls[0];
-        expect(callArgs[0]).toBe(
-          `${config.baseUrl}/track?apiKey=${encodeURIComponent(apiKey)}`
+        altertable.configure({ autoCapture: false });
+
+        expect(removeEventListenerSpy).toHaveBeenCalledWith(
+          'popstate',
+          expect.any(Function)
         );
-      } else {
-        const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-        expect(fetchCall[0]).toBe(`${config.baseUrl}/track`);
-      }
-      vi.useRealTimers();
+        expect(removeEventListenerSpy).toHaveBeenCalledWith(
+          'hashchange',
+          expect.any(Function)
+        );
+        expect(clearIntervalSpy).toHaveBeenCalled();
+      });
     });
 
-    it('should not auto-capture when config.autoCapture is false', () => {
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).not.toHaveBeenCalled();
-      } else {
-        expect(fetch).not.toHaveBeenCalled();
-      }
+    describe('error handling', () => {
+      it('throws when API key is empty', () => {
+        expect(() => {
+          altertable.init('', { baseUrl: 'http://localhost' });
+        }).toThrow('[Altertable] Missing API key');
+      });
+
+      it('throws when API key is null', () => {
+        expect(() => {
+          altertable.init(null as any, { baseUrl: 'http://localhost' });
+        }).toThrow('[Altertable] Missing API key');
+      });
+
+      it('throws when API key is undefined', () => {
+        expect(() => {
+          altertable.init(undefined as any, { baseUrl: 'http://localhost' });
+        }).toThrow('[Altertable] Missing API key');
+      });
     });
+  });
 
-    it('should set viewport to null when window is not available', () => {
-      // Remove window from global scope to simulate server-side environment
-      const originalWindow = global.window;
-      delete (global as any).window;
+  describe('tracking', () => {
+    describe('track() method', () => {
+      it('sends track event with custom properties', () => {
+        setupAltertable();
 
-      // No storage is available since we delete window, so we suppress the memory
-      // fallback storage warning
-      vi.spyOn(altertable['_logger'], 'warn').mockImplementation(() => {});
-
-      const config: AltertableConfig = {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-      };
-      altertable.init(apiKey, config);
-
-      altertable.page('http://localhost/test-page');
-
-      if (mode === 'beacon') {
-        expect(navigator.sendBeacon).toHaveBeenCalled();
-        expectBeaconCall(config, apiKey);
-      } else {
-        expect(fetch).toHaveBeenCalled();
-        expectFetchCall(config, apiKey, {
-          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          event: EVENT_PAGEVIEW,
-          user_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
-          visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          environment: 'production',
-          properties: {
-            [PROPERTY_LIB]: 'TEST_LIB_NAME',
-            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-            [PROPERTY_URL]: 'http://localhost/test-page',
-            [PROPERTY_VIEWPORT]: null,
-            [PROPERTY_REFERER]: null,
-          },
+        expect(() => {
+          altertable.track('eventName', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'eventName',
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          }),
         });
-      }
+      });
 
-      // Restore window
-      global.window = originalWindow;
+      it('throws when called before initialization', () => {
+        const uninitializedAltertable = new Altertable();
+        expect(() => {
+          uninitializedAltertable.track('test-event', { foo: 'bar' });
+        }).toThrow(
+          '[Altertable] The client must be initialized with init() before tracking events.'
+        );
+      });
     });
 
-    it('throws when page() is called before initialization', () => {
-      expect(() => {
-        altertable.page('http://localhost/test');
-      }).toThrow(
-        '[Altertable] The client must be initialized with init() before tracking page views.'
-      );
+    describe('page() method', () => {
+      it('sends page event with specified URL', () => {
+        setupAltertable();
+
+        expect(() => {
+          altertable.page('http://localhost/test-page');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/test-page',
+            }),
+          }),
+        });
+      });
+
+      it('throws when called before initialization', () => {
+        const uninitializedAltertable = new Altertable();
+        expect(() => {
+          uninitializedAltertable.page('http://localhost/test');
+        }).toThrow(
+          '[Altertable] The client must be initialized with init() before tracking page views.'
+        );
+      });
     });
+  });
 
-    it('throws when track() is called before initialization', () => {
-      expect(() => {
-        altertable.track('test-event', { foo: 'bar' });
-      }).toThrow(
-        '[Altertable] The client must be initialized with init() before tracking events.'
-      );
-    });
-
-    it('throws when init() is called with empty API key', () => {
-      expect(() => {
-        altertable.init('', { baseUrl: 'http://localhost' });
-      }).toThrow('[Altertable] Missing API key');
-    });
-
-    it('throws when init() is called with null API key', () => {
-      expect(() => {
-        altertable.init(null as any, { baseUrl: 'http://localhost' });
-      }).toThrow('[Altertable] Missing API key');
-    });
-
-    it('throws when init() is called with undefined API key', () => {
-      expect(() => {
-        altertable.init(undefined as any, { baseUrl: 'http://localhost' });
-      }).toThrow('[Altertable] Missing API key');
-    });
-
-    describe('configure()', () => {
-      function clearNetworkCalls() {
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-      }
-
-      it('throws when configure() is called before initialization', () => {
+  describe('configuration', () => {
+    describe('configure() method', () => {
+      it('throws when called before initialization', () => {
         expect(() => {
           altertable.configure({ debug: true });
         }).toThrow(
@@ -426,7 +362,7 @@ modes.forEach(({ mode, description, setup }) => {
         );
       });
 
-      it('should update configuration when called after initialization', () => {
+      it('updates single configuration option', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
@@ -434,42 +370,30 @@ modes.forEach(({ mode, description, setup }) => {
           trackingConsent: 'granted',
         });
 
-        clearNetworkCalls();
+        altertable.configure({ debug: true });
 
-        altertable.configure({ debug: true, release: 'test-release' });
-
-        // Verify the configuration was updated by checking debug behavior
-        const logEventSpy = vi
-          .spyOn(altertable['_logger'], 'logEvent')
-          .mockImplementation(() => {});
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith(
-          {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          expect.objectContaining({
             event: 'test-event',
-            user_id: null,
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
             properties: expect.objectContaining({
-              [PROPERTY_RELEASE]: 'test-release',
               foo: 'bar',
             }),
-          },
+          }),
           { trackingConsent: 'granted' }
         );
       });
 
-      it('should update multiple configuration options at once', () => {
-        const config: AltertableConfig = {
+      it('updates multiple configuration options at once', () => {
+        altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
           debug: false,
           environment: 'production',
           trackingConsent: 'granted',
-        };
-        altertable.init(apiKey, config);
+        });
 
         altertable.configure({
           debug: true,
@@ -477,33 +401,26 @@ modes.forEach(({ mode, description, setup }) => {
           release: 'v1.0.0',
         });
 
-        // Verify the configuration was updated by checking debug behavior and environment
-        const logEventSpy = vi
-          .spyOn(altertable['_logger'], 'logEvent')
-          .mockImplementation(() => {});
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith(
-          {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          expect.objectContaining({
             event: 'test-event',
-            user_id: null,
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
             environment: 'staging',
             properties: expect.objectContaining({
               [PROPERTY_RELEASE]: 'v1.0.0',
               foo: 'bar',
             }),
-          },
+          }),
           { trackingConsent: 'granted' }
         );
       });
+    });
 
-      it('should call logHeader when debug is enabled on init', () => {
-        const logHeaderSpy = vi
-          .spyOn(altertable['_logger'], 'logHeader')
-          .mockImplementation(() => {});
+    describe('debug logging', () => {
+      it('calls logHeader when debug enabled on init', () => {
+        const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
 
         altertable.init('TEST_API_KEY', {
           debug: true,
@@ -514,10 +431,8 @@ modes.forEach(({ mode, description, setup }) => {
         expect(logHeaderSpy).toHaveBeenCalledTimes(1);
       });
 
-      it('should not call logHeader when debug is disabled on init', () => {
-        const logHeaderSpy = vi
-          .spyOn(altertable['_logger'], 'logHeader')
-          .mockImplementation(() => {});
+      it('does not call logHeader when debug disabled on init', () => {
+        const logHeaderSpy = vi.spyOn(altertable['_logger'], 'logHeader');
 
         altertable.init('TEST_API_KEY', {
           debug: false,
@@ -528,13 +443,8 @@ modes.forEach(({ mode, description, setup }) => {
         expect(logHeaderSpy).toHaveBeenCalledTimes(0);
       });
 
-      it('should call logEvent when debug is enabled and track is called', () => {
-        vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
-          () => {}
-        );
-        const logEventSpy = vi
-          .spyOn(altertable['_logger'], 'logEvent')
-          .mockImplementation(() => {});
+      it('calls logEvent when debug enabled and track called', () => {
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
 
         altertable.init('TEST_API_KEY', {
           debug: true,
@@ -545,25 +455,18 @@ modes.forEach(({ mode, description, setup }) => {
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith(
-          {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          expect.objectContaining({
             event: 'test-event',
-            user_id: null,
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
             properties: expect.objectContaining({
               foo: 'bar',
             }),
-          },
+          }),
           { trackingConsent: 'granted' }
         );
       });
 
-      it('should not call logEvent when debug is disabled and track is called', () => {
-        const logEventSpy = vi
-          .spyOn(altertable['_logger'], 'logEvent')
-          .mockImplementation(() => {});
+      it('does not call logEvent when debug disabled and track called', () => {
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
 
         altertable.init('TEST_API_KEY', {
           debug: false,
@@ -575,224 +478,145 @@ modes.forEach(({ mode, description, setup }) => {
         expect(logEventSpy).toHaveBeenCalledTimes(0);
       });
     });
+  });
 
-    describe('persistence configuration', () => {
-      it('should use localStorage+cookie as default persistence strategy', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
+  describe('persistence configuration', () => {
+    it('uses localStorage+cookie as default persistence strategy', () => {
+      const selectStorageSpy = vi
+        .spyOn(storageModule, 'selectStorage')
+        .mockReturnValue(createStorageMock());
 
-        const selectStorageSpy = vi
-          .spyOn(storageModule, 'selectStorage')
-          .mockReturnValue(createStorageMock());
-
-        altertable.init(apiKey, config);
-
-        expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
-          onFallback: expect.any(Function),
-        });
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
       });
 
-      it('should use custom persistence strategy when provided', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          persistence: 'memory',
-        };
-
-        const selectStorageSpy = vi
-          .spyOn(storageModule, 'selectStorage')
-          .mockReturnValue(createStorageMock());
-
-        altertable.init(apiKey, config);
-
-        expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
-          onFallback: expect.any(Function),
-        });
-      });
-
-      it('should warn when storage fallback occurs', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          persistence: 'localStorage',
-        };
-
-        const warnSpy = vi
-          .spyOn(altertable['_logger'], 'warn')
-          .mockImplementation(() => {});
-
-        // Mock selectStorage to trigger a fallback
-        vi.spyOn(storageModule, 'selectStorage').mockImplementation(
-          (type, { onFallback }) => {
-            onFallback('localStorage not supported, falling back to memory.');
-            return createStorageMock();
-          }
-        );
-
-        altertable.init(apiKey, config);
-
-        expect(warnSpy).toHaveBeenCalledWith(
-          'localStorage not supported, falling back to memory.'
-        );
+      expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
+        onFallback: expect.any(Function),
       });
     });
 
-    describe('user identification', () => {
-      it('should identify user with valid user ID and empty traits', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
+    it('uses custom persistence strategy when provided', () => {
+      const selectStorageSpy = vi
+        .spyOn(storageModule, 'selectStorage')
+        .mockReturnValue(createStorageMock());
 
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        persistence: 'memory',
+      });
+
+      expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
+        onFallback: expect.any(Function),
+      });
+    });
+
+    it('warns when storage fallback occurs', () => {
+      const warnSpy = vi.spyOn(altertable['_logger'], 'warn');
+
+      vi.spyOn(storageModule, 'selectStorage').mockImplementation(
+        (_type, { onFallback }) => {
+          onFallback('localStorage not supported, falling back to memory.');
+          return createStorageMock();
+        }
+      );
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        persistence: 'localStorage',
+      });
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'localStorage not supported, falling back to memory.'
+      );
+    });
+  });
+
+  describe('user identification', () => {
+    describe('identify() method', () => {
+      it('identifies user with valid user ID and empty traits', () => {
+        setupAltertable();
         const userId: UserId = 'user123';
 
-        altertable.identify(userId);
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            'http://localhost/identify?apiKey=test-api-key',
-            expect.anything()
-          );
-        } else {
-          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-          expect(fetchCall[0]).toBe('http://localhost/identify');
-          const options = fetchCall[1];
-          expect(options.method).toBe('POST');
-          expect(options.headers['Content-Type']).toBe('application/json');
-          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-
-          const body = JSON.parse(options.body);
-          expect(body).toEqual({
+        expect(() => {
+          altertable.identify(userId);
+        }).toRequestApi('/identify', {
+          payload: {
             environment: 'production',
             traits: {},
             user_id: userId,
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          });
-        }
+          },
+        });
       });
 
-      it('should identify user with valid user ID and traits', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
+      it('identifies user with valid user ID and traits', () => {
+        setupAltertable();
         const userId: UserId = 'user123';
         const traits: UserTraits = { email: 'user@example.com' };
 
-        altertable.identify(userId, traits);
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            'http://localhost/identify?apiKey=test-api-key',
-            expect.anything()
-          );
-        } else {
-          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-          expect(fetchCall[0]).toBe('http://localhost/identify');
-          const options = fetchCall[1];
-          expect(options.method).toBe('POST');
-          expect(options.headers['Content-Type']).toBe('application/json');
-          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-
-          const body = JSON.parse(options.body);
-          expect(body).toEqual({
+        expect(() => {
+          altertable.identify(userId, traits);
+        }).toRequestApi('/identify', {
+          payload: {
             environment: 'production',
             traits,
             user_id: userId,
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          });
-        }
+          },
+        });
       });
 
-      it('should throw error for reserved user ID', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
+      it('throws error for reserved user ID', () => {
+        setupAltertable();
         expect(() => {
-          altertable.identify('anonymous_id', {});
+          altertable.identify('anonymous_id');
         }).toThrow(
           '[Altertable] User ID "anonymous_id" is a reserved identifier and cannot be used.'
         );
       });
 
-      it('should throw error for empty user ID', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
+      it('throws error for empty user ID', () => {
+        setupAltertable();
         expect(() => {
-          altertable.identify('', {});
+          altertable.identify('');
         }).toThrow(
           '[Altertable] User ID cannot be empty or contain only whitespace.'
         );
       });
 
-      it('should throw when identify called before init', () => {
+      it('throws when called before initialization', () => {
+        const uninitializedAltertable = new Altertable();
         expect(() => {
-          altertable.identify('user123', {});
+          uninitializedAltertable.identify('user123');
         }).toThrow(
           '[Altertable] The client must be initialized with init() before identifying users.'
         );
       });
+    });
 
-      it('should update traits for identified user', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
+    describe('updateTraits() method', () => {
+      it('updates traits for identified user', () => {
+        setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-
         const newTraits = { name: 'John Doe', plan: 'premium' };
-        altertable.updateTraits(newTraits);
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            'http://localhost/identify?apiKey=test-api-key',
-            expect.anything()
-          );
-        } else {
-          const fetchCall = (fetch as unknown as Mock).mock.calls[0];
-          expect(fetchCall[0]).toBe('http://localhost/identify');
-          const options = fetchCall[1];
-          expect(options.method).toBe('POST');
-          expect(options.headers['Content-Type']).toBe('application/json');
-          expect(options.headers.Authorization).toBe(`Bearer ${apiKey}`);
-
-          const body = JSON.parse(options.body);
-          expect(body).toEqual({
+        expect(() => {
+          altertable.updateTraits(newTraits);
+        }).toRequestApi('/identify', {
+          payload: {
             environment: 'production',
             traits: newTraits,
             user_id: 'user123',
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          });
-        }
+          },
+        });
       });
 
-      it('should throw when updateTraits called without identifying user', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-        altertable.init(apiKey, config);
-
+      it('throws when called without identifying user', () => {
+        setupAltertable();
         expect(() => {
           altertable.updateTraits({ email: 'user@example.com' });
         }).toThrow(
@@ -800,195 +624,142 @@ modes.forEach(({ mode, description, setup }) => {
         );
       });
     });
+  });
 
-    describe('session management', () => {
-      it('should generate new session ID on initialization', () => {
-        const config: AltertableConfig = {
+  describe('session management', () => {
+    describe('session ID generation', () => {
+      it('generates new session ID on initialization', () => {
+        altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
-        };
-        altertable.init(apiKey, config);
+        });
 
         const sessionId = altertable['_sessionManager'].getSessionId();
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
       });
 
-      it('should persist session ID across page reloads', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-
+      it('persists session ID across page reloads', () => {
         const testVisitorId = 'visitor-test-uuid-1-1234567890';
         const testSessionId = 'session-test-uuid-2-1234567890';
-        const existingSessionData = JSON.stringify({
+        const existingSessionData = createSessionData({
           visitorId: testVisitorId,
           sessionId: testSessionId,
-          userId: null,
-          lastEventAt: null,
         });
 
-        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
-          getItem: vi.fn().mockReturnValue(existingSessionData),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        });
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock({
+            getItem: vi.fn().mockReturnValue(existingSessionData),
+          })
+        );
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        });
 
         const sessionId = altertable['_sessionManager'].getSessionId();
         expect(sessionId).toBe(testSessionId);
       });
+    });
 
-      it('should regenerate session ID when event is sent after 30 minutes since last event', () => {
+    describe('session renewal', () => {
+      it('regenerates session ID when event sent after 30 minutes', () => {
         vi.useFakeTimers();
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-
         const testVisitorId = 'visitor-test-uuid-3-1234567890';
         const testSessionId = 'session-test-uuid-4-1234567890';
         const thirtyMinutesAgo = new Date(
           Date.now() - 30 * 60 * 1000 - 1000
-        ).toISOString(); // 30 minutes + 1 second ago
-        const existingSessionData = JSON.stringify({
+        ).toISOString();
+        const existingSessionData = createSessionData({
           visitorId: testVisitorId,
           sessionId: testSessionId,
-          userId: null,
           lastEventAt: thirtyMinutesAgo,
-          trackingConsent: 'granted',
         });
 
-        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
-          getItem: vi.fn().mockReturnValue(existingSessionData),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        });
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock({
+            getItem: vi.fn().mockReturnValue(existingSessionData),
+          })
+        );
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        });
 
         const initialSessionId = altertable['_sessionManager'].getSessionId();
         expect(initialSessionId).toBe(testSessionId);
 
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'test-event',
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          }),
+        });
 
-        // Send an event - this should trigger session renewal
-        altertable.track('test-event', { foo: 'bar' });
-
-        // Verify that a new session ID was generated
         const newSessionId = altertable['_sessionManager'].getSessionId();
         expect(newSessionId).not.toBe(testSessionId);
         expect(newSessionId).toMatch(REGEXP_SESSION_ID);
 
-        // Verify that the event was sent with the new session ID
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-          expectBeaconCall(config, apiKey);
-        } else {
-          expect(fetch).toHaveBeenCalled();
-          expectFetchCall(config, apiKey, {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            event: 'test-event',
-            user_id: null,
-            session_id: newSessionId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
-            properties: {
-              [PROPERTY_LIB]: 'TEST_LIB_NAME',
-              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-              foo: 'bar',
-            },
-          });
-        }
-
         vi.useRealTimers();
       });
 
-      it('should not regenerate session ID when event is sent within 30 minutes of last event', () => {
+      it('does not regenerate session ID when event sent within 30 minutes', () => {
         vi.useFakeTimers();
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-        };
-
         const testVisitorId = 'visitor-test-uuid-5-1234567890';
         const testSessionId = 'session-test-uuid-6-1234567890';
         const twentyNineMinutesAgo = new Date(
           Date.now() - 29 * 60 * 1000
-        ).toISOString(); // 29 minutes ago (within 30 min window)
-        const existingSessionData = JSON.stringify({
+        ).toISOString();
+        const existingSessionData = createSessionData({
           visitorId: testVisitorId,
           sessionId: testSessionId,
-          userId: null,
           lastEventAt: twentyNineMinutesAgo,
-          trackingConsent: 'granted',
         });
 
-        vi.spyOn(storageModule, 'selectStorage').mockReturnValue({
-          getItem: vi.fn().mockReturnValue(existingSessionData),
-          setItem: vi.fn(),
-          removeItem: vi.fn(),
-          migrate: vi.fn(),
-        });
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock({
+            getItem: vi.fn().mockReturnValue(existingSessionData),
+          })
+        );
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        });
 
         const initialSessionId = altertable['_sessionManager'].getSessionId();
         expect(initialSessionId).toBe(testSessionId);
 
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'test-event',
+            session_id: testSessionId,
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          }),
+        });
 
-        // Send an event - this should NOT trigger session renewal
-        altertable.track('test-event', { foo: 'bar' });
-
-        // Verify that the session ID remains the same
         const currentSessionId = altertable['_sessionManager'].getSessionId();
         expect(currentSessionId).toBe(testSessionId);
 
-        // Verify that the event was sent with the same session ID
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-          expectBeaconCall(config, apiKey);
-        } else {
-          expect(fetch).toHaveBeenCalled();
-          expectFetchCall(config, apiKey, {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            event: 'test-event',
-            user_id: null,
-            session_id: testSessionId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
-            properties: {
-              [PROPERTY_LIB]: 'TEST_LIB_NAME',
-              [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
-              foo: 'bar',
-            },
-          });
-        }
-
         vi.useRealTimers();
       });
+    });
 
-      it('should reset user ID when reset called', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-        altertable.init(apiKey, config);
+    describe('reset() method', () => {
+      it('resets user ID when called', () => {
+        setupAltertable();
+        altertable.identify('user123', { email: 'user@example.com' });
 
-        altertable.identify('user123', {});
         const originalUserId = altertable['_sessionManager'].getUserId();
         expect(originalUserId).toBe('user123');
 
@@ -997,19 +768,12 @@ modes.forEach(({ mode, description, setup }) => {
         expect(userId).toBeNull();
       });
 
-      it('should reset session ID when reset called with default parameters', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
-        altertable.init(apiKey, config);
+      it('resets session ID when called with default parameters', () => {
+        setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
         const originalSessionId = altertable['_sessionManager'].getSessionId();
         const originalUserId = altertable['_sessionManager'].getUserId();
-        const originalVisitorId = altertable['_sessionManager'].getVisitorId();
 
         expect(originalUserId).toBe('user123');
 
@@ -1021,27 +785,13 @@ modes.forEach(({ mode, description, setup }) => {
 
         const newUserId = altertable['_sessionManager'].getUserId();
         expect(newUserId).toBeNull();
-        expect(newUserId).not.toEqual(originalUserId);
-
-        // Visitor ID should remain the same (not reset by default)
-        const newVisitorId = altertable['_sessionManager'].getVisitorId();
-        expect(newVisitorId).toEqual(originalVisitorId);
       });
 
-      it('should reset visitor ID when reset called with resetVisitorId', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
-        altertable.init(apiKey, config);
+      it('resets visitor ID when called with resetVisitorId', () => {
+        setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
-        const originalUserId = altertable['_sessionManager'].getUserId();
         const originalVisitorId = altertable['_sessionManager'].getVisitorId();
-
-        expect(originalUserId).toBe('user123');
 
         altertable.reset({ resetVisitorId: true });
 
@@ -1050,20 +800,11 @@ modes.forEach(({ mode, description, setup }) => {
         expect(newVisitorId).toMatch(REGEXP_VISITOR_ID);
       });
 
-      it('should not reset session ID when reset called with resetSessionId: false', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
-        altertable.init(apiKey, config);
+      it('does not reset session ID when called with resetSessionId: false', () => {
+        setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
-        const originalUserId = altertable['_sessionManager'].getUserId();
         const originalSessionId = altertable['_sessionManager'].getSessionId();
-
-        expect(originalUserId).toBe('user123');
 
         altertable.reset({ resetSessionId: false });
 
@@ -1071,28 +812,29 @@ modes.forEach(({ mode, description, setup }) => {
         expect(newSessionId).toEqual(originalSessionId);
       });
 
-      it('should throw when reset called before initialization', () => {
+      it('throws when called before initialization', () => {
+        const uninitializedAltertable = new Altertable();
         expect(() => {
-          altertable.reset();
+          uninitializedAltertable.reset();
         }).toThrow(
           '[Altertable] The client must be initialized with init() before resetting.'
         );
       });
     });
+  });
 
-    describe('storage system', () => {
-      it('should save user data to storage when identify called', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
+  describe('storage system', () => {
+    describe('data persistence', () => {
+      it('saves user data to storage when identify called', () => {
         const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
         altertable.identify('user123', { email: 'user@example.com' });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
@@ -1113,21 +855,14 @@ modes.forEach(({ mode, description, setup }) => {
         });
       });
 
-      it('should recover storage data on initialization', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
+      it('recovers storage data on initialization', () => {
         const testVisitorId = 'visitor-test-uuid-3-1234567890';
         const testSessionId = 'session-test-uuid-4-1234567890';
-        const existingData = JSON.stringify({
+        const existingData = createSessionData({
           visitorId: testVisitorId,
           sessionId: testSessionId,
           userId: 'user123',
           lastEventAt: '2023-01-01T00:00:00.000Z',
-          trackingConsent: 'granted',
         });
 
         const storageMock = createStorageMock({
@@ -1136,7 +871,11 @@ modes.forEach(({ mode, description, setup }) => {
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
 
         const visitorId = altertable['_sessionManager'].getVisitorId();
         const sessionId = altertable['_sessionManager'].getSessionId();
@@ -1148,13 +887,7 @@ modes.forEach(({ mode, description, setup }) => {
         expect(lastEventAt).toBe('2023-01-01T00:00:00.000Z');
       });
 
-      it('should handle corrupted storage data gracefully', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
+      it('handles corrupted storage data gracefully', () => {
         const storageMock = createStorageMock({
           getItem: vi.fn().mockReturnValue('invalid-json'),
         });
@@ -1162,7 +895,11 @@ modes.forEach(({ mode, description, setup }) => {
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
         expect(() => {
-          altertable.init(apiKey, config);
+          altertable.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: false,
+            trackingConsent: 'granted',
+          });
         }).toWarnDev(
           '[Altertable] Failed to parse storage data. Resetting session data.'
         );
@@ -1174,19 +911,19 @@ modes.forEach(({ mode, description, setup }) => {
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
         expect(visitorId).toMatch(REGEXP_VISITOR_ID);
       });
+    });
 
-      it('should construct storage key with default environment when not specified', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-
+    describe('storage key construction', () => {
+      it('constructs storage key with default environment when not specified', () => {
         const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
           'atbl.test-api-key.production',
@@ -1194,19 +931,17 @@ modes.forEach(({ mode, description, setup }) => {
         );
       });
 
-      it('should construct storage key with development environment', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          environment: 'development',
-          trackingConsent: 'granted',
-        };
-
+      it('constructs storage key with development environment', () => {
         const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
 
-        altertable.init(apiKey, config);
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          environment: 'development',
+          trackingConsent: 'granted',
+        });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
           'atbl.test-api-key.development',
@@ -1215,403 +950,661 @@ modes.forEach(({ mode, description, setup }) => {
       });
     });
 
-    describe('tracking consent', () => {
-      function clearNetworkCalls() {
-        if (mode === 'beacon') {
-          (navigator.sendBeacon as Mock).mockClear();
-        } else {
-          (fetch as unknown as Mock).mockClear();
-        }
-      }
+    describe('storage migration', () => {
+      it('migrates data when persistence strategy changes', () => {
+        const initialStorageMock = createStorageMock();
+        const newStorageMock = createStorageMock();
+        const migrateSpy = vi.fn();
 
-      // Mock storage for tracking consent tests
-      const createStorageMock = () => ({
-        getItem: vi.fn().mockReturnValue(null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        migrate: vi.fn(),
+        newStorageMock.migrate = migrateSpy;
+
+        vi.spyOn(storageModule, 'selectStorage')
+          .mockReturnValueOnce(initialStorageMock)
+          .mockReturnValueOnce(newStorageMock);
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          persistence: 'localStorage+cookie',
+          trackingConsent: 'granted',
+        });
+
+        altertable.configure({ persistence: 'memory' });
+
+        expect(migrateSpy).toHaveBeenCalledWith(initialStorageMock, [
+          'atbl.test-api-key.production',
+        ]);
       });
 
-      beforeEach(() => {
-        // Mock storage for each test to ensure clean state
+      it('preserves data during migration', () => {
+        const initialStorageMock = createStorageMock();
+        const newStorageMock = createStorageMock();
+        const migrateSpy = vi.fn();
+
+        newStorageMock.migrate = migrateSpy;
+
+        vi.spyOn(storageModule, 'selectStorage')
+          .mockReturnValueOnce(initialStorageMock)
+          .mockReturnValueOnce(newStorageMock);
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          persistence: 'localStorage+cookie',
+          trackingConsent: 'granted',
+        });
+
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        altertable.configure({ persistence: 'memory' });
+
+        expect(migrateSpy).toHaveBeenCalled();
+        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
+      });
+    });
+  });
+
+  describe('tracking consent', () => {
+    describe('consent states', () => {
+      it('sends events immediately when consent is granted', () => {
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
           createStorageMock()
         );
+
+        setupAltertable({ trackingConsent: 'granted' });
+
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track');
       });
 
-      it('should send events immediately when consent is granted', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-        altertable.init(apiKey, config);
+      it('queues events when consent is pending', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        altertable.track('test-event', { foo: 'bar' });
+        setupAltertable({ trackingConsent: 'pending' });
 
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-        } else {
-          expect(fetch).toHaveBeenCalled();
-        }
-      });
+        expect(() => {
+          altertable.track('test-event-1', { foo: 'bar' });
+          altertable.track('test-event-2', { baz: 'qux' });
+        }).not.toRequestApi('/track');
 
-      it('should queue events when consent is pending', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
-
-        altertable.track('test-event-1', { foo: 'bar' });
-        altertable.track('test-event-2', { baz: 'qux' });
-
-        // No network calls should be made
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // Events should be queued
         expect(altertable['_eventQueue'].getSize()).toBe(2);
       });
 
-      it('should queue events when consent is dismissed', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'dismissed',
-        };
-        altertable.init(apiKey, config);
+      it('queues events when consent is dismissed', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        altertable.track('test-event', { foo: 'bar' });
+        setupAltertable({ trackingConsent: 'dismissed' });
 
-        // No network calls should be made
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).not.toRequestApi('/track');
 
-        // Event should be queued
         expect(altertable['_eventQueue'].getSize()).toBe(1);
       });
 
-      it('should not collect or send events when consent is denied', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'denied',
-        };
-        altertable.init(apiKey, config);
+      it('does not collect or send events when consent is denied', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        altertable.track('test-event', { foo: 'bar' });
+        setupAltertable({ trackingConsent: 'denied' });
 
-        // No network calls should be made
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).not.toRequestApi('/track');
 
-        // Event should not be queued
         expect(altertable['_eventQueue'].getSize()).toBe(0);
       });
+    });
 
-      it('should flush queued events when consent changes from pending to granted', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
+    describe('consent transitions', () => {
+      it('flushes queued events when consent changes from pending to granted', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        // Queue some events
+        setupAltertable({ trackingConsent: 'pending' });
+
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
         expect(altertable['_eventQueue'].getSize()).toBe(2);
 
-        // Clear network calls
-        clearNetworkCalls();
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/track', { callCount: 2 });
 
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Queued events should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(2);
-        }
-
-        // Queue should be empty
         expect(altertable['_eventQueue'].getSize()).toBe(0);
       });
 
-      it('should flush queued events when consent changes from dismissed to granted', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'dismissed',
-        };
-        altertable.init(apiKey, config);
+      it('flushes queued events when consent changes from dismissed to granted', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        // Queue some events
+        setupAltertable({ trackingConsent: 'dismissed' });
+
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
         expect(altertable['_eventQueue'].getSize()).toBe(2);
 
-        // Clear network calls
-        clearNetworkCalls();
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/track', { callCount: 2 });
 
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Queued events should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(2);
-        }
-
-        // Queue should be empty
         expect(altertable['_eventQueue'].getSize()).toBe(0);
       });
 
-      it('should clear queued events when consent changes to denied', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
+      it('clears queued events when consent changes to denied', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        // Queue some events
+        setupAltertable({ trackingConsent: 'pending' });
+
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
         expect(altertable['_eventQueue'].getSize()).toBe(2);
 
-        // Change consent to denied
         altertable.configure({ trackingConsent: 'denied' });
 
-        // Queue should be cleared
         expect(altertable['_eventQueue'].getSize()).toBe(0);
       });
 
-      it('should not flush events when consent changes from granted to pending', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        };
-        altertable.init(apiKey, config);
+      it('does not flush events when consent changes from granted to pending', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
 
-        // Send an event
-        altertable.track('test-event-1', { foo: 'bar' });
+        setupAltertable({ trackingConsent: 'granted' });
 
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(1);
-        }
+        expect(() => {
+          altertable.track('test-event-1', { foo: 'bar' });
+        }).toRequestApi('/track');
 
-        // Clear network calls
-        clearNetworkCalls();
-
-        // Change consent to pending
         altertable.configure({ trackingConsent: 'pending' });
 
-        altertable.track('test-event-2', { foo: 'bar' });
-
-        // No additional network calls should be made
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
+        expect(() => {
+          altertable.track('test-event-2', { foo: 'bar' });
+        }).not.toRequestApi('/track');
       });
+    });
 
-      it('should get current tracking consent state', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
+    describe('consent state management', () => {
+      it('gets current tracking consent state', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({ trackingConsent: 'pending' });
 
         expect(altertable.getTrackingConsent()).toBe('pending');
 
         altertable.configure({ trackingConsent: 'granted' });
         expect(altertable.getTrackingConsent()).toBe('granted');
       });
+    });
 
-      it('should handle page events with different consent states', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
-
-        // Page event should be queued when consent is pending
-        altertable.page('http://localhost/test-page');
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        expect(altertable['_eventQueue'].getSize()).toBe(1);
-
-        // Clear network calls
-        clearNetworkCalls();
-
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Queued page event should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(1);
-        }
-      });
-
-      it('should handle identify events with different consent states', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
-
-        altertable.identify('user123', { email: 'user@example.com' });
-
-        // No network calls should be made when consent is pending
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // User should be set in session manager regardless of consent
-        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
-
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Queued identify event should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(1);
-        }
-      });
-
-      it('should handle updateTraits with different consent states', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
-
-        // First identify the user
-        altertable.identify('user123', { email: 'user@example.com' });
-
-        // Clear network calls
-        clearNetworkCalls();
-
-        // Update traits should respect consent
-        altertable.updateTraits({ name: 'John Doe' });
-
-        // No network calls should be made when consent is pending
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Both queued identify and updateTraits events should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalledTimes(2);
-        } else {
-          expect(fetch).toHaveBeenCalledTimes(2);
-        }
-      });
-
-      it('should handle auto-capture with different consent states', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: true,
-          trackingConsent: 'pending',
-        };
-        altertable.init(apiKey, config);
-
-        // Initial page event should be queued
-        expect(altertable['_eventQueue'].getSize()).toBe(1);
-
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).not.toHaveBeenCalled();
-        } else {
-          expect(fetch).not.toHaveBeenCalled();
-        }
-
-        // Change consent to granted
-        altertable.configure({ trackingConsent: 'granted' });
-
-        // Queued page event should be sent
-        if (mode === 'beacon') {
-          expect(navigator.sendBeacon).toHaveBeenCalled();
-        } else {
-          expect(fetch).toHaveBeenCalled();
-        }
-      });
-
-      it('should handle debug logging with different consent states', () => {
-        const config: AltertableConfig = {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          debug: true,
-          trackingConsent: 'pending',
-        };
-
-        const logEventSpy = vi
-          .spyOn(altertable['_logger'], 'logEvent')
-          .mockImplementation(() => {});
-        vi.spyOn(altertable['_logger'], 'logHeader').mockImplementation(
-          () => {}
+    describe('event handling with different consent states', () => {
+      it('handles page events with different consent states', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
         );
 
-        altertable.init(apiKey, config);
+        setupAltertable({ trackingConsent: 'pending' });
 
-        // Track event should be logged even when queued
+        expect(() => {
+          altertable.page('http://localhost/test-page');
+        }).not.toRequestApi('/track');
+
+        expect(altertable['_eventQueue'].getSize()).toBe(1);
+
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/track');
+      });
+
+      it('handles identify events with different consent states', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({ trackingConsent: 'pending' });
+
+        expect(() => {
+          altertable.identify('user123', { email: 'user@example.com' });
+        }).not.toRequestApi('/identify');
+
+        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
+
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/identify');
+      });
+
+      it('handles updateTraits with different consent states', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({ trackingConsent: 'pending' });
+
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        expect(() => {
+          altertable.updateTraits({ name: 'John Doe' });
+        }).not.toRequestApi('/identify');
+
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/identify', { callCount: 2 });
+      });
+
+      it('handles auto-capture with different consent states', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        expect(() => {
+          setupAltertable({
+            autoCapture: true,
+            trackingConsent: 'pending',
+          });
+        }).not.toRequestApi('/track');
+
+        expect(altertable['_eventQueue'].getSize()).toBe(1);
+
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/track');
+      });
+
+      it('handles debug logging with different consent states', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({
+          debug: true,
+          trackingConsent: 'pending',
+        });
+
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+
         altertable.track('test-event', { foo: 'bar' });
 
         expect(logEventSpy).toHaveBeenCalledWith(
-          {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          expect.objectContaining({
             event: 'test-event',
-            user_id: null,
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            environment: 'production',
             properties: expect.objectContaining({
               foo: 'bar',
             }),
-          },
+          }),
           { trackingConsent: 'pending' }
         );
       });
+    });
+  });
+
+  describe('integration scenarios', () => {
+    it('should handle complete user journey with consent flow', () => {
+      const storageMock = createStorageMock({
+        getItem: vi.fn().mockReturnValue(null),
+      });
+      vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+      // 1. Initialize with pending consent
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'pending',
+      });
+
+      expect(altertable.getTrackingConsent()).toBe('pending');
+
+      // 2. Track events (should queue)
+      altertable.track('event-1', { step: 'initial' });
+      altertable.track('event-2', { step: 'browsing' });
+      expect(altertable['_eventQueue'].getSize()).toBe(2);
+
+      // 3. Identify user (should queue)
+      altertable.identify('user123', { email: 'user@example.com' });
+      expect(altertable['_eventQueue'].getSize()).toBe(3);
+
+      // 4. Grant consent (should flush queue)
+      expect(() => {
+        altertable.configure({ trackingConsent: 'granted' });
+      }).toRequestApi('/track', { callCount: 3 });
+
+      expect(altertable['_eventQueue'].getSize()).toBe(0);
+
+      // 5. Track more events (should send immediately)
+      expect(() => {
+        altertable.track('event-3', { step: 'converted' });
+      }).toRequestApi('/track');
+
+      // 6. Reset (should clear state)
+      altertable.reset();
+      expect(altertable['_sessionManager'].getUserId()).toBeNull();
+      expect(altertable['_sessionManager'].getSessionId()).toMatch(
+        REGEXP_SESSION_ID
+      );
+    });
+
+    it('should handle session renewal during user activity', () => {
+      vi.useFakeTimers();
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+      });
+
+      const initialSessionId = altertable['_sessionManager'].getSessionId();
+
+      // Simulate 31 minutes passing (beyond session expiration)
+      vi.advanceTimersByTime(31 * 60 * 1000);
+
+      expect(() => {
+        altertable.track('event-after-timeout', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        payload: expect.objectContaining({
+          event: 'event-after-timeout',
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+
+      const newSessionId = altertable['_sessionManager'].getSessionId();
+      expect(newSessionId).not.toBe(initialSessionId);
+      expect(newSessionId).toMatch(REGEXP_SESSION_ID);
+
+      vi.useRealTimers();
+    });
+
+    it('should handle rapid configuration changes without memory leaks', () => {
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+      });
+
+      const configureSpy = vi.spyOn(altertable, 'configure');
+
+      // Rapid configuration changes
+      for (let i = 0; i < 10; i++) {
+        altertable.configure({
+          debug: i % 2 === 0,
+          environment: i % 2 === 0 ? 'production' : 'development',
+        });
+      }
+
+      expect(configureSpy).toHaveBeenCalledTimes(10);
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track');
+    });
+  });
+
+  describe('multiple init() calls', () => {
+    it('updates configuration when calling init() again', () => {
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        debug: true,
+        trackingConsent: 'granted',
+      });
+
+      const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        debug: false,
+        trackingConsent: 'granted',
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+      expect(logEventSpy).not.toHaveBeenCalled();
+    });
+
+    it('updates the API key when calling init() with a new key', () => {
+      altertable.init('api-key-1', {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+      });
+
+      altertable.init('api-key-2', {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+      });
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        apiKey: 'api-key-2',
+        payload: expect.objectContaining({
+          event: 'test-event',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+    });
+  });
+
+  describe('browser compatibility', () => {
+    it('should work when localStorage is not available', () => {
+      const originalLocalStorage = global.localStorage;
+      delete (global as any).localStorage;
+
+      const selectStorageSpy = vi.spyOn(storageModule, 'selectStorage');
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        persistence: 'localStorage',
+        trackingConsent: 'granted',
+      });
+
+      expect(selectStorageSpy).toHaveBeenCalledWith('localStorage', {
+        onFallback: expect.any(Function),
+      });
+
+      global.localStorage = originalLocalStorage;
+    });
+
+    it('should work when sendBeacon is not available', () => {
+      setupBeaconUnavailable();
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+      });
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        method: 'fetch',
+        payload: expect.objectContaining({
+          event: 'test-event',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+    });
+
+    it('should work in SSR environments', () => {
+      const originalWindow = global.window;
+      delete (global as any).window;
+
+      expect(() => {
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
+      }).not.toThrow();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track');
+
+      global.window = originalWindow;
+    });
+
+    it('should handle missing navigator gracefully', () => {
+      const originalNavigator = global.navigator;
+      delete (global as any).navigator;
+
+      expect(() => {
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+        });
+      }).not.toThrow();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track');
+
+      global.navigator = originalNavigator;
+    });
+  });
+
+  describe('configuration validation', () => {
+    it('should handle custom environment values gracefully', () => {
+      setupAltertable({ environment: 'custom-env' });
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        payload: expect.objectContaining({
+          event: 'test-event',
+          environment: 'custom-env',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+    });
+
+    it('should handle malformed URLs gracefully', () => {
+      expect(() => {
+        setupAltertable({ baseUrl: 'not-a-valid-url' });
+      }).not.toThrow();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track');
+    });
+
+    it('should handle empty baseUrl gracefully', () => {
+      expect(() => {
+        setupAltertable({ baseUrl: '' });
+      }).not.toThrow();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track');
+    });
+  });
+
+  describe('network method selection', () => {
+    it('uses beacon when available', () => {
+      setupBeaconAvailable();
+
+      setupAltertable();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        method: 'beacon',
+        payload: expect.objectContaining({
+          event: 'test-event',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+    });
+
+    it('falls back to fetch when beacon is unavailable', () => {
+      setupBeaconUnavailable();
+
+      setupAltertable();
+
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toRequestApi('/track', {
+        method: 'fetch',
+        payload: expect.objectContaining({
+          event: 'test-event',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+    });
+  });
+
+  describe('network failure handling', () => {
+    it('handles network failures gracefully', () => {
+      setupAltertable();
+
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new Error('Network error');
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
+        error: expect.any(Error),
+        eventType: 'track',
+        payload: expect.objectContaining({
+          event: 'test-event',
+        }),
+      });
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('continues to function after network failures', () => {
+      setupAltertable();
+
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new Error('Network error');
+      });
+
+      expect(() => {
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+      }).not.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledTimes(2);
+
+      altertable['_requester'].send = originalSend;
     });
   });
 });

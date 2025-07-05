@@ -1,5 +1,6 @@
 import {
   AUTO_CAPTURE_INTERVAL_MS,
+  DEFAULT_REQUEST_TIMEOUT,
   EVENT_PAGEVIEW,
   keyBuilder,
   MAX_EVENT_QUEUE_SIZE,
@@ -16,6 +17,7 @@ import { EventQueue } from './lib/eventQueue';
 import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
+import { Requester } from './lib/requester';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
@@ -30,7 +32,7 @@ import {
   EventPayload,
   EventProperties,
   EventType,
-  IdentifyPayload,
+  TrackPayload,
   UserTraits,
 } from './types';
 
@@ -83,14 +85,14 @@ const DEFAULT_CONFIG: AltertableConfig = {
 };
 
 export class Altertable {
-  private _apiKey: string;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _config: AltertableConfig;
-  private _eventQueue: EventQueue<EventPayload | IdentifyPayload>;
+  private _eventQueue: EventQueue<EventPayload>;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
+  private _requester: Requester<EventPayload> | undefined;
   private _sessionManager: SessionManager | undefined;
   private _storage: StorageApi | undefined;
   private _storageKey: string | undefined;
@@ -103,7 +105,6 @@ export class Altertable {
 
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
-    this._apiKey = apiKey;
     this._config = { ...DEFAULT_CONFIG, ...config };
     this._storageKey = keyBuilder(apiKey, this._config.environment);
     this._referrer = safelyRunOnBrowser<string | null>(
@@ -117,7 +118,11 @@ export class Altertable {
     this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
-
+    this._requester = new Requester({
+      baseUrl: this._config.baseUrl,
+      apiKey,
+      requestTimeout: DEFAULT_REQUEST_TIMEOUT,
+    });
     this._sessionManager = new SessionManager({
       storage: this._storage,
       storageKey: this._storageKey,
@@ -304,7 +309,7 @@ export class Altertable {
     this._sessionManager.updateLastEventAt(timestamp);
 
     const context = this._getContext();
-    const payload: EventPayload = {
+    const payload: TrackPayload = {
       timestamp,
       event,
       environment: context.environment,
@@ -353,7 +358,7 @@ export class Altertable {
     };
   }
 
-  private _processEvent<TPayload extends EventPayload | IdentifyPayload>(
+  private _processEvent<TPayload extends EventPayload>(
     eventType: EventType,
     payload: TPayload,
     context: AltertableContext
@@ -362,7 +367,15 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._request(`/${eventType}`, payload);
+        try {
+          this._requester.send(`/${eventType}`, payload);
+        } catch (error) {
+          this._logger.error('Failed to send event', {
+            error,
+            eventType,
+            payload,
+          });
+        }
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
@@ -371,30 +384,6 @@ export class Altertable {
       case TrackingConsent.DENIED:
         // Do nothing (don't collect or send data)
         break;
-    }
-  }
-
-  private _request(path: string, body: unknown): void {
-    invariant(this._apiKey, 'Missing API key');
-    invariant(this._config, 'Missing configuration');
-
-    const url = `${this._config.baseUrl}${path}`;
-    const payload = JSON.stringify(body);
-
-    /* eslint-disable no-restricted-globals */
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-      const beaconUrl = `${url}?apiKey=${encodeURIComponent(this._apiKey)}`;
-      const blob = new Blob([payload], { type: 'application/json' });
-      navigator.sendBeacon(beaconUrl, blob);
-    } /* eslint-enable no-restricted-globals */ else {
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this._apiKey}`,
-        },
-        body: payload,
-      });
     }
   }
 }

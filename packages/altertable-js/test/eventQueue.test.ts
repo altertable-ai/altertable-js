@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MAX_EVENT_QUEUE_SIZE } from '../src/constants';
 import { EventQueue } from '../src/lib/eventQueue';
-import type { AltertableContext, EventPayload } from '../src/types';
+import type {
+  AltertableContext,
+  EventPayload,
+  TrackPayload,
+} from '../src/types';
 
 describe('EventQueue', () => {
   let eventQueue: EventQueue<EventPayload>;
@@ -69,10 +73,10 @@ describe('EventQueue', () => {
 
       // The oldest event should be removed
       const flushedEvents = eventQueue.flush();
-      expect(flushedEvents[0].payload.event).toBe('event-1'); // event-0 should be removed
-      expect(flushedEvents[flushedEvents.length - 1].payload.event).toBe(
-        'new-event'
-      );
+      expect((flushedEvents[0].payload as TrackPayload).event).toBe('event-1'); // event-0 should be removed
+      expect(
+        (flushedEvents[flushedEvents.length - 1].payload as TrackPayload).event
+      ).toBe('new-event');
     });
   });
 
