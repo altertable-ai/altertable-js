@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  createStorageMock,
+  StorageMock,
+} from '../../../test-utils/mocks/storageMock';
 import { STORAGE_KEY_TEST } from '../src/constants';
 import {
   selectStorage,
@@ -7,17 +11,11 @@ import {
   type StorageType,
 } from '../src/lib/storage';
 
-type MockStorage = Partial<Storage> & {
-  getItem: ReturnType<typeof vi.fn>;
-  setItem: ReturnType<typeof vi.fn>;
-  removeItem: ReturnType<typeof vi.fn>;
-};
-
 describe('Storage API', () => {
   let mockWindow: Partial<typeof window>;
   let mockDocument: Partial<Document>;
-  let mockLocalStorage: MockStorage;
-  let mockSessionStorage: MockStorage;
+  let mockLocalStorage: StorageMock;
+  let mockSessionStorage: StorageMock;
   let onFallback: (message: string) => void;
   let originalWindow: typeof window;
   let cookieValue = '';
@@ -46,16 +44,8 @@ describe('Storage API', () => {
     cookieStore.clear();
 
     originalWindow = global.window;
-    mockLocalStorage = {
-      getItem: vi.fn(),
-      setItem: vi.fn(),
-      removeItem: vi.fn(),
-    };
-    mockSessionStorage = {
-      getItem: vi.fn(),
-      setItem: vi.fn(),
-      removeItem: vi.fn(),
-    };
+    mockLocalStorage = createStorageMock();
+    mockSessionStorage = createStorageMock();
     mockDocument = {};
 
     // Mock cookie setter to append cookies instead of overwriting
@@ -352,7 +342,8 @@ describe('Storage API', () => {
         mockLocalStorage.setItem.mockImplementation(() => {});
         mockLocalStorage.removeItem.mockImplementation(() => {});
 
-        const storage = selectStorage('localStorage', { onFallback });
+        selectStorage('localStorage', { onFallback });
+
         expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
           STORAGE_KEY_TEST,
           '1'
@@ -366,7 +357,8 @@ describe('Storage API', () => {
         mockSessionStorage.setItem.mockImplementation(() => {});
         mockSessionStorage.removeItem.mockImplementation(() => {});
 
-        const storage = selectStorage('sessionStorage', { onFallback });
+        selectStorage('sessionStorage', { onFallback });
+
         expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
           STORAGE_KEY_TEST,
           '1'
@@ -377,7 +369,8 @@ describe('Storage API', () => {
       });
 
       it('should test cookie support correctly', () => {
-        const storage = selectStorage('cookie', { onFallback });
+        selectStorage('cookie', { onFallback });
+
         // Only the cleared cookie will be present due to the mock
         expect(mockDocument.cookie).toContain(
           `${STORAGE_KEY_TEST}=; Max-Age=0`
@@ -392,6 +385,7 @@ describe('Storage API', () => {
         });
 
         selectStorage('localStorage', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'localStorage not supported, falling back to localStorage+cookie.'
         );
@@ -403,6 +397,7 @@ describe('Storage API', () => {
         });
 
         selectStorage('localStorage+cookie', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'localStorage+cookie not fully supported, falling back to cookie.'
         );
@@ -416,6 +411,7 @@ describe('Storage API', () => {
         disableCookieSupport();
 
         selectStorage('localStorage+cookie', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'cookie not supported, falling back to localStorage.'
         );
@@ -427,6 +423,7 @@ describe('Storage API', () => {
         });
 
         selectStorage('localStorage+cookie', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'localStorage+cookie not fully supported, falling back to cookie.'
         );
@@ -439,6 +436,7 @@ describe('Storage API', () => {
         disableCookieSupport();
 
         selectStorage('localStorage+cookie', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'Neither localStorage nor cookie supported, falling back to memory.'
         );
@@ -450,6 +448,7 @@ describe('Storage API', () => {
         });
 
         selectStorage('sessionStorage', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'sessionStorage not supported, falling back to memory.'
         );
@@ -459,6 +458,7 @@ describe('Storage API', () => {
         disableCookieSupport();
 
         selectStorage('cookie', { onFallback });
+
         expect(onFallback).toHaveBeenCalledWith(
           'cookie not supported, falling back to memory.'
         );
@@ -483,6 +483,7 @@ describe('Storage API', () => {
         });
 
         const storage = selectStorage('localStorage', { onFallback });
+
         expect(storage.getItem('test')).toBeNull();
       });
     });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TrackingConsent, TrackingConsentType } from '../src/constants';
+import { TrackingConsent } from '../src/constants';
 import { createLogger } from '../src/lib/logger';
 import { SessionManager } from '../src/lib/sessionManager';
 

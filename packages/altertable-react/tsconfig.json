@@ -9,7 +9,10 @@
     "target": "esnext",
     "resolveJsonModule": true,
     "jsx": "react",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["vitest/globals"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],
   "exclude": ["node_modules"]
