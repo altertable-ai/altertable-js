@@ -288,10 +288,81 @@ describe('Requester', () => {
       };
       const customRequester = new Requester(configWithTimeout);
 
+      // Mock setTimeout and clearTimeout to track calls
+      const mockSetTimeout = vi.fn(() => 12345); // Return a timer ID
+      const mockClearTimeout = vi.fn();
+      const originalSetTimeout = global.setTimeout;
+      const originalClearTimeout = global.clearTimeout;
+      global.setTimeout = mockSetTimeout as unknown as typeof setTimeout;
+      global.clearTimeout = mockClearTimeout as unknown as typeof clearTimeout;
+
+      // Mock fetch to never resolve (simulate slow request)
+      mockFetch.mockImplementation(() => new Promise(() => {}));
+
+      // Start the request (it will hang due to the mock)
+      customRequester.send('/track', createTrackEventPayload());
+
+      // Verify setTimeout was called with the correct timeout
+      expect(mockSetTimeout).toHaveBeenCalledTimes(1);
+      expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10000);
+
+      // Get the timeout callback and abort function
+      const timeoutCallback = mockSetTimeout.mock.calls[0][0] as () => void;
+      const [, options] = mockFetch.mock.calls[0];
+      const abortSignal = options.signal as AbortSignal;
+
+      // Verify the signal is not aborted initially
+      expect(abortSignal.aborted).toBe(false);
+
+      // Trigger the timeout
+      if (timeoutCallback) {
+        timeoutCallback();
+      }
+
+      // Clean up
+      global.setTimeout = originalSetTimeout;
+      global.clearTimeout = originalClearTimeout;
+    });
+
+    it('should clear timeout when request completes successfully', async () => {
+      // Remove sendBeacon to force fetch usage
+      delete (global.navigator as any).sendBeacon;
+
+      const configWithTimeout: RequesterConfig = {
+        ...defaultConfig,
+        requestTimeout: 10000,
+      };
+      const customRequester = new Requester(configWithTimeout);
+
+      // Mock setTimeout and clearTimeout to track calls
+      const mockSetTimeout = vi.fn(() => 12345); // Return a timer ID
+      const mockClearTimeout = vi.fn();
+      const originalSetTimeout = global.setTimeout;
+      const originalClearTimeout = global.clearTimeout;
+      global.setTimeout = mockSetTimeout as unknown as typeof setTimeout;
+      global.clearTimeout = mockClearTimeout as unknown as typeof clearTimeout;
+
+      // Mock fetch to resolve immediately
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+      });
+
+      // Make the request
       await customRequester.send('/track', createTrackEventPayload());
 
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.signal).toBeInstanceOf(AbortSignal);
+      // Verify setTimeout was called
+      expect(mockSetTimeout).toHaveBeenCalledTimes(1);
+      expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10000);
+
+      // Verify clearTimeout was called (timeout was cleared)
+      expect(mockClearTimeout).toHaveBeenCalledTimes(1);
+      expect(mockClearTimeout).toHaveBeenCalledWith(expect.any(Number));
+
+      // Clean up
+      global.setTimeout = originalSetTimeout;
+      global.clearTimeout = originalClearTimeout;
     });
 
     it('should handle identify payloads with fetch', async () => {
