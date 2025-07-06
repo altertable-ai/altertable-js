@@ -185,8 +185,8 @@ Returns a type-safe tracker for a specific funnel.
 ```tsx
 type SignupFunnelMapping = {
   signup: [
-    { name: 'signup_started'; properties: { source: string } },
-    { name: 'signup_completed'; properties: { userId: string } },
+    { name: 'Signup Started'; properties: { source: string } },
+    { name: 'Signup Completed'; properties: { userId: string } },
   ];
 };
 
@@ -204,8 +204,20 @@ function SignupPage() {
 
   return (
     <div>
-      <button onClick={() => handleStart()}>Start</button>
-      <button onClick={() => handleComplete('user123')}>Complete</button>
+      <button
+        onClick={() => {
+          handleStart();
+        }}
+      >
+        Start
+      </button>
+      <button
+        onClick={() => {
+          handleComplete('u_01jza857w4f23s1hf2s61befmw');
+        }}
+      >
+        Complete
+      </button>
     </div>
   );
 }
@@ -232,15 +244,24 @@ import { type FunnelMapping } from '@altertable/altertable-react';
 
 type MyFunnelMapping = {
   signup: [
-    { name: 'signup_started'; properties: { source: string } },
-    { name: 'signup_completed'; properties: { userId: string } },
+    {
+      name: 'Signup Started';
+      properties: { source: string };
+    },
+    {
+      name: 'Signup Completed';
+      properties: { userId: string };
+    }
   ];
   checkout: [
-    { name: 'cart_viewed'; properties: { itemCount: number } },
     {
-      name: 'purchase_completed';
-      properties: { orderId: string; amount: number };
+      name: 'Cart Viewed';
+      properties: { itemCount: number };
     },
+    {
+      name: 'Purchase Completed';
+      properties: { orderId: string; amount: number };
+    }
   ];
 } as const satisfies FunnelMapping;
 ```
