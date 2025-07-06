@@ -22,14 +22,16 @@ export class Requester<TPayload extends EventPayload> {
 
   async send(path: string, payload: TPayload): Promise<void> {
     if (isBeaconSupported()) {
-      this._sendWithBeacon(path, payload);
-      return;
+      return this._sendWithBeacon(path, payload);
     }
 
-    await this._sendWithFetch(path, payload);
+    return this._sendWithFetch(path, payload);
   }
 
-  private _sendWithBeacon(path: string, payload: TPayload): void {
+  private async _sendWithBeacon(
+    path: string,
+    payload: TPayload
+  ): Promise<void> {
     const url = this._constructUrl(path);
     const data = new Blob([JSON.stringify(payload)], {
       type: 'application/json',
@@ -38,10 +40,10 @@ export class Requester<TPayload extends EventPayload> {
     try {
       const success = navigator.sendBeacon(url, data);
       if (!success) {
-        this._sendWithFetch(path, payload);
+        return this._sendWithFetch(path, payload);
       }
     } catch (error) {
-      this._sendWithFetch(path, payload);
+      return this._sendWithFetch(path, payload);
     }
   }
 
