@@ -57,12 +57,12 @@ export class Requester<TPayload extends EventPayload> {
 
     try {
       const response = await fetch(url, {
-        keepalive: true,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        keepalive: true,
         signal: controller.signal,
       });
 
