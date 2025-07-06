@@ -369,7 +369,15 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._requester.send(`/${eventType}`, payload);
+        try {
+          this._requester.send(`/${eventType}`, payload);
+        } catch (error) {
+          this._logger.error('Failed to send event', {
+            error,
+            eventType,
+            payload,
+          });
+        }
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
