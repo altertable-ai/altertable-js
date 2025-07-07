@@ -331,10 +331,6 @@ export class Altertable {
 
   private _checkForChanges() {
     safelyRunOnBrowser(({ window }) => {
-      if (!this._config.autoCapture) {
-        return;
-      }
-
       const currentUrl = window.location.href;
       if (currentUrl !== this._lastUrl) {
         this.page(currentUrl);
