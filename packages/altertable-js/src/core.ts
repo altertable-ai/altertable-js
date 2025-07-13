@@ -1,8 +1,5 @@
 import {
   AUTO_CAPTURE_INTERVAL_MS,
-  DEFAULT_BASE_URL,
-  DEFAULT_ENVIRONMENT,
-  DEFAULT_PERSISTENCE,
   EVENT_PAGEVIEW,
   keyBuilder,
   MAX_EVENT_QUEUE_SIZE,
@@ -74,6 +71,16 @@ export interface AltertableConfig {
   trackingConsent?: TrackingConsentType;
 }
 
+const DEFAULT_CONFIG: AltertableConfig = {
+  autoCapture: true,
+  baseUrl: 'https://api.altertable.ai',
+  debug: false,
+  environment: 'production',
+  persistence: 'localStorage+cookie',
+  release: undefined,
+  trackingConsent: TrackingConsent.PENDING,
+};
+
 export class Altertable {
   private _apiKey: string;
   private _cleanupAutoCapture: (() => void) | undefined;
@@ -96,11 +103,8 @@ export class Altertable {
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
     this._apiKey = apiKey;
-    this._config = config;
-    this._storageKey = keyBuilder(
-      apiKey,
-      this._config.environment || DEFAULT_ENVIRONMENT
-    );
+    this._config = { ...DEFAULT_CONFIG, ...config };
+    this._storageKey = keyBuilder(apiKey, this._config.environment);
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -109,8 +113,7 @@ export class Altertable {
       ({ window }) => window.location.href || null,
       () => null
     );
-    const persistence: StorageType = config.persistence ?? DEFAULT_PERSISTENCE;
-    this._storage = selectStorage(persistence, {
+    this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
 
@@ -118,7 +121,7 @@ export class Altertable {
       storage: this._storage,
       storageKey: this._storageKey,
       logger: this._logger,
-      defaultTrackingConsent: config.trackingConsent ?? TrackingConsent.PENDING,
+      defaultTrackingConsent: this._config.trackingConsent,
     });
     this._sessionManager.init();
 
@@ -128,7 +131,7 @@ export class Altertable {
       this._logger.logHeader();
     }
 
-    this._handleAutoCaptureChange(config.autoCapture ?? true);
+    this._handleAutoCaptureChange(this._config.autoCapture);
 
     return () => {
       this._cleanupAutoCapture?.();
@@ -342,7 +345,7 @@ export class Altertable {
 
   private _getEventContext(): EventContext {
     return {
-      environment: this._config.environment || DEFAULT_ENVIRONMENT,
+      environment: this._config.environment,
       user_id: this._sessionManager.getUserId(),
       visitor_id: this._sessionManager.getVisitorId(),
       session_id: this._sessionManager.getSessionId(),
@@ -374,7 +377,7 @@ export class Altertable {
     invariant(this._apiKey, 'Missing API key');
     invariant(this._config, 'Missing configuration');
 
-    const url = `${this._config.baseUrl || DEFAULT_BASE_URL}${path}`;
+    const url = `${this._config.baseUrl}${path}`;
     const payload = JSON.stringify(body);
 
     /* eslint-disable no-restricted-globals */

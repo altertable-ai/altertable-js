@@ -1,9 +1,5 @@
 import { createKeyBuilder } from './lib/createKeyBuilder';
 
-export const DEFAULT_BASE_URL = 'https://api.altertable.ai';
-export const DEFAULT_ENVIRONMENT = 'production';
-export const DEFAULT_PERSISTENCE = 'localStorage+cookie';
-
 const STORAGE_KEY_PREFIX = 'atbl';
 export const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');
 export const STORAGE_KEY_TEST = keyBuilder('check');
