@@ -1,10 +1,10 @@
-import type { EventContext, EventType } from '../types';
+import type { AltertableContext, EventType } from '../types';
 
 type QueuedEvent<TPayload> = {
   eventType: EventType;
   payload: TPayload;
   sentAt: Date;
-  context: EventContext;
+  context: AltertableContext;
 };
 
 export class EventQueue<TPayload> {
@@ -18,7 +18,7 @@ export class EventQueue<TPayload> {
   enqueue(
     eventType: 'track' | 'identify',
     payload: TPayload,
-    context: EventContext
+    context: AltertableContext
   ): void {
     if (this._queue.length >= this._queueMaxSize) {
       // Remove oldest event to make room for new one

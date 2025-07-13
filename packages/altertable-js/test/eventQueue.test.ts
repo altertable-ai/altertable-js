@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MAX_EVENT_QUEUE_SIZE } from '../src/constants';
 import { EventQueue } from '../src/lib/eventQueue';
-import type { EventContext, EventPayload } from '../src/types';
+import type { AltertableContext, EventPayload } from '../src/types';
 
 describe('EventQueue', () => {
   let eventQueue: EventQueue<EventPayload>;
-  const mockContext: EventContext = {
+  const mockContext: AltertableContext = {
     environment: 'production',
     user_id: null,
     visitor_id: 'visitor-test-1',
