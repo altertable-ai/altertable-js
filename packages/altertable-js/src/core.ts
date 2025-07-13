@@ -28,7 +28,8 @@ import {
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
 import {
-  EventContext,
+  AltertableContext,
+  Environment,
   EventPayload,
   EventProperties,
   EventType,
@@ -46,7 +47,7 @@ export interface AltertableConfig {
    * The environment of the application.
    * @default "production"
    */
-  environment?: string;
+  environment?: Environment;
   /**
    * Whether to automatically capture page views and events.
    * @default true
@@ -225,7 +226,7 @@ export class Altertable {
     }
 
     this._sessionManager.setUserId(userId);
-    const context = this._getEventContext();
+    const context = this._getContext();
     this._processEvent(
       'identify',
       {
@@ -245,7 +246,7 @@ export class Altertable {
       'User must be identified with identify() before updating traits.'
     );
 
-    const context = this._getEventContext();
+    const context = this._getContext();
     this._processEvent(
       'identify',
       {
@@ -299,7 +300,7 @@ export class Altertable {
     const timestamp = new Date().toISOString();
     this._sessionManager.updateLastEventAt(timestamp);
 
-    const context = this._getEventContext();
+    const context = this._getContext();
     const payload: EventPayload = {
       timestamp,
       event,
@@ -340,7 +341,7 @@ export class Altertable {
     });
   }
 
-  private _getEventContext(): EventContext {
+  private _getContext(): AltertableContext {
     return {
       environment: this._config.environment || DEFAULT_ENVIRONMENT,
       user_id: this._sessionManager.getUserId(),
@@ -352,7 +353,7 @@ export class Altertable {
   private _processEvent<TPayload extends EventPayload | IdentifyPayload>(
     eventType: EventType,
     payload: TPayload,
-    context: EventContext
+    context: AltertableContext
   ) {
     const trackingConsent = this._sessionManager.getTrackingConsent();
 
