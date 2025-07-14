@@ -10,7 +10,7 @@
     "name": "Altertable",
     "url": "https://altertable.ai"
   },
-  "main": "dist/index.js",
+  "main": "dist/index.global.js",
   "scripts": {
     "dev": "tsup --watch --env.mode development",
     "build": "tsup --env.mode production",
