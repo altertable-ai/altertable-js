@@ -17,7 +17,8 @@
     "test": "lerna run test",
     "test:watch": "lerna run test:watch --parallel",
     "coverage": "lerna run coverage --parallel",
-    "bump": "bun run scripts/release/bump-versions.ts"
+    "bump": "bun run scripts/release/bump-versions.ts",
+    "bundlesize": "bundlesize"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -25,6 +26,7 @@
     "@typescript-eslint/eslint-plugin": "^8.35.0",
     "@typescript-eslint/parser": "^8.35.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "bundlesize": "^0.18.2",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-eslint-comments": "^3.2.0",

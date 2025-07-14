@@ -10,31 +10,14 @@
     "name": "Altertable",
     "url": "https://altertable.ai"
   },
-  "main": "dist/index.js",
+  "main": "dist/index.global.js",
   "scripts": {
-    "dev": "echo 'No dev script for this package'",
+    "dev": "tsup --watch --env.mode development",
+    "build": "tsup --env.mode production",
     "clean": "rm -rf dist",
-    "lint": "eslint index.js",
-    "build:es5": "babel index.js --out-file dist/index.js",
-    "build:min": "terser index.js -c -m -o dist/index.min.js",
-    "build": "bun run build:es5 && bun run build:min"
+    "lint": "eslint index.js"
   },
   "devDependencies": {
-    "@babel/cli": "^7.26.4",
-    "@babel/core": "^7.26.8",
-    "@babel/preset-env": "^7.26.8",
-    "terser": "^5.38.1"
-  },
-  "babel": {
-    "presets": [
-      [
-        "@babel/preset-env",
-        {
-          "targets": {
-            "ie": "9"
-          }
-        }
-      ]
-    ]
+    "@swc/core": "^1.4.8"
   }
 }
