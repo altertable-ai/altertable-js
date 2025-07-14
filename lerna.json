@@ -3,9 +3,10 @@
   "version": "0.5.4",
   "packages": ["packages/*", "examples/*"],
   "npmClient": "bun",
-  "ignore": ["packages/altertable-snippet", "examples/*"],
+  // "ignore": ["packages/altertable-snippet", "examples/*"],
   "command": {
     "version": {
+      "ignoreChanges": ["packages/altertable-snippet/**", "examples/*"],
       "exact": true,
       "noPush": true,
       "noPrivate": true,
