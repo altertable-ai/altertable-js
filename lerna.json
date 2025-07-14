@@ -1,9 +1,15 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
   "version": "0.5.4",
-  "packages": [
-    "packages/*",
-    "examples/*"
-  ],
-  "npmClient": "bun"
+  "packages": ["packages/*", "examples/*"],
+  "npmClient": "bun",
+  "command": {
+    "version": {
+      "noPush": true,
+      "noChangelog": true,
+      "noGitTagVersion": true,
+      "exact": true,
+      "allowBranch": "main"
+    }
+  }
 }
