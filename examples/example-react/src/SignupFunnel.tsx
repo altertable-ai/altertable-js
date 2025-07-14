@@ -21,23 +21,23 @@ type FormData = {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
-const SIGNUP_FUNNEL_MAPPING = {
+type SignupFunnelMapping = {
   signup: [
-    { name: 'Step Viewed', properties: { step: 1 } },
-    { name: 'Step Viewed', properties: { step: 2 } },
-    { name: 'Step Viewed', properties: { step: 3 } },
-    { name: 'Step Viewed', properties: { step: 4 } },
-    { name: 'Step Completed', properties: { step: 1 } },
-    { name: 'Step Completed', properties: { step: 2 } },
-    { name: 'Step Completed', properties: { step: 3 } },
+    { name: 'Step Viewed'; properties: { step: number } },
+    { name: 'Personal Info Completed'; properties: { step: number } },
+    { name: 'Account Setup Completed'; properties: { step: number } },
+    { name: 'Plan Selection Completed'; properties: { step: number } },
+    { name: 'Step Completed'; properties: { step: number } },
     { name: 'Form Submitted' },
-    { name: 'Plan Selected', properties: { plan: 'starter' } },
-    { name: 'Plan Selected', properties: { plan: 'pro' } },
-    { name: 'Plan Selected', properties: { plan: 'enterprise' } },
+    { name: 'Plan Selected'; properties: { plan: Plan } },
+    {
+      name: 'Terms Agreement Changed';
+      properties: { agreed: boolean; step: number };
+    },
+    { name: 'Get Started Clicked' },
     { name: 'Form Restarted' },
-    { name: 'Button Clicked', properties: { button: 'get_started' } },
-  ],
-} as const satisfies FunnelMapping;
+  ];
+};
 
 const DEFAULT_FORM_DATA: FormData = {
   firstName: 'John',
@@ -73,7 +73,7 @@ export function SignupFunnel({
   const isLastStep = currentStep === steps.length - 1;
   const isSubmitted = currentStep === steps.length;
 
-  const { useFunnel } = useAltertable<typeof SIGNUP_FUNNEL_MAPPING>();
+  const { useFunnel, identify } = useAltertable<SignupFunnelMapping>();
   const { track } = useFunnel('signup');
 
   function validateStep(step: number): boolean {
@@ -121,7 +121,19 @@ export function SignupFunnel({
 
   function nextStep() {
     if (validateStep(currentStep)) {
-      track('Step Completed', { step: currentStep });
+      switch (currentStep) {
+        case 1:
+          track('Personal Info Completed', { step: currentStep });
+          break;
+        case 2:
+          track('Account Setup Completed', { step: currentStep });
+          break;
+        case 3:
+          track('Plan Selection Completed', { step: currentStep });
+          break;
+        default:
+          track('Step Completed', { step: currentStep });
+      }
 
       onStepChange(Math.min(currentStep + 1, steps.length));
     }
@@ -142,6 +154,15 @@ export function SignupFunnel({
     if (validateStep(3)) {
       track('Form Submitted');
 
+      const userId = crypto.randomUUID();
+
+      identify(userId, {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        plan: formData.plan,
+      });
+
       onStepChange(4);
     }
   }
@@ -153,6 +174,13 @@ export function SignupFunnel({
           ? event.target.checked
           : event.target.value;
       updateFormData(field, value);
+
+      if (field === 'agreeToTerms') {
+        track('Terms Agreement Changed', {
+          agreed: value,
+          step: currentStep,
+        });
+      }
     };
   }
 
@@ -173,7 +201,7 @@ export function SignupFunnel({
   }
 
   function handleGetStarted() {
-    track('Button Clicked', { button: 'get_started' });
+    track('Get Started Clicked');
   }
 
   function renderStep() {

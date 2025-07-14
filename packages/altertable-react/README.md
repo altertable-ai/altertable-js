@@ -251,7 +251,7 @@ type MyFunnelMapping = {
     {
       name: 'Signup Completed';
       properties: { userId: string };
-    }
+    },
   ];
   checkout: [
     {
@@ -261,9 +261,9 @@ type MyFunnelMapping = {
     {
       name: 'Purchase Completed';
       properties: { orderId: string; amount: number };
-    }
+    },
   ];
-} as const satisfies FunnelMapping;
+};
 ```
 
 ### `FunnelStep`

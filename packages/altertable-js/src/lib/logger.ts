@@ -1,7 +1,11 @@
 /* eslint-disable no-console */
 
-import { TrackingConsent, TrackingConsentType } from '../constants';
-import { TrackPayload } from '../types';
+import {
+  PROPERTY_URL,
+  TrackingConsent,
+  TrackingConsentType,
+} from '../constants';
+import { TrackPayload, IdentifyPayload } from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -24,7 +28,12 @@ export function createLogger(prefix: string) {
       { trackingConsent }: { trackingConsent: TrackingConsentType }
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(
-        payload.event
+        payload.event === '$pageview' ? 'Page' : 'Track'
+      );
+      const [eventTitleLabel, eventTitleStyle] = createEventTitleElement(
+        payload.event === '$pageview'
+          ? String(payload.properties[PROPERTY_URL])
+          : payload.event
       );
       const [environmentBadgeLabel, environmentBadgeStyle] =
         createEnvironmentBadgeElement(payload.environment);
@@ -35,24 +44,26 @@ export function createLogger(prefix: string) {
         getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c [${environmentBadgeLabel}] %c(${timestampLabel}) %c${consentBadgeLabel}`,
+        `[${prefix}] %c${eventBadgeLabel}%c ${eventTitleLabel} %c[${environmentBadgeLabel}] %c${timestampLabel} %c${consentBadgeLabel}`,
         eventBadgeStyle,
+        eventTitleStyle,
         environmentBadgeStyle,
         timestampStyle,
         consentBadgeStyle
       );
 
-      const [userLabelLabel, userLabelStyle] = createLabelElement('User ID');
+      const [userLabelLabel, userLabelStyle] =
+        createEventLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
         payload.user_id ?? 'Not set'
       );
       const [visitorLabelLabel, visitorLabelStyle] =
-        createLabelElement('Visitor ID');
+        createEventLabelElement('Visitor ID');
       const [visitorValueLabel, visitorValueStyle] = createValueElement(
         payload.visitor_id ?? 'Not set'
       );
       const [sessionLabelLabel, sessionLabelStyle] =
-        createLabelElement('Session ID');
+        createEventLabelElement('Session ID');
       const [sessionValueLabel, sessionValueStyle] = createValueElement(
         payload.session_id ?? 'Not set'
       );
@@ -73,6 +84,49 @@ export function createLogger(prefix: string) {
         sessionValueStyle
       );
       console.table(payload.properties);
+      console.groupEnd();
+    },
+    logIdentify: (
+      payload: IdentifyPayload,
+      { trackingConsent }: { trackingConsent: TrackingConsentType }
+    ) => {
+      const [eventBadgeLabel, eventBadgeStyle] =
+        createEventBadgeElement('Identify');
+      const [environmentBadgeLabel, environmentBadgeStyle] =
+        createEnvironmentBadgeElement(payload.environment);
+      const [consentBadgeLabel, consentBadgeStyle] =
+        getConsentBadgeElement(trackingConsent);
+
+      console.groupCollapsed(
+        `[${prefix}] %c${eventBadgeLabel}%c ${payload.user_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
+        eventBadgeStyle,
+        'font-weight: 600;',
+        environmentBadgeStyle,
+        consentBadgeStyle
+      );
+
+      const [userLabelLabel, userLabelStyle] =
+        createEventLabelElement('User ID');
+      const [userValueLabel, userValueStyle] = createValueElement(
+        payload.user_id ?? 'Not set'
+      );
+      const [visitorLabelLabel, visitorLabelStyle] =
+        createEventLabelElement('Visitor ID');
+      const [visitorValueLabel, visitorValueStyle] = createValueElement(
+        payload.visitor_id ?? 'Not set'
+      );
+
+      console.log(
+        `%c${userLabelLabel} %c${userValueLabel}`,
+        userLabelStyle,
+        userValueStyle
+      );
+      console.log(
+        `%c${visitorLabelLabel} %c${visitorValueLabel}`,
+        visitorLabelStyle,
+        visitorValueStyle
+      );
+      console.table(payload.traits);
       console.groupEnd();
     },
     warn: (...args: unknown[]) => {
@@ -123,11 +177,29 @@ function formatEventTime(timestamp: string) {
   });
 }
 
-function createEventBadgeElement(value: string): [string, string] {
+function getEventBadgeColor(event: string) {
+  switch (event) {
+    case 'Page':
+      return '#64748b';
+    case 'Identify':
+      return '#a855f7';
+    case 'Track':
+      return '#10b981';
+    default:
+      return '#1e293b';
+  }
+}
+
+function createEventBadgeElement(event: string): [string, string] {
   return [
-    value,
-    'background: #1e293b; color: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
+    event,
+    `background: ${getEventBadgeColor(event)}; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-weight: 400;`,
   ];
+}
+
+function createEventTitleElement(event: string): [string, string] {
+  const label = event === '$pageview' ? 'Page Viewed' : event;
+  return [label, 'font-weight: 600;'];
 }
 
 function createEnvironmentBadgeElement(value: string): [string, string] {
@@ -151,7 +223,7 @@ function createTimestampElement(value: string): [string, string] {
   return [formatEventTime(value), 'color: #64748b; font-weight: 400;'];
 }
 
-function createLabelElement(value: string): [string, string] {
+function createEventLabelElement(value: string): [string, string] {
   return [value, 'color: #64748b; font-size: 11px;'];
 }
 
