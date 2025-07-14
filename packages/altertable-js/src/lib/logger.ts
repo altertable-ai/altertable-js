@@ -52,34 +52,33 @@ export function createLogger(prefix: string) {
         consentBadgeStyle
       );
 
-      const [userLabelLabel, userLabelStyle] =
-        createEventLabelElement('User ID');
+      const [userLabel, userLabelStyle] = createEventLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
         payload.user_id ?? 'Not set'
       );
-      const [visitorLabelLabel, visitorLabelStyle] =
+      const [visitorLabel, visitorLabelStyle] =
         createEventLabelElement('Visitor ID');
       const [visitorValueLabel, visitorValueStyle] = createValueElement(
         payload.visitor_id ?? 'Not set'
       );
-      const [sessionLabelLabel, sessionLabelStyle] =
+      const [sessionLabel, sessionLabelStyle] =
         createEventLabelElement('Session ID');
       const [sessionValueLabel, sessionValueStyle] = createValueElement(
         payload.session_id ?? 'Not set'
       );
 
       console.log(
-        `%c${userLabelLabel} %c${userValueLabel}`,
+        `%c${userLabel} %c${userValueLabel}`,
         userLabelStyle,
         userValueStyle
       );
       console.log(
-        `%c${visitorLabelLabel} %c${visitorValueLabel}`,
+        `%c${visitorLabel} %c${visitorValueLabel}`,
         visitorLabelStyle,
         visitorValueStyle
       );
       console.log(
-        `%c${sessionLabelLabel} %c${sessionValueLabel}`,
+        `%c${sessionLabel} %c${sessionValueLabel}`,
         sessionLabelStyle,
         sessionValueStyle
       );
@@ -105,24 +104,23 @@ export function createLogger(prefix: string) {
         consentBadgeStyle
       );
 
-      const [userLabelLabel, userLabelStyle] =
-        createEventLabelElement('User ID');
+      const [userLabel, userLabelStyle] = createEventLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
         payload.user_id ?? 'Not set'
       );
-      const [visitorLabelLabel, visitorLabelStyle] =
+      const [visitorLabel, visitorLabelStyle] =
         createEventLabelElement('Visitor ID');
       const [visitorValueLabel, visitorValueStyle] = createValueElement(
         payload.visitor_id ?? 'Not set'
       );
 
       console.log(
-        `%c${userLabelLabel} %c${userValueLabel}`,
+        `%c${userLabel} %c${userValueLabel}`,
         userLabelStyle,
         userValueStyle
       );
       console.log(
-        `%c${visitorLabelLabel} %c${visitorValueLabel}`,
+        `%c${visitorLabel} %c${visitorValueLabel}`,
         visitorLabelStyle,
         visitorValueStyle
       );

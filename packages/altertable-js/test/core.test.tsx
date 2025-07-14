@@ -631,6 +631,7 @@ describe('Altertable', () => {
           email: 'user@example.com',
         });
 
+        expect(consoleGroupEndSpy).toHaveBeenCalled();
         consoleSpy.mockRestore();
         consoleLogSpy.mockRestore();
         consoleTableSpy.mockRestore();
@@ -709,6 +710,7 @@ describe('Altertable', () => {
           plan: 'premium',
         });
 
+        expect(consoleGroupEndSpy).toHaveBeenCalled();
         consoleSpy.mockRestore();
         consoleLogSpy.mockRestore();
         consoleTableSpy.mockRestore();
