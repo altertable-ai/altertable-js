@@ -1,14 +1,12 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
   "version": "0.5.4",
-  "packages": ["packages/*", "examples/*"],
+  "packages": ["packages/altertable-js", "packages/altertable-react"],
   "npmClient": "bun",
-  "ignore": ["packages/altertable-snippet", "examples/*"],
   "command": {
     "version": {
       "exact": true,
       "noPush": true,
-      "noPrivate": true,
       "noChangelog": true,
       "noGitTagVersion": true
     }
