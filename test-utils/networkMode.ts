@@ -6,18 +6,19 @@ function getMockedFetch() {
   );
 }
 
-export function setupBeaconAvailable() {
-  (global.navigator as any).sendBeacon = vi.fn(() => true);
+function setupMockedFetch() {
   (global.fetch as any) = getMockedFetch();
   if (typeof globalThis !== 'undefined') {
     (globalThis as any).fetch = global.fetch;
   }
 }
 
+export function setupBeaconAvailable() {
+  (global.navigator as any).sendBeacon = vi.fn(() => true);
+  setupMockedFetch();
+}
+
 export function setupBeaconUnavailable() {
   delete (global.navigator as any).sendBeacon;
-  (global.fetch as any) = getMockedFetch();
-  if (typeof globalThis !== 'undefined') {
-    (globalThis as any).fetch = global.fetch;
-  }
+  setupMockedFetch();
 }

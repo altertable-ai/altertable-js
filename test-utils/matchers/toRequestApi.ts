@@ -1,4 +1,4 @@
-import { expect, Mock } from 'vitest';
+import { expect, type Mock } from 'vitest';
 
 import type { EventPayload } from '../../packages/altertable-js/src/types';
 

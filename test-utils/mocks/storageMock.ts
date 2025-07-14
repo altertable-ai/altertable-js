@@ -4,7 +4,9 @@ import { StorageApi } from '../../packages/altertable-js/src/lib/storage';
 
 export function createStorageMock(
   overrides: Partial<{
-    [key in keyof StorageApi]: Mock<() => StorageApi[key]>;
+    [key in keyof StorageApi]: Mock<
+      (...args: Parameters<StorageApi[key]>) => ReturnType<StorageApi[key]>
+    >;
   }> = {}
 ) {
   return {
