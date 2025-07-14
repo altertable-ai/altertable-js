@@ -7,6 +7,7 @@
     "version": {
       "exact": true,
       "noPush": true,
+      "noPrivate": true,
       "noChangelog": true,
       "noGitTagVersion": true
     }
