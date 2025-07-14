@@ -358,7 +358,7 @@ export class Altertable {
     };
   }
 
-  private _processEvent<TPayload extends EventPayload>(
+  private async _processEvent<TPayload extends EventPayload>(
     eventType: EventType,
     payload: TPayload,
     context: AltertableContext
@@ -368,7 +368,7 @@ export class Altertable {
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
         try {
-          this._requester.send(`/${eventType}`, payload);
+          await this._requester.send(`/${eventType}`, payload);
         } catch (error) {
           this._logger.error('Failed to send event', {
             error,
