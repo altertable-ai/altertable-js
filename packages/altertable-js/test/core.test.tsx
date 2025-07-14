@@ -595,6 +595,48 @@ describe('Altertable', () => {
           '[Altertable] The client must be initialized with init() before identifying users.'
         );
       });
+
+      it('logs identify events when debug mode is enabled', () => {
+        const consoleSpy = vi
+          .spyOn(console, 'groupCollapsed')
+          .mockImplementation(() => {});
+        const consoleLogSpy = vi
+          .spyOn(console, 'log')
+          .mockImplementation(() => {});
+        const consoleTableSpy = vi
+          .spyOn(console, 'table')
+          .mockImplementation(() => {});
+        const consoleGroupEndSpy = vi
+          .spyOn(console, 'groupEnd')
+          .mockImplementation(() => {});
+
+        setupAltertable({ debug: true });
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '[Altertable] %cIdentify%c user123 %c[production] %c',
+          'background: #a855f7; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
+          'font-weight: 600;',
+          'color: #ef4444; font-weight: 400;',
+          ''
+        );
+
+        expect(consoleLogSpy).toHaveBeenCalledWith(
+          '%cUser ID %cuser123',
+          expect.any(String),
+          expect.any(String)
+        );
+
+        expect(consoleTableSpy).toHaveBeenCalledWith({
+          email: 'user@example.com',
+        });
+
+        expect(consoleGroupEndSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+        consoleLogSpy.mockRestore();
+        consoleTableSpy.mockRestore();
+        consoleGroupEndSpy.mockRestore();
+      });
     });
 
     describe('updateTraits() method', () => {
@@ -622,6 +664,57 @@ describe('Altertable', () => {
         }).toThrow(
           '[Altertable] User must be identified with identify() before updating traits.'
         );
+      });
+
+      it('logs updateTraits events when debug mode is enabled', () => {
+        const consoleSpy = vi
+          .spyOn(console, 'groupCollapsed')
+          .mockImplementation(() => {});
+        const consoleLogSpy = vi
+          .spyOn(console, 'log')
+          .mockImplementation(() => {});
+        const consoleTableSpy = vi
+          .spyOn(console, 'table')
+          .mockImplementation(() => {});
+        const consoleGroupEndSpy = vi
+          .spyOn(console, 'groupEnd')
+          .mockImplementation(() => {});
+
+        setupAltertable({ debug: true });
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        // Clear previous calls
+        consoleSpy.mockClear();
+        consoleLogSpy.mockClear();
+        consoleTableSpy.mockClear();
+        consoleGroupEndSpy.mockClear();
+
+        altertable.updateTraits({ name: 'John Doe', plan: 'premium' });
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '[Altertable] %cIdentify%c user123 %c[production] %c',
+          'background: #a855f7; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
+          'font-weight: 600;',
+          'color: #ef4444; font-weight: 400;',
+          ''
+        );
+
+        expect(consoleLogSpy).toHaveBeenCalledWith(
+          '%cUser ID %cuser123',
+          expect.any(String),
+          expect.any(String)
+        );
+
+        expect(consoleTableSpy).toHaveBeenCalledWith({
+          name: 'John Doe',
+          plan: 'premium',
+        });
+
+        expect(consoleGroupEndSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+        consoleLogSpy.mockRestore();
+        consoleTableSpy.mockRestore();
+        consoleGroupEndSpy.mockRestore();
       });
     });
   });

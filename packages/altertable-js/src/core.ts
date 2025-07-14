@@ -32,6 +32,7 @@ import {
   EventPayload,
   EventProperties,
   EventType,
+  IdentifyPayload,
   TrackPayload,
   UserTraits,
 } from './types';
@@ -235,16 +236,18 @@ export class Altertable {
 
     this._sessionManager.setUserId(userId);
     const context = this._getContext();
-    this._processEvent(
-      'identify',
-      {
-        environment: context.environment,
-        traits,
-        user_id: userId,
-        visitor_id: context.visitor_id,
-      },
-      context
-    );
+    const payload: IdentifyPayload = {
+      environment: context.environment,
+      traits,
+      user_id: userId,
+      visitor_id: context.visitor_id,
+    };
+    this._processEvent('identify', payload, context);
+
+    if (this._config.debug) {
+      const trackingConsent = this._sessionManager.getTrackingConsent();
+      this._logger.logIdentify(payload, { trackingConsent });
+    }
   }
 
   updateTraits(traits: UserTraits) {
@@ -255,16 +258,18 @@ export class Altertable {
     );
 
     const context = this._getContext();
-    this._processEvent(
-      'identify',
-      {
-        environment: context.environment,
-        traits,
-        user_id: userId,
-        visitor_id: context.visitor_id,
-      },
-      context
-    );
+    const payload = {
+      environment: context.environment,
+      traits,
+      user_id: userId,
+      visitor_id: context.visitor_id,
+    };
+    this._processEvent('identify', payload, context);
+
+    if (this._config.debug) {
+      const trackingConsent = this._sessionManager.getTrackingConsent();
+      this._logger.logIdentify(payload, { trackingConsent });
+    }
   }
 
   reset({

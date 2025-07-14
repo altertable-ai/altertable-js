@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, loggerCache } from '../src/lib/logger';
-import type { EventPayload } from '../src/types';
+import type { EventPayload, IdentifyPayload } from '../src/types';
 
 describe('Logger', () => {
   const originalConsole = {
@@ -106,8 +106,9 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %c/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %c/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -206,8 +207,9 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %c$/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %c$/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -222,8 +224,9 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cDENIED$/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cDENIED$/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -238,8 +241,9 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cPENDING$/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cPENDING$/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -254,8 +258,9 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cPENDING$/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cPENDING$/
         ),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -270,7 +275,174 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %ctest_event%c \[development\] %c\(\d{2}:\d{2}:\d{2}\) %cUNKNOWN$/
+          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cUNKNOWN$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs pageview event with Page badge and URL as title', () => {
+      const logger = createLogger('TestLogger');
+      const pageviewPayload: EventPayload = {
+        ...mockEventPayload,
+        event: '$pageview',
+        properties: {
+          ...mockEventPayload.properties,
+          $url: 'https://example.com/test-page',
+        },
+      };
+
+      logger.logEvent(pageviewPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cPage%c https:\/\/example\.com\/test-page %c\[development\] %c\d{2}:\d{2}:\d{2} %c/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+  });
+
+  describe('logIdentify', () => {
+    const mockIdentifyPayload: IdentifyPayload = {
+      environment: 'development',
+      traits: {
+        email: 'test@example.com',
+        name: 'Test User',
+        age: 25,
+      },
+      user_id: 'user123',
+      visitor_id: 'visitor-123' as const,
+    };
+
+    it('logs identify event with all components', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs user information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cUser ID %cuser123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined user_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutUser: IdentifyPayload = {
+        ...mockIdentifyPayload,
+        user_id: undefined,
+      };
+
+      logger.logIdentify(payloadWithoutUser, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cUser ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs visitor information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cVisitor ID %cvisitor-123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined visitor_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutVisitor: IdentifyPayload = {
+        ...mockIdentifyPayload,
+        visitor_id: undefined,
+      };
+
+      logger.logIdentify(payloadWithoutVisitor, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cVisitor ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs traits table', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
+
+      expect(console.table).toHaveBeenCalledWith(mockIdentifyPayload.traits);
+    });
+
+    it('displays no badge when tracking consent is granted', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays DENIED badge when tracking consent is denied', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'denied' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cDENIED$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays PENDING badge when tracking consent is pending', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'pending' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cPENDING$/
         ),
         expect.any(String),
         expect.any(String),
