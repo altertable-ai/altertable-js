@@ -8,7 +8,11 @@
     "outDir": ".",
     "target": "esnext",
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "downlevelIteration": true,
+    "types": ["vitest/globals"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],
   "exclude": ["node_modules"]

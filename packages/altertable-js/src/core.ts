@@ -30,7 +30,7 @@ import {
   EventPayload,
   EventProperties,
   EventType,
-  IdentifyPayload,
+  TrackPayload,
   UserTraits,
 } from './types';
 
@@ -83,10 +83,10 @@ const DEFAULT_CONFIG: AltertableConfig = {
 };
 
 export class Altertable {
-  private _apiKey: string;
+  private _apiKey: string | undefined;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _config: AltertableConfig;
-  private _eventQueue: EventQueue<EventPayload | IdentifyPayload>;
+  private _eventQueue: EventQueue<EventPayload>;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
@@ -117,7 +117,6 @@ export class Altertable {
     this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
-
     this._sessionManager = new SessionManager({
       storage: this._storage,
       storageKey: this._storageKey,
@@ -304,7 +303,7 @@ export class Altertable {
     this._sessionManager.updateLastEventAt(timestamp);
 
     const context = this._getContext();
-    const payload: EventPayload = {
+    const payload: TrackPayload = {
       timestamp,
       event,
       environment: context.environment,
@@ -353,7 +352,7 @@ export class Altertable {
     };
   }
 
-  private _processEvent<TPayload extends EventPayload | IdentifyPayload>(
+  private _processEvent<TPayload extends EventPayload>(
     eventType: EventType,
     payload: TPayload,
     context: AltertableContext
@@ -362,7 +361,15 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._request(`/${eventType}`, payload);
+        try {
+          this._request(`/${eventType}`, payload);
+        } catch (error) {
+          this._logger.error('Failed to send event', {
+            error,
+            eventType,
+            payload,
+          });
+        }
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
