@@ -115,6 +115,22 @@ When [`autoCapture`](#autocapture) is enabled, this method is automatically call
 altertable.page('https://example.com/products');
 ```
 
+> [!NOTE]
+>
+> **Page Tracking**: By default, Altertable automatically captures page views. Only use `page()` when you've disabled auto-capture.
+>
+> **Why use auto-capture (default)?**
+>
+> - No manual tracking required
+> - Handles browser navigation events ([`popstate`](https://developer.mozilla.org/docs/Web/API/Window/popstate_event), [`hashchange`](https://developer.mozilla.org/docs/Web/API/Window/hashchange_event))
+> - Consistent tracking across all page changes
+>
+> **When to use `page()`:**
+>
+> - Custom routing that doesn't trigger browser events
+> - Virtual page views that don't trigger URL changes (modals, step changes)
+> - Server-side tracking where auto-capture isn't available
+
 ### User Identification
 
 #### `altertable.identify(userId, traits?)`

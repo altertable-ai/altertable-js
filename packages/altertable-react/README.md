@@ -136,15 +136,16 @@ Returns an object with tracking methods and funnel utilities.
 
 **Returns:**
 
-| Property             | Type                                                                         | Description                       |
-| -------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
-| `track`              | `(event: string, properties?: EventProperties) => void`                      | Track a custom event              |
-| `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                   |
-| `reset`              | `(options?: { resetVisitorId?: boolean; resetSessionId?: boolean }) => void` | Reset the visitor and session IDs |
-| `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                |
-| `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration              |
-| `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state         |
-| `useFunnel`          | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker       |
+| Property             | Type                                                                         | Description                                                       |
+| -------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `track`              | `(event: string, properties?: EventProperties) => void`                      | Track a custom event                                              |
+| `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                                                   |
+| `page`               | `(url: string) => void`                                                      | Manually track a page view (use only when `autoCapture` is false) |
+| `reset`              | `(options?: { resetVisitorId?: boolean; resetSessionId?: boolean }) => void` | Reset the visitor and session IDs                                 |
+| `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                                                |
+| `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration                                              |
+| `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state                                         |
+| `useFunnel`          | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker                                       |
 
 **Example:**
 
@@ -163,6 +164,36 @@ function MyComponent() {
   return <button onClick={handleClick}>Click me</button>;
 }
 ```
+
+> [!NOTE]
+>
+> **Page Tracking**: By default, Altertable automatically captures page views. Only use `page()` when you've disabled auto-capture:
+>
+> ```tsx
+> // Initialize with auto-capture disabled
+> altertable.init('YOUR_API_KEY', { autoCapture: false });
+>
+> function MyComponent() {
+>   const { page } = useAltertable();
+>
+>   // Now you must manually track page views
+>   function handleNavigation(nextUrl: string) {
+>     page(nextUrl);
+>   }
+> }
+> ```
+>
+> **Why use auto-capture (default)?**
+>
+> - No manual tracking required
+> - Handles browser navigation events ([`popstate`](https://developer.mozilla.org/docs/Web/API/Window/popstate_event), [`hashchange`](https://developer.mozilla.org/docs/Web/API/Window/hashchange_event))
+> - Consistent tracking across all page changes
+>
+> **When to use `page()`:**
+>
+> - Custom routing that doesn't trigger browser events
+> - Virtual page views that don't trigger URL changes (modals, step changes)
+> - Server-side tracking where auto-capture isn't available
 
 #### `useFunnel(funnelName)`
 
