@@ -1562,4 +1562,49 @@ describe('Altertable', () => {
       });
     });
   });
+
+  describe('network failure handling', () => {
+    it('handles network failures gracefully', () => {
+      setupAltertable();
+
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new Error('Network error');
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
+        error: expect.any(Error),
+        eventType: 'track',
+        payload: expect.objectContaining({
+          event: 'test-event',
+        }),
+      });
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('continues to function after network failures', () => {
+      setupAltertable();
+
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new Error('Network error');
+      });
+
+      expect(() => {
+        altertable.track('test-event-1', { foo: 'bar' });
+        altertable.track('test-event-2', { baz: 'qux' });
+      }).not.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledTimes(2);
+
+      altertable['_requester'].send = originalSend;
+    });
+  });
 });
