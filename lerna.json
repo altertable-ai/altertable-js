@@ -5,11 +5,11 @@
   "npmClient": "bun",
   "command": {
     "version": {
+      "allowBranch": "main",
+      "exact": true,
       "noPush": true,
       "noChangelog": true,
-      "noGitTagVersion": true,
-      "exact": true,
-      "allowBranch": "main"
+      "noGitTagVersion": true
     }
   }
 }
