@@ -35,9 +35,10 @@ export function useAltertable<T extends FunnelMapping>() {
       configure: altertable.configure.bind(altertable),
       getTrackingConsent: altertable.getTrackingConsent.bind(altertable),
       identify: altertable.identify.bind(altertable),
+      page: altertable.page.bind(altertable),
+      reset: altertable.reset.bind(altertable),
       track,
       updateTraits: altertable.updateTraits.bind(altertable),
-      reset: altertable.reset.bind(altertable),
       useFunnel,
     }),
     [altertable, track, useFunnel]
