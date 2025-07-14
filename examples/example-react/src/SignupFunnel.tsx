@@ -1,7 +1,4 @@
-import {
-  type FunnelMapping,
-  useAltertable,
-} from '@altertable/altertable-react';
+import { useAltertable } from '@altertable/altertable-react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
