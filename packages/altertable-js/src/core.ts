@@ -14,7 +14,6 @@ import {
   TrackingConsentType,
 } from './constants';
 import { EventQueue } from './lib/eventQueue';
-import { getViewport } from './lib/getViewport';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
 import { Requester } from './lib/requester';
@@ -26,6 +25,7 @@ import {
   type StorageType,
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
+import { getViewport } from './lib/viewport';
 import {
   AltertableContext,
   Environment,
