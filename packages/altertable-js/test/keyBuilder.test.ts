@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createKeyBuilder } from '../src/lib/createKeyBuilder';
+import { createKeyBuilder } from '../src/lib/keyBuilder';
 
 describe('createKeyBuilder', () => {
   it('should create keys with prefix and separator', () => {

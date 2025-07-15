@@ -1,4 +1,4 @@
-import { createKeyBuilder } from './lib/createKeyBuilder';
+import { createKeyBuilder } from './lib/keyBuilder';
 
 const STORAGE_KEY_PREFIX = 'atbl';
 export const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');
