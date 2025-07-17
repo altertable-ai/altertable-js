@@ -21,6 +21,18 @@ export const PROPERTY_REFERER = '$referer';
 export const PROPERTY_RELEASE = '$release';
 export const PROPERTY_URL = '$url';
 export const PROPERTY_VIEWPORT = '$viewport';
+export const PROPERTY_UTM_SOURCE = '$utm_source';
+export const PROPERTY_UTM_MEDIUM = '$utm_medium';
+export const PROPERTY_UTM_CAMPAIGN = '$utm_campaign';
+export const PROPERTY_UTM_CONTENT = '$utm_content';
+export const PROPERTY_UTM_TERM = '$utm_term';
+export const UTM_PROPERTIES = [
+  PROPERTY_UTM_SOURCE,
+  PROPERTY_UTM_MEDIUM,
+  PROPERTY_UTM_CAMPAIGN,
+  PROPERTY_UTM_CONTENT,
+  PROPERTY_UTM_TERM,
+];
 
 export const TrackingConsent = {
   DENIED: 'denied',

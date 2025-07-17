@@ -12,6 +12,7 @@ import {
   REQUEST_TIMEOUT_MS,
   TrackingConsent,
   TrackingConsentType,
+  UTM_PROPERTIES,
 } from './constants';
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
@@ -299,7 +300,7 @@ export class Altertable {
       [PROPERTY_URL]: urlWithoutSearch,
       [PROPERTY_VIEWPORT]: getViewport(),
       [PROPERTY_REFERER]: this._referrer,
-      ...Object.fromEntries(parsedUrl.searchParams),
+      ...this._buildQueryProperties(parsedUrl),
     });
   }
 
@@ -341,6 +342,18 @@ export class Altertable {
 
   getTrackingConsent(): TrackingConsentType {
     return this._sessionManager.getTrackingConsent();
+  }
+
+  private _buildQueryProperties(parsedUrl: URL) {
+    const queryProperties: Record<string, string> = {};
+    for (const [key, value] of parsedUrl.searchParams) {
+      if (UTM_PROPERTIES.some(utmKey => `$${key}` === utmKey)) {
+        queryProperties[`$${key}`] = value;
+      } else {
+        queryProperties[key] = value;
+      }
+    }
+    return queryProperties;
   }
 
   private _checkForChanges() {

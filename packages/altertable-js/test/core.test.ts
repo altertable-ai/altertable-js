@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../../../test-utils/matchers/toRequestApi';
+import { createStorageMock } from '../../../test-utils/mocks/storageMock';
 import {
   setupBeaconAvailable,
   setupBeaconUnavailable,
@@ -14,13 +15,17 @@ import {
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
   PROPERTY_URL,
+  PROPERTY_UTM_CAMPAIGN,
+  PROPERTY_UTM_CONTENT,
+  PROPERTY_UTM_MEDIUM,
+  PROPERTY_UTM_SOURCE,
+  PROPERTY_UTM_TERM,
   PROPERTY_VIEWPORT,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
 import * as loggerModule from '../src/lib/logger';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
-import { createStorageMock } from '../../../test-utils/mocks/storageMock';
 
 const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
@@ -336,6 +341,29 @@ describe('Altertable', () => {
             event: EVENT_PAGEVIEW,
             properties: expect.objectContaining({
               [PROPERTY_URL]: 'http://localhost/test-page',
+            }),
+          }),
+        });
+      });
+
+      it('sends page event with query parameters', () => {
+        setupAltertable();
+
+        expect(() => {
+          altertable.page(
+            'http://localhost/test-page?foo=bar&baz=qux&utm_source=source&utm_medium=medium&utm_campaign=campaign&utm_content=content&utm_term=term'
+          );
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              foo: 'bar',
+              baz: 'qux',
+              [PROPERTY_UTM_SOURCE]: 'source',
+              [PROPERTY_UTM_MEDIUM]: 'medium',
+              [PROPERTY_UTM_CAMPAIGN]: 'campaign',
+              [PROPERTY_UTM_CONTENT]: 'content',
+              [PROPERTY_UTM_TERM]: 'term',
             }),
           }),
         });
