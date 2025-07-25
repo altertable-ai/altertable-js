@@ -16,6 +16,7 @@ import {
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
 import { createLogger } from './lib/logger';
+import { parseUrl } from './lib/parseUrl';
 import { Requester } from './lib/requester';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
@@ -293,13 +294,14 @@ export class Altertable {
       'The client must be initialized with init() before tracking page views.'
     );
 
-    const parsedUrl = new URL(url);
-    const urlWithoutSearch = `${parsedUrl.origin}${parsedUrl.pathname}`;
+    const parsedUrl = parseUrl(url);
+    const baseUrl = parsedUrl ? parsedUrl.baseUrl : url;
+
     this.track(EVENT_PAGEVIEW, {
-      [PROPERTY_URL]: urlWithoutSearch,
+      [PROPERTY_URL]: baseUrl,
       [PROPERTY_VIEWPORT]: getViewport(),
       [PROPERTY_REFERER]: this._referrer,
-      ...Object.fromEntries(parsedUrl.searchParams),
+      ...parsedUrl?.searchParams,
     });
   }
 
@@ -325,6 +327,16 @@ export class Altertable {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
         [PROPERTY_RELEASE]: this._config.release,
+        ...(properties[PROPERTY_URL] === undefined &&
+          (() => {
+            const currentUrl = safelyRunOnBrowser<string | null>(
+              ({ window }) => window.location.href || null,
+              () => null
+            );
+            const parsedUrl = parseUrl(currentUrl);
+            const baseUrl = parsedUrl ? parsedUrl.baseUrl : currentUrl;
+            return { [PROPERTY_URL]: baseUrl };
+          })()),
         // The above properties might be overridden by user-provided fields
         // and the React library
         ...properties,

@@ -1,6 +1,8 @@
+import '../../../test-utils/matchers/toRequestApi';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import '../../../test-utils/matchers/toRequestApi';
+import { createStorageMock } from '../../../test-utils/mocks/storageMock';
 import {
   setupBeaconAvailable,
   setupBeaconUnavailable,
@@ -20,7 +22,6 @@ import { Altertable, type AltertableConfig } from '../src/core';
 import * as loggerModule from '../src/lib/logger';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
-import { createStorageMock } from '../../../test-utils/mocks/storageMock';
 
 const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
@@ -322,6 +323,61 @@ describe('Altertable', () => {
         }).toThrow(
           '[Altertable] The client must be initialized with init() before tracking events.'
         );
+      });
+
+      it('always includes current URL in track events', () => {
+        setupWindow({ url: 'http://localhost/test-page?param=value' });
+        setupAltertable();
+
+        expect(() => {
+          altertable.track('eventName', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'eventName',
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/test-page',
+              foo: 'bar',
+            }),
+          }),
+        });
+      });
+
+      it('handles malformed URLs gracefully', () => {
+        setupWindow({ url: 'not-a-valid-url' });
+        setupAltertable();
+
+        expect(() => {
+          altertable.track('eventName');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'eventName',
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'not-a-valid-url',
+            }),
+          }),
+        });
+      });
+
+      it('works when no URL is available', () => {
+        // Mock window to be undefined to simulate SSR environment
+        const originalWindow = global.window;
+        delete (global as any).window;
+
+        setupAltertable();
+
+        expect(() => {
+          altertable.track('eventName', { foo: 'bar' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'eventName',
+            properties: expect.objectContaining({
+              foo: 'bar',
+            }),
+          }),
+        });
+
+        // Restore window
+        global.window = originalWindow;
       });
     });
 
