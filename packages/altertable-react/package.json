@@ -1,7 +1,7 @@
 {
   "name": "@altertable/altertable-react",
   "description": "React SDK to capture and send events to Altertable.",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "license": "MIT",
   "homepage": "https://github.com/altertable-ai/altertable-js",
   "repository": "altertable-ai/altertable-js",
@@ -43,7 +43,7 @@
     "react": "^16.8 || ^17.0 || ^18.0 || ^19.0"
   },
   "dependencies": {
-    "@altertable/altertable-js": "^0.5.5"
+    "@altertable/altertable-js": "^0.5.6"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
