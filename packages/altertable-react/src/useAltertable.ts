@@ -23,9 +23,9 @@ export function useAltertable<T extends FunnelMapping>() {
     [altertable]
   );
 
-  const useFunnel = useCallback(
+  const selectFunnel = useCallback(
     <FunnelName extends keyof T>(_funnelName: FunnelName) => ({
-      track: track<T[FunnelName]>,
+      trackStep: track<T[FunnelName]>,
     }),
     [track]
   );
@@ -39,8 +39,8 @@ export function useAltertable<T extends FunnelMapping>() {
       reset: altertable.reset.bind(altertable),
       track,
       updateTraits: altertable.updateTraits.bind(altertable),
-      useFunnel,
+      selectFunnel,
     }),
-    [altertable, track, useFunnel]
+    [altertable, track, selectFunnel]
   );
 }

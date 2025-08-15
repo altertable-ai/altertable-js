@@ -3,9 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React, { useEffect } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { AltertableProvider, useAltertable } from '../src';
+import { AltertableProvider, type FunnelMapping, useAltertable } from '../src';
 
-type SignupFunnelMapping = {
+interface SignupFunnelMapping extends FunnelMapping {
   signup: [
     {
       name: 'Signup Started';
@@ -20,11 +20,11 @@ type SignupFunnelMapping = {
       properties: { userId: string };
     },
   ];
-};
+}
 
 function SignupPage() {
-  const { useFunnel, track } = useAltertable<SignupFunnelMapping>();
-  const { track: trackSignup } = useFunnel('signup');
+  const { selectFunnel, track } = useAltertable<SignupFunnelMapping>();
+  const { trackStep } = selectFunnel('signup');
 
   useEffect(() => {
     track('Signup Started', { source: 'test' });
@@ -35,7 +35,7 @@ function SignupPage() {
       <button
         data-testid="signup-button"
         onClick={() => {
-          trackSignup('Signup Completed', { userId: 'test' });
+          trackStep('Signup Completed', { userId: 'test' });
         }}
       >
         Signup

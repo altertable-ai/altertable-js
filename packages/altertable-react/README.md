@@ -145,13 +145,13 @@ Returns an object with tracking methods and funnel utilities.
 | `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                                                |
 | `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration                                              |
 | `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state                                         |
-| `useFunnel`          | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker                                       |
+| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker                                       |
 
 **Example:**
 
 ```tsx
 function MyComponent() {
-  const { track, identify, useFunnel } = useAltertable<MyFunnelMapping>();
+  const { track, identify, selectFunnel } = useAltertable<MyFunnelMapping>();
 
   function handleClick() {
     track('Button Clicked', { button: 'signup' });
@@ -195,7 +195,7 @@ function MyComponent() {
 > - Virtual page views that don't trigger URL changes (modals, step changes)
 > - Server-side tracking where auto-capture isn't available
 
-#### `useFunnel(funnelName)`
+#### `selectFunnel(funnelName)`
 
 Returns a type-safe tracker for a specific funnel.
 
@@ -207,30 +207,35 @@ Returns a type-safe tracker for a specific funnel.
 
 **Returns:**
 
-| Property | Type                                                                    | Description                   |
-| -------- | ----------------------------------------------------------------------- | ----------------------------- |
-| `track`  | `(stepName: FunnelStepName, properties?: FunnelStepProperties) => void` | Type-safe funnel step tracker |
+| Property    | Type                                                                    | Description                   |
+| ----------- | ----------------------------------------------------------------------- | ----------------------------- |
+| `trackStep` | `(stepName: FunnelStepName, properties?: FunnelStepProperties) => void` | Type-safe funnel step tracker |
 
 **Example:**
 
 ```tsx
-type SignupFunnelMapping = {
+import {
+  type FunnelMapping,
+  useAltertable,
+} from '@altertable/altertable-react';
+
+interface SignupFunnelMapping extends FunnelMapping {
   signup: [
     { name: 'Signup Started'; properties: { source: string } },
     { name: 'Signup Completed'; properties: { userId: string } },
   ];
-};
+}
 
 function SignupPage() {
-  const { useFunnel } = useAltertable<SignupFunnelMapping>();
-  const { track } = useFunnel('signup');
+  const { selectFunnel } = useAltertable<SignupFunnelMapping>();
+  const { trackStep } = selectFunnel('signup');
 
   function handleStart() {
-    track('Signup Started', { source: 'homepage' });
+    trackStep('Signup Started', { source: 'homepage' });
   }
 
   function handleComplete(userId: string) {
-    track('Signup Completed', { userId });
+    trackStep('Signup Completed', { userId });
   }
 
   return (
@@ -273,7 +278,7 @@ type FunnelMapping = Record<FunnelName, readonly FunnelStep[]>;
 ```typescript
 import { type FunnelMapping } from '@altertable/altertable-react';
 
-type MyFunnelMapping = {
+interface MyFunnelMapping extends FunnelMapping {
   signup: [
     {
       name: 'Signup Started';
@@ -294,7 +299,7 @@ type MyFunnelMapping = {
       properties: { orderId: string; amount: number };
     },
   ];
-};
+}
 ```
 
 ### `FunnelStep`
@@ -319,7 +324,10 @@ Type-safe tracker for a specific funnel.
 
 ```typescript
 type FunnelTracker = {
-  track: (stepName: FunnelStepName, properties?: FunnelStepProperties) => void;
+  trackStep: (
+    stepName: FunnelStepName,
+    properties?: FunnelStepProperties
+  ) => void;
 };
 ```
 
