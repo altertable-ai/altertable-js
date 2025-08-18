@@ -1,4 +1,7 @@
-import { useAltertable } from '@altertable/altertable-react';
+import {
+  type FunnelMapping,
+  useAltertable,
+} from '@altertable/altertable-react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,7 +21,7 @@ type FormData = {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
-type SignupFunnelMapping = {
+interface SignupFunnelMapping extends FunnelMapping {
   signup: [
     { name: 'Step Viewed'; properties: { step: number } },
     { name: 'Personal Info Completed'; properties: { step: number } },
@@ -34,7 +37,7 @@ type SignupFunnelMapping = {
     { name: 'Get Started Clicked' },
     { name: 'Form Restarted' },
   ];
-};
+}
 
 const DEFAULT_FORM_DATA: FormData = {
   firstName: 'John',
@@ -70,8 +73,8 @@ export function SignupFunnel({
   const isLastStep = currentStep === steps.length - 1;
   const isSubmitted = currentStep === steps.length;
 
-  const { useFunnel, identify } = useAltertable<SignupFunnelMapping>();
-  const { track } = useFunnel('signup');
+  const { selectFunnel, identify } = useAltertable<SignupFunnelMapping>();
+  const { trackStep } = selectFunnel('signup');
 
   function validateStep(step: number): boolean {
     const newErrors: FormErrors = {};
@@ -120,16 +123,16 @@ export function SignupFunnel({
     if (validateStep(currentStep)) {
       switch (currentStep) {
         case 1:
-          track('Personal Info Completed', { step: currentStep });
+          trackStep('Personal Info Completed', { step: currentStep });
           break;
         case 2:
-          track('Account Setup Completed', { step: currentStep });
+          trackStep('Account Setup Completed', { step: currentStep });
           break;
         case 3:
-          track('Plan Selection Completed', { step: currentStep });
+          trackStep('Plan Selection Completed', { step: currentStep });
           break;
         default:
-          track('Step Completed', { step: currentStep });
+          trackStep('Step Completed', { step: currentStep });
       }
 
       onStepChange(Math.min(currentStep + 1, steps.length));
@@ -149,7 +152,7 @@ export function SignupFunnel({
 
   function handleSubmit() {
     if (validateStep(3)) {
-      track('Form Submitted');
+      trackStep('Form Submitted');
 
       const userId = crypto.randomUUID();
 
@@ -173,7 +176,7 @@ export function SignupFunnel({
       updateFormData(field, value);
 
       if (field === 'agreeToTerms') {
-        track('Terms Agreement Changed', {
+        trackStep('Terms Agreement Changed', {
           agreed: value,
           step: currentStep,
         });
@@ -183,14 +186,14 @@ export function SignupFunnel({
 
   function handlePlanSelect(plan: Plan) {
     return () => {
-      track('Plan Selected', { plan });
+      trackStep('Plan Selected', { plan });
 
       updateFormData('plan', plan);
     };
   }
 
   function handleRestart() {
-    track('Form Restarted');
+    trackStep('Form Restarted');
 
     onStepChange(1);
     setFormData(DEFAULT_FORM_DATA);
@@ -198,7 +201,7 @@ export function SignupFunnel({
   }
 
   function handleGetStarted() {
-    track('Get Started Clicked');
+    trackStep('Get Started Clicked');
   }
 
   function renderStep() {
