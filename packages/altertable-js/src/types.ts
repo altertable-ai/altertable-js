@@ -1,6 +1,14 @@
-type StringWithAutocomplete<T> = T | (string & {});
+export type StringWithAutocomplete<T> = T | (string & {});
 
 export type EventType = 'track' | 'identify';
+
+export type ApiErrorCode = StringWithAutocomplete<'environment-not-found'>;
+
+export interface ApiErrorResponse {
+  error_code?: ApiErrorCode;
+  message?: string;
+  [key: string]: unknown;
+}
 
 export type EventProperties = Record<string, unknown>;
 

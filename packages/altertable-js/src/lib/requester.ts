@@ -1,5 +1,5 @@
-import { EventPayload } from '../types';
-import { ApiError, ApiErrorCode } from './error';
+import { ApiErrorResponse, EventPayload } from '../types';
+import { ApiError, NetworkError } from './error';
 import { isBeaconSupported } from './isBeaconSupported';
 
 export interface RequesterConfig {
@@ -68,23 +68,35 @@ export class Requester<TPayload extends EventPayload> {
       });
 
       if (!response.ok) {
-        let errorCode: ApiErrorCode | undefined;
-        let details: any;
+        let errorResponse: ApiErrorResponse | undefined;
 
         try {
-          details = await response.json();
-          errorCode = details.error_code;
+          errorResponse = await response.json();
         } catch {
-          // If parsing fails, continue without error_code
+          // If parsing fails, continue without parsed response
         }
 
         throw new ApiError(
           response.status,
           response.statusText,
-          errorCode,
-          details
+          errorResponse?.error_code,
+          errorResponse,
+          {
+            url,
+            method: 'POST',
+            payload,
+          }
         );
       }
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      throw new NetworkError(
+        error instanceof Error ? error.message : 'Network request failed',
+        error
+      );
     } finally {
       clearTimeout(timeoutId);
     }

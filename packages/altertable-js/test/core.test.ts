@@ -19,7 +19,7 @@ import {
   PROPERTY_VIEWPORT,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
-import { ApiError } from '../src/lib/error';
+import { ApiError, NetworkError } from '../src/lib/error';
 import * as loggerModule from '../src/lib/logger';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
@@ -1852,6 +1852,75 @@ describe('Altertable', () => {
         `"Environment "development" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=development before tracking events."`
       );
       expect(errorSpy).not.toHaveBeenCalled();
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('calls onError handler when provided', () => {
+      const onErrorSpy = vi.fn();
+      setupAltertable({ onError: onErrorSpy });
+
+      const originalSend = altertable['_requester'].send;
+      const testError = new ApiError(
+        500,
+        'Internal Server Error',
+        undefined,
+        undefined
+      );
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw testError;
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(onErrorSpy).toHaveBeenCalledTimes(1);
+      expect(onErrorSpy).toHaveBeenCalledWith(testError);
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('calls onError handler for NetworkError', () => {
+      const onErrorSpy = vi.fn();
+      setupAltertable({ onError: onErrorSpy });
+
+      const originalSend = altertable['_requester'].send;
+      const testError = new NetworkError('Network connection failed');
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw testError;
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(onErrorSpy).toHaveBeenCalledTimes(1);
+      expect(onErrorSpy).toHaveBeenCalledWith(testError);
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('handles NetworkError with specific error message', () => {
+      setupAltertable();
+
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      const testError = new NetworkError(
+        'Connection timeout',
+        new Error('Timeout')
+      );
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw testError;
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Network error while sending event',
+        {
+          error: 'Connection timeout',
+          cause: expect.any(Error),
+          eventType: 'track',
+        }
+      );
 
       altertable['_requester'].send = originalSend;
     });

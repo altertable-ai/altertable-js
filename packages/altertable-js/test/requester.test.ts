@@ -7,7 +7,7 @@ import {
   setupBeaconAvailable,
   setupBeaconUnavailable,
 } from '../../../test-utils/networkMode';
-import { ApiError } from '../src/lib/error';
+import { ApiError, NetworkError } from '../src/lib/error';
 import { Requester, type RequesterConfig } from '../src/lib/requester';
 import { EventPayload, IdentifyPayload, TrackPayload } from '../src/types';
 
@@ -301,6 +301,61 @@ describe('Requester', () => {
         expect((error as ApiError).statusText).toBe('Internal Server Error');
         expect((error as ApiError).errorCode).toBeUndefined();
         expect((error as ApiError).details).toBeUndefined();
+      }
+    });
+
+    it('should include requestContext in ApiError', async () => {
+      const payload = createTrackEventPayload();
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: async () => ({
+          error_code: 'invalid-request',
+        }),
+      });
+
+      try {
+        await requester.send('/track', payload);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).requestContext).toBeDefined();
+        expect((error as ApiError).requestContext?.url).toContain('/track');
+        expect((error as ApiError).requestContext?.method).toBe('POST');
+        expect((error as ApiError).requestContext?.payload).toEqual(payload);
+      }
+    });
+
+    it('should throw NetworkError on fetch failure', async () => {
+      mockFetch.mockRejectedValue(new Error('Network connection failed'));
+
+      await expect(
+        requester.send('/track', createTrackEventPayload())
+      ).rejects.toThrow(NetworkError);
+
+      try {
+        await requester.send('/track', createTrackEventPayload());
+      } catch (error) {
+        expect(error).toBeInstanceOf(NetworkError);
+        expect((error as NetworkError).message).toBe(
+          'Network connection failed'
+        );
+        expect((error as NetworkError).cause).toBeInstanceOf(Error);
+      }
+    });
+
+    it('should throw NetworkError on AbortController timeout', async () => {
+      mockFetch.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+      await expect(
+        requester.send('/track', createTrackEventPayload())
+      ).rejects.toThrow(NetworkError);
+
+      try {
+        await requester.send('/track', createTrackEventPayload());
+      } catch (error) {
+        expect(error).toBeInstanceOf(NetworkError);
+        expect((error as NetworkError).cause).toBeInstanceOf(DOMException);
       }
     });
 
