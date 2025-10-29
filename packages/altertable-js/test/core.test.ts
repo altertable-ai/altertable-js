@@ -20,6 +20,7 @@ import {
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
 import * as loggerModule from '../src/lib/logger';
+import { ApiError } from '../src/lib/requester';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
 
@@ -1752,6 +1753,105 @@ describe('Altertable', () => {
       }).not.toThrow();
 
       expect(errorSpy).toHaveBeenCalledTimes(2);
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('shows helpful warning for environment-not-found error', () => {
+      setupAltertable({ environment: 'staging' });
+
+      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new ApiError(400, 'Bad Request', 'environment-not-found', {
+          error_code: 'environment-not-found',
+        });
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(warnDevSpy).toHaveBeenCalledTimes(1);
+      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
+        `"Environment "staging" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=staging before tracking events."`
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('shows helpful warning for environment-not-found error with default environment', () => {
+      setupAltertable(); // Uses default 'production' environment
+
+      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new ApiError(400, 'Bad Request', 'environment-not-found', {
+          error_code: 'environment-not-found',
+        });
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(warnDevSpy).toHaveBeenCalledTimes(1);
+      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
+        `"Environment "production" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=production before tracking events."`
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('uses generic error handling for other ApiErrors', () => {
+      setupAltertable();
+
+      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new ApiError(429, 'Too Many Requests', 'rate-limit-exceeded', {
+          error_code: 'rate-limit-exceeded',
+        });
+      });
+
+      altertable.track('test-event', { foo: 'bar' });
+
+      expect(warnDevSpy).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
+        error: expect.any(ApiError),
+        eventType: 'track',
+        payload: expect.objectContaining({
+          event: 'test-event',
+        }),
+      });
+
+      altertable['_requester'].send = originalSend;
+    });
+
+    it('handles environment-not-found error for identify events', () => {
+      setupAltertable({ environment: 'development' });
+
+      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
+      const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+
+      const originalSend = altertable['_requester'].send;
+      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+        throw new ApiError(400, 'Bad Request', 'environment-not-found', {
+          error_code: 'environment-not-found',
+        });
+      });
+
+      altertable.identify('user123', { email: 'user@example.com' });
+
+      expect(warnDevSpy).toHaveBeenCalledTimes(1);
+      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
+        `"Environment "development" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=development before tracking events."`
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
 
       altertable['_requester'].send = originalSend;
     });

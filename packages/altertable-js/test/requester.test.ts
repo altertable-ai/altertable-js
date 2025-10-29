@@ -7,7 +7,7 @@ import {
   setupBeaconAvailable,
   setupBeaconUnavailable,
 } from '../../../test-utils/networkMode';
-import { Requester, type RequesterConfig } from '../src/lib/requester';
+import { ApiError, Requester, type RequesterConfig } from '../src/lib/requester';
 import { EventPayload, IdentifyPayload, TrackPayload } from '../src/types';
 
 function createTrackEventPayload(
@@ -230,6 +230,77 @@ describe('Requester', () => {
       await expect(
         requester.send('/track', createTrackEventPayload())
       ).rejects.toThrow('HTTP 429: Too Many Requests');
+    });
+
+    it('should parse error_code from 400 response body', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          error_code: 'environment-not-found',
+        }),
+      });
+
+      await expect(
+        requester.send('/track', createTrackEventPayload())
+      ).rejects.toThrow(ApiError);
+
+      try {
+        await requester.send('/track', createTrackEventPayload());
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(400);
+        expect((error as ApiError).statusText).toBe('Bad Request');
+        expect((error as ApiError).errorCode).toBe('environment-not-found');
+        expect((error as ApiError).details).toEqual({
+          error_code: 'environment-not-found',
+        });
+      }
+    });
+
+    it('should handle 400 response without error_code', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          some_field: 'some_value',
+        }),
+      });
+
+      try {
+        await requester.send('/track', createTrackEventPayload());
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(400);
+        expect((error as ApiError).statusText).toBe('Bad Request');
+        expect((error as ApiError).errorCode).toBeUndefined();
+        expect((error as ApiError).details).toEqual({
+          some_field: 'some_value',
+        });
+      }
+    });
+
+    it('should handle response with unparseable JSON body', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => {
+          throw new Error('Invalid JSON');
+        },
+      });
+
+      try {
+        await requester.send('/track', createTrackEventPayload());
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(500);
+        expect((error as ApiError).statusText).toBe('Internal Server Error');
+        expect((error as ApiError).errorCode).toBeUndefined();
+        expect((error as ApiError).details).toBeUndefined();
+      }
     });
 
     it('should respect timeout configuration', async () => {

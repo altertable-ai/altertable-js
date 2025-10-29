@@ -15,9 +15,10 @@ import {
 } from './constants';
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
+import { dashboardUrl } from './lib/links';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
-import { Requester } from './lib/requester';
+import { ApiError, Requester } from './lib/requester';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
@@ -387,11 +388,20 @@ export class Altertable {
         try {
           await this._requester.send(`/${eventType}`, payload);
         } catch (error) {
-          this._logger.error('Failed to send event', {
-            error,
-            eventType,
-            payload,
-          });
+          if (
+            error instanceof ApiError &&
+            error.errorCode === 'environment-not-found'
+          ) {
+            this._logger.warnDev(
+              `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
+            );
+          } else {
+            this._logger.error('Failed to send event', {
+              error,
+              eventType,
+              payload,
+            });
+          }
         }
         break;
       case TrackingConsent.PENDING:

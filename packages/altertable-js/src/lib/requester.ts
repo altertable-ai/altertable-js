@@ -1,4 +1,5 @@
 import { EventPayload } from '../types';
+import { ApiError, ApiErrorCode } from './error';
 import { isBeaconSupported } from './isBeaconSupported';
 
 export interface RequesterConfig {
@@ -67,7 +68,22 @@ export class Requester<TPayload extends EventPayload> {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let errorCode: ApiErrorCode | undefined;
+        let details: any;
+
+        try {
+          details = await response.json();
+          errorCode = details.error_code;
+        } catch {
+          // If parsing fails, continue without error_code
+        }
+
+        throw new ApiError(
+          response.status,
+          response.statusText,
+          errorCode,
+          details
+        );
       }
     } finally {
       clearTimeout(timeoutId);
