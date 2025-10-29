@@ -1155,6 +1155,22 @@ describe('Altertable', () => {
 
   describe('tracking consent', () => {
     describe('consent states', () => {
+      it('defaults to granted consent when not specified', () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+        });
+
+        expect(altertable.getTrackingConsent()).toBe('granted');
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track');
+      });
+
       it('sends events immediately when consent is granted', () => {
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
           createStorageMock()
