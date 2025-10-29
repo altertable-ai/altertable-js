@@ -71,7 +71,7 @@ export interface AltertableConfig {
   persistence?: StorageType;
   /**
    * The tracking consent state.
-   * @default "pending"
+   * @default "granted"
    */
   trackingConsent?: TrackingConsentType;
 }
@@ -83,7 +83,7 @@ const DEFAULT_CONFIG: AltertableConfig = {
   environment: 'production',
   persistence: 'localStorage+cookie',
   release: undefined,
-  trackingConsent: TrackingConsent.PENDING,
+  trackingConsent: TrackingConsent.GRANTED,
 };
 
 export class Altertable {

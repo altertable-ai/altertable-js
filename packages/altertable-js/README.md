@@ -251,7 +251,7 @@ Configuration options for the Altertable SDK.
 | `release`         | `string`                                      | -                             | The release ID of the application                      |
 | `debug`           | `boolean`                                     | `false`                       | Whether to log events to the console                   |
 | `persistence`     | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for storing IDs               |
-| `trackingConsent` | [`TrackingConsentType`](#trackingconsenttype) | `"pending"`                   | The tracking consent state                             |
+| `trackingConsent` | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
 
 ### `EventProperties`
 
