@@ -7,7 +7,8 @@ import {
   setupBeaconAvailable,
   setupBeaconUnavailable,
 } from '../../../test-utils/networkMode';
-import { ApiError, Requester, type RequesterConfig } from '../src/lib/requester';
+import { ApiError } from '../src/lib/error';
+import { Requester, type RequesterConfig } from '../src/lib/requester';
 import { EventPayload, IdentifyPayload, TrackPayload } from '../src/types';
 
 function createTrackEventPayload(

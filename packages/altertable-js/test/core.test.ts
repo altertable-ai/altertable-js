@@ -19,8 +19,8 @@ import {
   PROPERTY_VIEWPORT,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
+import { ApiError } from '../src/lib/error';
 import * as loggerModule from '../src/lib/logger';
-import { ApiError } from '../src/lib/requester';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
 
