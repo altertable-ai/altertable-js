@@ -22,6 +22,32 @@ export const PROPERTY_RELEASE = '$release';
 export const PROPERTY_URL = '$url';
 export const PROPERTY_VIEWPORT = '$viewport';
 
+/**
+ * Available tracking consent states.
+ *
+ * Use these constants to manage user consent for tracking and analytics.
+ *
+ * @property GRANTED User has granted consent for tracking
+ * @property DENIED User has denied consent for tracking
+ * @property PENDING User hasn't made a decision yet
+ * @property DISMISSED User dismissed the consent prompt
+ *
+ * @example
+ * ```javascript
+ * import { altertable, TrackingConsent } from '@altertable/altertable-js';
+ *
+ * // Set tracking consent to granted
+ * altertable.configure({
+ *   trackingConsent: TrackingConsent.GRANTED,
+ * });
+ *
+ * // Check current consent state
+ * const consent = altertable.getTrackingConsent();
+ * if (consent === TrackingConsent.GRANTED) {
+ *   // Tracking is allowed
+ * }
+ * ```
+ */
 export const TrackingConsent = {
   DENIED: 'denied',
   DISMISSED: 'dismissed',

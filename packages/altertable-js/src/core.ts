@@ -105,6 +105,20 @@ export class Altertable {
     this._eventQueue = new EventQueue(MAX_EVENT_QUEUE_SIZE);
   }
 
+  /**
+   * Initializes the Altertable SDK with your API key and optional configuration.
+   *
+   * @param apiKey Your Altertable API key
+   * @param config Configuration options
+   * @returns A cleanup function to remove event listeners
+   *
+   * @example
+   * ```javascript
+   * altertable.init('YOUR_API_KEY', {
+   *   environment: 'development',
+   * });
+   * ```
+   */
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
     this._config = { ...DEFAULT_CONFIG, ...config };
@@ -146,6 +160,18 @@ export class Altertable {
     };
   }
 
+  /**
+   * Updates the configuration after initialization.
+   *
+   * @param updates Configuration updates to apply
+   *
+   * @example
+   * ```javascript
+   * altertable.configure({
+   *   trackingConsent: 'granted',
+   * });
+   * ```
+   */
   configure(updates: Partial<AltertableConfig>) {
     invariant(
       this._isInitialized,
@@ -223,6 +249,22 @@ export class Altertable {
     }
   }
 
+  /**
+   * Identifies a user with their ID and optional traits.
+   *
+   * @param userId The user's unique identifier
+   * @param traits User properties
+   *
+   * @example
+   * ```javascript
+   * altertable.identify('u_01jza857w4f23s1hf2s61befmw', {
+   *   email: 'john.doe@example.com',
+   *   name: 'John Doe',
+   *   company: 'Acme Corp',
+   *   role: 'Software Engineer',
+   * });
+   * ```
+   */
   identify(userId: string, traits: UserTraits = {}) {
     invariant(
       this._isInitialized,
@@ -251,6 +293,18 @@ export class Altertable {
     }
   }
 
+  /**
+   * Updates user traits for the current user.
+   *
+   * @param traits User properties to update
+   *
+   * @example
+   * ```javascript
+   * altertable.updateTraits({
+   *   onboarding_completed: true,
+   * });
+   * ```
+   */
   updateTraits(traits: UserTraits) {
     const userId = this._sessionManager.getUserId();
     invariant(
@@ -273,11 +327,28 @@ export class Altertable {
     }
   }
 
+  /**
+   * Resets visitor and session IDs.
+   *
+   * @example
+   * ```javascript
+   * // Reset session only (default)
+   * altertable.reset();
+   *
+   * // Reset both visitor and session
+   * altertable.reset({
+   *   resetVisitorId: true,
+   *   resetSessionId: true,
+   * });
+   * ```
+   */
   reset({
     resetVisitorId = false,
     resetSessionId = true,
   }: {
+    /** Whether to reset visitor ID (default: false) */
     resetVisitorId?: boolean;
+    /** Whether to reset session ID (default: true) */
     resetSessionId?: boolean;
   } = {}) {
     invariant(
@@ -288,6 +359,31 @@ export class Altertable {
     this._sessionManager.reset({ resetVisitorId, resetSessionId });
   }
 
+  /**
+   * Tracks a page view event.
+   *
+   * When `autoCapture` is enabled (default), this method is automatically called when the page URL changes.
+   *
+   * @param url The page URL
+   *
+   * @example
+   * ```javascript
+   * altertable.page('https://example.com/products');
+   * ```
+   *
+   * @remarks
+   * **Page Tracking**: By default, Altertable automatically captures page views. Only use `page()` when you've disabled auto-capture.
+   *
+   * **Why use auto-capture (default)?**
+   * - No manual tracking required
+   * - Handles browser navigation events (popstate, hashchange)
+   * - Consistent tracking across all page changes
+   *
+   * **When to use `page()`:**
+   * - Custom routing that doesn't trigger browser events
+   * - Virtual page views that don't trigger URL changes (modals, step changes)
+   * - Server-side tracking where auto-capture isn't available
+   */
   page(url: string) {
     invariant(
       this._isInitialized,
@@ -305,6 +401,21 @@ export class Altertable {
     });
   }
 
+  /**
+   * Tracks a custom event with optional properties.
+   *
+   * @param eventThe event name
+   * @param properties Custom event properties
+   *
+   * @example
+   * ```javascript
+   * altertable.track('Purchase Completed', {
+   *   product_id: 'p_01jza8fr5efvgbxxdd1bwkd0m5',
+   *   amount: 29.99,
+   *   currency: 'USD',
+   * });
+   * ```
+   */
   track(event: string, properties: EventProperties = {}) {
     invariant(
       this._isInitialized,
@@ -351,6 +462,20 @@ export class Altertable {
     }
   }
 
+  /**
+   * Returns the current tracking consent state.
+   *
+   * @returns The current tracking consent state
+   * @see {@link TrackingConsent}
+   *
+   * @example
+   * ```javascript
+   * const consent = altertable.getTrackingConsent();
+   * if (consent === 'granted') {
+   *   // Tracking is allowed
+   * }
+   * ```
+   */
   getTrackingConsent(): TrackingConsentType {
     return this._sessionManager.getTrackingConsent();
   }
