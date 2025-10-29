@@ -13,12 +13,13 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from './constants';
+import { ApiError } from './lib/error';
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
 import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
-import { ApiError, Requester } from './lib/requester';
+import { Requester } from './lib/requester';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
