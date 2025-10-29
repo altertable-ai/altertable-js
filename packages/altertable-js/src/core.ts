@@ -15,7 +15,7 @@ import {
 } from './constants';
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
-import { dashboardUrl } from './lib/links';
+import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
 import { ApiError, Requester } from './lib/requester';
