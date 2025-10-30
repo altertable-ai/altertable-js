@@ -1,5 +1,5 @@
-import { ApiErrorResponse, EventPayload } from '../types';
-import { ApiError, NetworkError } from './error';
+import { EventPayload } from '../types';
+import { ApiError, ApiErrorResponse, NetworkError } from './error';
 import { isBeaconSupported } from './isBeaconSupported';
 
 export interface RequesterConfig {

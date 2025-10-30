@@ -1,4 +1,12 @@
-import { ApiErrorCode, ApiErrorResponse } from '../types';
+import { StringWithAutocomplete } from '../types';
+
+export type ApiErrorCode = StringWithAutocomplete<'environment-not-found'>;
+
+export interface ApiErrorResponse {
+  error_code?: ApiErrorCode;
+  message?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Base error class for Altertable SDK errors
