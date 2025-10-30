@@ -1,4 +1,4 @@
-type StringWithAutocomplete<T> = T | (string & {});
+export type StringWithAutocomplete<T> = T | (string & {});
 
 export type EventType = 'track' | 'identify';
 

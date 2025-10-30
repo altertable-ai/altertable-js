@@ -13,8 +13,10 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from './constants';
+import { isAltertableError, isApiError, isNetworkError } from './lib/error';
 import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
+import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
 import { Requester } from './lib/requester';
@@ -74,6 +76,10 @@ export interface AltertableConfig {
    * @default "granted"
    */
   trackingConsent?: TrackingConsentType;
+  /**
+   * Optional error handler for intercepting SDK errors.
+   */
+  onError?: (error: Error) => void;
 }
 
 const DEFAULT_CONFIG: AltertableConfig = {
@@ -512,11 +518,30 @@ export class Altertable {
         try {
           await this._requester.send(`/${eventType}`, payload);
         } catch (error) {
-          this._logger.error('Failed to send event', {
-            error,
-            eventType,
-            payload,
-          });
+          if (isAltertableError(error)) {
+            this._config.onError?.(error);
+          }
+
+          if (
+            isApiError(error) &&
+            error.errorCode === 'environment-not-found'
+          ) {
+            this._logger.warnDev(
+              `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
+            );
+          } else if (isNetworkError(error)) {
+            this._logger.error('Network error while sending event', {
+              error: error.message,
+              cause: error.cause,
+              eventType,
+            });
+          } else {
+            this._logger.error('Failed to send event', {
+              error,
+              eventType,
+              payload,
+            });
+          }
         }
         break;
       case TrackingConsent.PENDING:
