@@ -19,7 +19,9 @@ function createTrackEventPayload(
     timestamp: new Date().toISOString(),
     properties: {},
     environment: 'test',
+    device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     user_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
+    distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     visitor_id: 'visitor-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     session_id: 'session-0197d9df-4e77-72cb-bf0a-e35b3f1f5425',
     ...overrides,
@@ -33,6 +35,8 @@ function createIdentifyEventPayload(
     traits: { email: 'test@example.com' },
     environment: 'test',
     user_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
+    device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+    distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     visitor_id: 'visitor-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     ...overrides,
   };

@@ -9,6 +9,7 @@ import {
 } from '../../../test-utils/networkMode';
 import {
   EVENT_PAGEVIEW,
+  PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
   PROPERTY_LIB,
@@ -26,6 +27,7 @@ import { UserId, UserTraits } from '../src/types';
 
 const REGEXP_DATE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const REGEXP_SESSION_ID = new RegExp(`^${PREFIX_SESSION_ID}-`);
+const REGEXP_DEVICE_ID = new RegExp(`^${PREFIX_DEVICE_ID}-`);
 const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 
 function createSessionData(overrides: Record<string, any> = {}) {
@@ -100,7 +102,7 @@ describe('Altertable', () => {
     setupBeaconAvailable();
 
     if (altertable?.['_isInitialized']) {
-      altertable.reset({ resetVisitorId: true, resetSessionId: true });
+      altertable.reset({ resetDeviceId: true, resetSessionId: true });
     }
     altertable = new Altertable();
   });
@@ -129,6 +131,8 @@ describe('Altertable', () => {
           payload: {
             event: EVENT_PAGEVIEW,
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            distinct_id: expect.any(String),
             user_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
@@ -159,6 +163,8 @@ describe('Altertable', () => {
           baseUrl: 'https://api.altertable.ai',
           payload: {
             event: 'eventName',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            distinct_id: expect.any(String),
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
             user_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
@@ -602,6 +608,8 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            distinct_id: expect.any(String),
             traits: {},
             user_id: userId,
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
@@ -619,6 +627,8 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            distinct_id: expect.any(String),
             traits,
             user_id: userId,
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
@@ -707,6 +717,8 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            distinct_id: expect.any(String),
             traits: newTraits,
             user_id: 'user123',
             visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
@@ -937,17 +949,17 @@ describe('Altertable', () => {
         expect(newUserId).toBeNull();
       });
 
-      it('resets visitor ID when called with resetVisitorId', () => {
+      it('resets device ID when called with resetDeviceId', () => {
         setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
-        const originalVisitorId = altertable['_sessionManager'].getVisitorId();
+        const originalDeviceId = altertable['_sessionManager'].getDeviceId();
 
-        altertable.reset({ resetVisitorId: true });
+        altertable.reset({ resetDeviceId: true });
 
-        const newVisitorId = altertable['_sessionManager'].getVisitorId();
-        expect(newVisitorId).not.toEqual(originalVisitorId);
-        expect(newVisitorId).toMatch(REGEXP_VISITOR_ID);
+        const newDeviceId = altertable['_sessionManager'].getDeviceId();
+        expect(newDeviceId).not.toEqual(originalDeviceId);
+        expect(newDeviceId).toMatch(REGEXP_DEVICE_ID);
       });
 
       it('does not reset session ID when called with resetSessionId: false', () => {

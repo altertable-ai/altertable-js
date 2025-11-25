@@ -88,6 +88,8 @@ describe('Logger', () => {
     const mockEventPayload: EventPayload = {
       timestamp: '2021-01-01T00:00:00.000Z',
       event: 'test_event',
+      device_id: 'device-123',
+      distinct_id: 'user123',
       user_id: 'user123',
       session_id: 'session-123',
       visitor_id: 'visitor-123',
@@ -319,6 +321,8 @@ describe('Logger', () => {
         name: 'Test User',
         age: 25,
       },
+      device_id: 'device-123',
+      distinct_id: 'user123',
       user_id: 'user123',
       visitor_id: 'visitor-123' as const,
     };
