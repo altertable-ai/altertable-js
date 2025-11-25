@@ -14,23 +14,23 @@
   "dependencies": {
     "@altertable/altertable-js": "workspace:*",
     "@altertable/altertable-react": "workspace:*",
-    "@c15t/react": "^1.4.1",
-    "@tailwindcss/vite": "^4.1.11",
-    "lucide-react": "^0.525.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tailwindcss": "^4.1.11"
+    "@c15t/react": "1.8.1",
+    "@tailwindcss/vite": "4.1.17",
+    "lucide-react": "0.554.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "tailwindcss": "4.1.17"
   },
   "devDependencies": {
-    "@types/react": "^19.0.8",
-    "@types/react-dom": "^19.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.35.0",
-    "@typescript-eslint/parser": "^8.35.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.29.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.14",
-    "typescript": "^5.7.3",
-    "vite": "^5.4.10"
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@typescript-eslint/eslint-plugin": "8.48.0",
+    "@typescript-eslint/parser": "8.48.0",
+    "@vitejs/plugin-react": "5.1.1",
+    "eslint": "9.39.1",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-refresh": "0.4.24",
+    "typescript": "5.9.3",
+    "vite": "7.2.4"
   }
 }

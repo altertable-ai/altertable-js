@@ -90,8 +90,8 @@ function ConsentProvider({ children }: { children: React.ReactNode }) {
           'marketing',
         ],
         callbacks: {
-          onConsentSet: ({ data }) => {
-            if (data?.preferences.measurement) {
+          onConsentSet: ({ preferences }) => {
+            if (preferences.measurement) {
               altertable.configure({
                 trackingConsent: TrackingConsent.GRANTED,
               });
