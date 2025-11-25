@@ -1,27 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  createStorageMock,
+  StorageMock,
+} from '../../../test-utils/mocks/storageMock';
 import { TrackingConsent } from '../src/constants';
 import { createLogger } from '../src/lib/logger';
 import { SessionManager } from '../src/lib/sessionManager';
 
 describe('SessionManager with tracking consent', () => {
-  let mockStorage: {
-    getItem: ReturnType<typeof vi.fn>;
-    setItem: ReturnType<typeof vi.fn>;
-    removeItem: ReturnType<typeof vi.fn>;
-    migrate: ReturnType<typeof vi.fn>;
-  };
+  let mockStorage: StorageMock;
   let mockLogger: ReturnType<typeof createLogger>;
   let sessionManager: SessionManager;
   const testStorageKey = 'test-storage-key';
 
   beforeEach(() => {
-    mockStorage = {
-      getItem: vi.fn(),
-      setItem: vi.fn(),
-      removeItem: vi.fn(),
-      migrate: vi.fn(),
-    };
+    mockStorage = createStorageMock();
     mockLogger = createLogger('test');
   });
 

@@ -2,13 +2,16 @@ import { Mock, vi } from 'vitest';
 
 import { StorageApi } from '../../packages/altertable-js/src/lib/storage';
 
+export type StorageMock = {
+  getItem: Mock<(key: string) => string | null>;
+  setItem: Mock<(key: string, value: string) => void>;
+  removeItem: Mock<(key: string) => void>;
+  migrate: Mock<(fromStorage: StorageApi, keys: string[]) => void>;
+};
+
 export function createStorageMock(
-  overrides: Partial<{
-    [key in keyof StorageApi]: Mock<
-      (...args: Parameters<StorageApi[key]>) => ReturnType<StorageApi[key]>
-    >;
-  }> = {}
-) {
+  overrides: Partial<StorageMock> = {}
+): StorageMock {
   return {
     getItem: vi.fn().mockReturnValue(null),
     setItem: vi.fn(),
@@ -17,5 +20,3 @@ export function createStorageMock(
     ...overrides,
   };
 }
-
-export type StorageMock = ReturnType<typeof createStorageMock>;
