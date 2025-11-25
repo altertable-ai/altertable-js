@@ -1,16 +1,24 @@
 import {
+  PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
   SESSION_EXPIRATION_TIME_MS,
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
+import type {
+  DeviceId,
+  DistinctId,
+  SessionId,
+  UserId,
+  VisitorId,
+} from '../types';
 import { generateId } from './generateId';
 import { Logger } from './logger';
 import { type StorageApi } from './storage';
-import type { UserId, VisitorId, SessionId } from '../types';
 
 type SessionData = {
+  deviceId: DeviceId;
   visitorId: VisitorId;
   sessionId: SessionId;
   userId: UserId | null;
@@ -52,6 +60,7 @@ export class SessionManager {
       const parsedData = JSON.parse(storedData) as Partial<SessionData>;
 
       this._sessionData = {
+        deviceId: parsedData.deviceId || this._generateDeviceId(),
         visitorId: parsedData.visitorId || this._generateVisitorId(),
         sessionId: parsedData.sessionId || this._generateSessionId(),
         userId: parsedData.userId || null,
@@ -80,6 +89,14 @@ export class SessionManager {
 
   getUserId(): UserId | null {
     return this._sessionData.userId;
+  }
+
+  getDeviceId(): DeviceId {
+    return this._sessionData.deviceId;
+  }
+
+  getDistinctId(): DistinctId {
+    return this._sessionData.userId || this._sessionData.visitorId;
   }
 
   getLastEventAt(): string | null {
@@ -118,16 +135,16 @@ export class SessionManager {
   }
 
   reset({
-    resetVisitorId = false,
+    resetDeviceId = false,
     resetSessionId = true,
     resetTrackingConsent = false,
   }: {
-    resetVisitorId?: boolean;
+    resetDeviceId?: boolean;
     resetSessionId?: boolean;
     resetTrackingConsent?: boolean;
   } = {}): void {
-    if (resetVisitorId) {
-      this._sessionData.visitorId = this._generateVisitorId();
+    if (resetDeviceId) {
+      this._sessionData.deviceId = this._generateDeviceId();
     }
 
     if (resetSessionId) {
@@ -138,6 +155,7 @@ export class SessionManager {
       this._sessionData.trackingConsent = this._defaultTrackingConsent;
     }
 
+    this._sessionData.visitorId = this._generateVisitorId();
     this._sessionData.userId = null;
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
@@ -145,6 +163,7 @@ export class SessionManager {
 
   private _createDefaultSessionData(): SessionData {
     return {
+      deviceId: this._generateDeviceId(),
       visitorId: this._generateVisitorId(),
       sessionId: this._generateSessionId(),
       userId: null,
@@ -155,6 +174,10 @@ export class SessionManager {
 
   private _generateSessionId(): SessionId {
     return generateId(PREFIX_SESSION_ID);
+  }
+
+  private _generateDeviceId(): DeviceId {
+    return generateId(PREFIX_DEVICE_ID);
   }
 
   private _generateVisitorId(): VisitorId {

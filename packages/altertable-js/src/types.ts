@@ -5,6 +5,8 @@ export type EventType = 'track' | 'identify';
 export type EventProperties = Record<string, unknown>;
 
 export type UserId = string;
+export type DistinctId = string;
+export type DeviceId = `device-${string}`;
 export type VisitorId = `visitor-${string}`;
 export type SessionId = `session-${string}`;
 export type Environment = StringWithAutocomplete<
@@ -17,6 +19,8 @@ export interface UserTraits extends Record<string, unknown> {
 
 export type AltertableContext = {
   environment: Environment;
+  device_id: DeviceId;
+  distinct_id: DistinctId;
   user_id: UserId | null;
   visitor_id: VisitorId;
   session_id: SessionId;

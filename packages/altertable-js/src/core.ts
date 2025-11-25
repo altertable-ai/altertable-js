@@ -287,6 +287,8 @@ export class Altertable {
     const context = this._getContext();
     const payload: IdentifyPayload = {
       environment: context.environment,
+      device_id: context.device_id,
+      distinct_id: context.distinct_id,
       traits,
       user_id: userId,
       visitor_id: context.visitor_id,
@@ -321,6 +323,8 @@ export class Altertable {
     const context = this._getContext();
     const payload = {
       environment: context.environment,
+      device_id: context.device_id,
+      distinct_id: context.distinct_id,
       traits,
       user_id: userId,
       visitor_id: context.visitor_id,
@@ -334,14 +338,14 @@ export class Altertable {
   }
 
   /**
-   * Resets visitor and session IDs.
+   * Resets device and session IDs.
    *
    * @example
    * ```javascript
-   * // Reset session only (default)
+   * // Reset session, user and visitor (default)
    * altertable.reset();
    *
-   * // Reset both visitor and session
+   * // Reset session, user, visitor and device
    * altertable.reset({
    *   resetVisitorId: true,
    *   resetSessionId: true,
@@ -349,11 +353,11 @@ export class Altertable {
    * ```
    */
   reset({
-    resetVisitorId = false,
+    resetDeviceId = false,
     resetSessionId = true,
   }: {
-    /** Whether to reset visitor ID (default: false) */
-    resetVisitorId?: boolean;
+    /** Whether to reset device ID (default: false) */
+    resetDeviceId?: boolean;
     /** Whether to reset session ID (default: true) */
     resetSessionId?: boolean;
   } = {}) {
@@ -362,7 +366,10 @@ export class Altertable {
       'The client must be initialized with init() before resetting.'
     );
 
-    this._sessionManager.reset({ resetVisitorId, resetSessionId });
+    this._sessionManager.reset({
+      resetDeviceId,
+      resetSessionId,
+    });
   }
 
   /**
@@ -437,6 +444,8 @@ export class Altertable {
       timestamp,
       event,
       environment: context.environment,
+      device_id: context.device_id,
+      distinct_id: context.distinct_id,
       user_id: context.user_id,
       session_id: context.session_id,
       visitor_id: context.visitor_id,
@@ -500,6 +509,8 @@ export class Altertable {
   private _getContext(): AltertableContext {
     return {
       environment: this._config.environment,
+      device_id: this._sessionManager.getDeviceId(),
+      distinct_id: this._sessionManager.getDistinctId(),
       user_id: this._sessionManager.getUserId(),
       visitor_id: this._sessionManager.getVisitorId(),
       session_id: this._sessionManager.getSessionId(),
