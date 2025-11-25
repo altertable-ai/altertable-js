@@ -5,7 +5,7 @@ export type EventType = 'track' | 'identify';
 export type EventProperties = Record<string, unknown>;
 
 export type UserId = string;
-export type DistinctId = string;
+export type DistinctId = StringWithAutocomplete<UserId | VisitorId>;
 export type DeviceId = `device-${string}`;
 export type VisitorId = `visitor-${string}`;
 export type SessionId = `session-${string}`;
