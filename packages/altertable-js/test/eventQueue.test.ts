@@ -12,20 +12,18 @@ describe('EventQueue', () => {
   let eventQueue: EventQueue<EventPayload>;
   const mockContext: AltertableContext = {
     environment: 'production',
-    user_id: null,
-    visitor_id: 'visitor-test-1',
     session_id: 'session-test-1',
     device_id: 'device-test-1',
     distinct_id: 'visitor-test-1',
+    anonymous_id: null,
   };
   const mockEvent: EventPayload = {
     timestamp: '2023-01-01T00:00:00.000Z',
     event: 'test-event',
-    user_id: null,
     device_id: 'device-test-1',
     distinct_id: 'visitor-test-1',
+    anonymous_id: null,
     session_id: 'session-test-1',
-    visitor_id: 'visitor-test-1',
     environment: 'production',
     properties: { foo: 'bar' },
   };
