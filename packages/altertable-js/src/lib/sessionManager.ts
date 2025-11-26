@@ -112,6 +112,7 @@ export class SessionManager {
   identify(userId: UserId): void {
     this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
     this._sessionData.distinctId = userId;
+    this._sessionData.isIdentified = true;
     this._persistToStorage();
   }
 

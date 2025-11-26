@@ -652,6 +652,16 @@ describe('Altertable', () => {
         );
       });
 
+      it('throws error for calling identify on an already identified user', () => {
+        setupAltertable();
+        altertable.identify('user123', { email: 'user@example.com' });
+        expect(() => {
+          altertable.identify('user124', { email: 'user@example.com' });
+        }).toThrow(
+          '[Altertable] User is already identified with a different ID. Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
+        );
+      });
+
       it('throws when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
         expect(() => {
