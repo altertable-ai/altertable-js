@@ -32,9 +32,10 @@ const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 
 function createSessionData(overrides: Record<string, any> = {}) {
   return JSON.stringify({
-    visitorId: 'visitor-test-uuid-1-1234567890',
+    distinctId: 'visitor-test-uuid-1-1234567890',
+    anonymousId: null,
     sessionId: 'session-test-uuid-2-1234567890',
-    userId: null,
+    deviceId: 'device-test-uuid-3-1234567890',
     lastEventAt: null,
     trackingConsent: 'granted',
     ...overrides,
@@ -68,6 +69,7 @@ describe('Altertable', () => {
       baseUrl: 'http://localhost',
       autoCapture: false,
       trackingConsent: 'granted',
+      persistence: 'memory',
       ...overrides,
     });
   }
@@ -132,10 +134,9 @@ describe('Altertable', () => {
             event: EVENT_PAGEVIEW,
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            distinct_id: expect.any(String),
-            user_id: null,
+            distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            anonymous_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
             environment: 'production',
             properties: {
               [PROPERTY_LIB]: 'TEST_LIB_NAME',
@@ -164,11 +165,10 @@ describe('Altertable', () => {
           payload: {
             event: 'eventName',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            distinct_id: expect.any(String),
+            distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            user_id: null,
+            anonymous_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
             environment: 'production',
             properties: {
               [PROPERTY_LIB]: 'TEST_LIB_NAME',
@@ -609,10 +609,9 @@ describe('Altertable', () => {
           payload: {
             environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            distinct_id: expect.any(String),
             traits: {},
-            user_id: userId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            distinct_id: userId,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
           },
         });
       });
@@ -628,10 +627,9 @@ describe('Altertable', () => {
           payload: {
             environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            distinct_id: expect.any(String),
             traits,
-            user_id: userId,
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            distinct_id: userId,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
           },
         });
       });
@@ -718,10 +716,9 @@ describe('Altertable', () => {
           payload: {
             environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            distinct_id: expect.any(String),
             traits: newTraits,
-            user_id: 'user123',
-            visitor_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            distinct_id: 'user123',
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
           },
         });
       });
@@ -922,12 +919,14 @@ describe('Altertable', () => {
         setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
 
-        const originalUserId = altertable['_sessionManager'].getUserId();
+        const originalUserId = altertable['_sessionManager'].getDistinctId();
         expect(originalUserId).toBe('user123');
 
         altertable.reset();
-        const userId = altertable['_sessionManager'].getUserId();
-        expect(userId).toBeNull();
+        const distinctId = altertable['_sessionManager'].getDistinctId();
+        expect(distinctId).toMatch(REGEXP_VISITOR_ID);
+        const anonymousId = altertable['_sessionManager'].getAnonymousId();
+        expect(anonymousId).toBeNull();
       });
 
       it('resets session ID when called with default parameters', () => {
@@ -935,7 +934,7 @@ describe('Altertable', () => {
         altertable.identify('user123', { email: 'user@example.com' });
 
         const originalSessionId = altertable['_sessionManager'].getSessionId();
-        const originalUserId = altertable['_sessionManager'].getUserId();
+        const originalUserId = altertable['_sessionManager'].getDistinctId();
 
         expect(originalUserId).toBe('user123');
 
@@ -945,8 +944,10 @@ describe('Altertable', () => {
         expect(newSessionId).not.toEqual(originalSessionId);
         expect(newSessionId).toMatch(REGEXP_SESSION_ID);
 
-        const newUserId = altertable['_sessionManager'].getUserId();
-        expect(newUserId).toBeNull();
+        const newDistinctId = altertable['_sessionManager'].getDistinctId();
+        expect(newDistinctId).toMatch(REGEXP_VISITOR_ID);
+        const newAnonymousId = altertable['_sessionManager'].getAnonymousId();
+        expect(newAnonymousId).toBeNull();
       });
 
       it('resets device ID when called with resetDeviceId', () => {
@@ -1001,7 +1002,7 @@ describe('Altertable', () => {
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
           'atbl.test-api-key.production',
-          expect.stringContaining('"userId":"user123"')
+          expect.stringContaining('"distinctId":"user123"')
         );
 
         const lastCall =
@@ -1010,20 +1011,20 @@ describe('Altertable', () => {
           ];
         const storedData = JSON.parse(lastCall[1]);
         expect(storedData).toMatchObject({
-          visitorId: expect.stringMatching(REGEXP_VISITOR_ID),
+          anonymousId: expect.stringMatching(REGEXP_VISITOR_ID),
           sessionId: expect.stringMatching(REGEXP_SESSION_ID),
-          userId: 'user123',
+          distinctId: 'user123',
           lastEventAt: null,
         });
       });
 
       it('recovers storage data on initialization', () => {
-        const testVisitorId = 'visitor-test-uuid-3-1234567890';
+        const testAnonymousId = 'visitor-test-uuid-3-1234567890';
         const testSessionId = 'session-test-uuid-4-1234567890';
         const existingData = createSessionData({
-          visitorId: testVisitorId,
+          anonymousId: testAnonymousId,
           sessionId: testSessionId,
-          userId: 'user123',
+          distinctId: 'user123',
           lastEventAt: '2023-01-01T00:00:00.000Z',
         });
 
@@ -1039,13 +1040,13 @@ describe('Altertable', () => {
           trackingConsent: 'granted',
         });
 
-        const visitorId = altertable['_sessionManager'].getVisitorId();
+        const anonymousId = altertable['_sessionManager'].getAnonymousId();
         const sessionId = altertable['_sessionManager'].getSessionId();
-        const userId = altertable['_sessionManager'].getUserId();
+        const distinctId = altertable['_sessionManager'].getDistinctId();
         const lastEventAt = altertable['_sessionManager'].getLastEventAt();
-        expect(visitorId).toBe(testVisitorId);
+        expect(anonymousId).toBe(testAnonymousId);
         expect(sessionId).toBe(testSessionId);
-        expect(userId).toBe('user123');
+        expect(distinctId).toBe('user123');
         expect(lastEventAt).toBe('2023-01-01T00:00:00.000Z');
       });
 
@@ -1066,12 +1067,12 @@ describe('Altertable', () => {
           '[Altertable] Failed to parse storage data. Resetting session data.'
         );
 
-        const userId = altertable['_sessionManager'].getUserId();
+        const distinctId = altertable['_sessionManager'].getDistinctId();
         const sessionId = altertable['_sessionManager'].getSessionId();
-        const visitorId = altertable['_sessionManager'].getVisitorId();
-        expect(userId).toBeNull();
+        const anonymousId = altertable['_sessionManager'].getAnonymousId();
+        expect(distinctId).toMatch(REGEXP_VISITOR_ID);
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
-        expect(visitorId).toMatch(REGEXP_VISITOR_ID);
+        expect(anonymousId).toBeNull();
       });
     });
 
@@ -1161,7 +1162,7 @@ describe('Altertable', () => {
         altertable.configure({ persistence: 'memory' });
 
         expect(migrateSpy).toHaveBeenCalled();
-        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
+        expect(altertable['_sessionManager'].getDistinctId()).toBe('user123');
       });
     });
   });
@@ -1360,7 +1361,7 @@ describe('Altertable', () => {
           altertable.identify('user123', { email: 'user@example.com' });
         }).not.toRequestApi('/identify');
 
-        expect(altertable['_sessionManager'].getUserId()).toBe('user123');
+        expect(altertable['_sessionManager'].getDistinctId()).toBe('user123');
 
         expect(() => {
           altertable.configure({ trackingConsent: 'granted' });
@@ -1470,7 +1471,10 @@ describe('Altertable', () => {
 
       // 6. Reset (should clear state)
       altertable.reset();
-      expect(altertable['_sessionManager'].getUserId()).toBeNull();
+      expect(altertable['_sessionManager'].getDistinctId()).toMatch(
+        REGEXP_VISITOR_ID
+      );
+      expect(altertable['_sessionManager'].getAnonymousId()).toBeNull();
       expect(altertable['_sessionManager'].getSessionId()).toMatch(
         REGEXP_SESSION_ID
       );

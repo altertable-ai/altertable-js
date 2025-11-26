@@ -19,9 +19,10 @@ import { type StorageApi } from './storage';
 
 type SessionData = {
   deviceId: DeviceId;
-  visitorId: VisitorId;
+  distinctId: DistinctId;
+  anonymousId: VisitorId | null;
+  isIdentified: boolean;
   sessionId: SessionId;
-  userId: UserId | null;
   lastEventAt: string | null;
   trackingConsent: TrackingConsentType;
 };
@@ -61,10 +62,11 @@ export class SessionManager {
 
       this._sessionData = {
         deviceId: parsedData.deviceId || this._generateDeviceId(),
-        visitorId: parsedData.visitorId || this._generateVisitorId(),
+        distinctId: parsedData.distinctId || this._generateVisitorId(),
         sessionId: parsedData.sessionId || this._generateSessionId(),
-        userId: parsedData.userId || null,
+        anonymousId: parsedData.anonymousId || null,
         lastEventAt: parsedData.lastEventAt || null,
+        isIdentified: parsedData.distinctId !== null,
         trackingConsent: isValidTrackingConsent(parsedData.trackingConsent)
           ? parsedData.trackingConsent
           : this._defaultTrackingConsent,
@@ -79,16 +81,8 @@ export class SessionManager {
     this._persistToStorage();
   }
 
-  getVisitorId(): VisitorId {
-    return this._sessionData.visitorId;
-  }
-
   getSessionId(): SessionId {
     return this._sessionData.sessionId;
-  }
-
-  getUserId(): UserId | null {
-    return this._sessionData.userId;
   }
 
   getDeviceId(): DeviceId {
@@ -96,7 +90,15 @@ export class SessionManager {
   }
 
   getDistinctId(): DistinctId {
-    return this._sessionData.userId || this._sessionData.visitorId;
+    return this._sessionData.distinctId;
+  }
+
+  getAnonymousId(): VisitorId | null {
+    return this._sessionData.anonymousId;
+  }
+
+  isIdentified(): boolean {
+    return this._sessionData.isIdentified;
   }
 
   getLastEventAt(): string | null {
@@ -107,8 +109,9 @@ export class SessionManager {
     return this._sessionData.trackingConsent;
   }
 
-  setUserId(userId: UserId | null): void {
-    this._sessionData.userId = userId;
+  identify(userId: UserId): void {
+    this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
+    this._sessionData.distinctId = userId;
     this._persistToStorage();
   }
 
@@ -155,19 +158,21 @@ export class SessionManager {
       this._sessionData.trackingConsent = this._defaultTrackingConsent;
     }
 
-    this._sessionData.visitorId = this._generateVisitorId();
-    this._sessionData.userId = null;
+    this._sessionData.anonymousId = null;
+    this._sessionData.distinctId = this._generateVisitorId();
+    this._sessionData.isIdentified = false;
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
   }
 
   private _createDefaultSessionData(): SessionData {
     return {
+      anonymousId: null,
       deviceId: this._generateDeviceId(),
-      visitorId: this._generateVisitorId(),
-      sessionId: this._generateSessionId(),
-      userId: null,
+      distinctId: this._generateVisitorId(),
+      isIdentified: false,
       lastEventAt: null,
+      sessionId: this._generateSessionId(),
       trackingConsent: this._defaultTrackingConsent,
     };
   }

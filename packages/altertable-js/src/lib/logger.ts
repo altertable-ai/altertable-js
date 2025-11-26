@@ -5,7 +5,7 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
-import { TrackPayload, IdentifyPayload } from '../types';
+import { IdentifyPayload, TrackPayload } from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -54,12 +54,12 @@ export function createLogger(prefix: string) {
 
       const [userLabel, userLabelStyle] = createEventLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
-        payload.user_id ?? 'Not set'
+        payload.distinct_id ?? 'Not set'
       );
       const [visitorLabel, visitorLabelStyle] =
         createEventLabelElement('Visitor ID');
       const [visitorValueLabel, visitorValueStyle] = createValueElement(
-        payload.visitor_id ?? 'Not set'
+        payload.anonymous_id ?? 'Not set'
       );
       const [sessionLabel, sessionLabelStyle] =
         createEventLabelElement('Session ID');
@@ -97,7 +97,7 @@ export function createLogger(prefix: string) {
         getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c ${payload.user_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
+        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
         eventBadgeStyle,
         'font-weight: 600;',
         environmentBadgeStyle,
@@ -106,12 +106,12 @@ export function createLogger(prefix: string) {
 
       const [userLabel, userLabelStyle] = createEventLabelElement('User ID');
       const [userValueLabel, userValueStyle] = createValueElement(
-        payload.user_id ?? 'Not set'
+        payload.distinct_id ?? 'Not set'
       );
       const [visitorLabel, visitorLabelStyle] =
         createEventLabelElement('Visitor ID');
       const [visitorValueLabel, visitorValueStyle] = createValueElement(
-        payload.visitor_id ?? 'Not set'
+        payload.anonymous_id ?? 'Not set'
       );
 
       console.log(

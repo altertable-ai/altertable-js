@@ -38,6 +38,7 @@ import {
   IdentifyPayload,
   TrackPayload,
   UserTraits,
+  VisitorId,
 } from './types';
 
 export interface AltertableConfig {
@@ -277,21 +278,27 @@ export class Altertable {
       'The client must be initialized with init() before identifying users.'
     );
 
+    const context = this._getContext();
+
+    invariant(
+      !this._sessionManager.isIdentified() ||
+        userId === this._sessionManager.getDistinctId(),
+      'User is already identified with a different ID. Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
+    );
+
     try {
       validateUserId(userId);
     } catch (error) {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
-    this._sessionManager.setUserId(userId);
-    const context = this._getContext();
+    this._sessionManager.identify(userId);
     const payload: IdentifyPayload = {
       environment: context.environment,
       device_id: context.device_id,
-      distinct_id: context.distinct_id,
+      distinct_id: userId,
       traits,
-      user_id: userId,
-      visitor_id: context.visitor_id,
+      anonymous_id: context.distinct_id as VisitorId,
     };
     this._processEvent('identify', payload, context);
 
@@ -314,20 +321,20 @@ export class Altertable {
    * ```
    */
   updateTraits(traits: UserTraits) {
-    const userId = this._sessionManager.getUserId();
+    const context = this._getContext();
+
+    const distinctId = context.distinct_id;
     invariant(
-      userId,
+      context.anonymous_id !== null,
       'User must be identified with identify() before updating traits.'
     );
 
-    const context = this._getContext();
     const payload = {
       environment: context.environment,
       device_id: context.device_id,
-      distinct_id: context.distinct_id,
+      distinct_id: distinctId,
       traits,
-      user_id: userId,
-      visitor_id: context.visitor_id,
+      anonymous_id: context.anonymous_id,
     };
     this._processEvent('identify', payload, context);
 
@@ -446,9 +453,8 @@ export class Altertable {
       environment: context.environment,
       device_id: context.device_id,
       distinct_id: context.distinct_id,
-      user_id: context.user_id,
+      anonymous_id: context.anonymous_id,
       session_id: context.session_id,
-      visitor_id: context.visitor_id,
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -511,8 +517,7 @@ export class Altertable {
       environment: this._config.environment,
       device_id: this._sessionManager.getDeviceId(),
       distinct_id: this._sessionManager.getDistinctId(),
-      user_id: this._sessionManager.getUserId(),
-      visitor_id: this._sessionManager.getVisitorId(),
+      anonymous_id: this._sessionManager.getAnonymousId(),
       session_id: this._sessionManager.getSessionId(),
     };
   }

@@ -21,8 +21,7 @@ export type AltertableContext = {
   environment: Environment;
   device_id: DeviceId;
   distinct_id: DistinctId;
-  user_id: UserId | null;
-  visitor_id: VisitorId;
+  anonymous_id: VisitorId | null;
   session_id: SessionId;
 };
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, loggerCache } from '../src/lib/logger';
-import type { EventPayload, IdentifyPayload } from '../src/types';
+import type { EventPayload, IdentifyPayload, TrackPayload } from '../src/types';
 
 describe('Logger', () => {
   const originalConsole = {
@@ -85,14 +85,13 @@ describe('Logger', () => {
   });
 
   describe('logEvent', () => {
-    const mockEventPayload: EventPayload = {
+    const mockEventPayload: TrackPayload = {
       timestamp: '2021-01-01T00:00:00.000Z',
       event: 'test_event',
       device_id: 'device-123',
       distinct_id: 'user123',
-      user_id: 'user123',
       session_id: 'session-123',
-      visitor_id: 'visitor-123',
+      anonymous_id: 'visitor-123',
       environment: 'development',
       properties: {
         key1: 'value1',
@@ -132,9 +131,9 @@ describe('Logger', () => {
 
     it('handles undefined user_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutUser: EventPayload = {
+      const payloadWithoutUser: TrackPayload = {
         ...mockEventPayload,
-        user_id: undefined,
+        distinct_id: undefined,
       };
 
       logger.logEvent(payloadWithoutUser, { trackingConsent: 'granted' });
@@ -160,9 +159,9 @@ describe('Logger', () => {
 
     it('handles undefined visitor_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutVisitor: EventPayload = {
+      const payloadWithoutVisitor: TrackPayload = {
         ...mockEventPayload,
-        visitor_id: undefined,
+        anonymous_id: undefined,
       };
 
       logger.logEvent(payloadWithoutVisitor, { trackingConsent: 'granted' });
@@ -323,8 +322,7 @@ describe('Logger', () => {
       },
       device_id: 'device-123',
       distinct_id: 'user123',
-      user_id: 'user123',
-      visitor_id: 'visitor-123' as const,
+      anonymous_id: 'visitor-123' as const,
     };
 
     it('logs identify event with all components', () => {
@@ -355,14 +353,16 @@ describe('Logger', () => {
       );
     });
 
-    it('handles undefined user_id', () => {
+    it('handles undefined distinct_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutUser: IdentifyPayload = {
+      const payloadWithoutDistinctId: IdentifyPayload = {
         ...mockIdentifyPayload,
-        user_id: undefined,
+        distinct_id: undefined,
       };
 
-      logger.logIdentify(payloadWithoutUser, { trackingConsent: 'granted' });
+      logger.logIdentify(payloadWithoutDistinctId, {
+        trackingConsent: 'granted',
+      });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cUser ID %cNot set',
@@ -383,14 +383,16 @@ describe('Logger', () => {
       );
     });
 
-    it('handles undefined visitor_id', () => {
+    it('handles undefined anonymous_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutVisitor: IdentifyPayload = {
+      const payloadWithoutAnonymousId: IdentifyPayload = {
         ...mockIdentifyPayload,
-        visitor_id: undefined,
+        anonymous_id: undefined,
       };
 
-      logger.logIdentify(payloadWithoutVisitor, { trackingConsent: 'granted' });
+      logger.logIdentify(payloadWithoutAnonymousId, {
+        trackingConsent: 'granted',
+      });
 
       expect(console.log).toHaveBeenCalledWith(
         '%cVisitor ID %cNot set',
