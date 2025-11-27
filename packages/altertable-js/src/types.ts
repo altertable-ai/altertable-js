@@ -25,7 +25,7 @@ export type AltertableContext = {
   session_id: SessionId;
 };
 
-export type EventPayload = TrackPayload | IdentifyPayload;
+export type EventPayload = TrackPayload | IdentifyPayload | AliasPayload;
 
 export type TrackPayload = AltertableContext & {
   event: string;
@@ -35,4 +35,12 @@ export type TrackPayload = AltertableContext & {
 
 export type IdentifyPayload = Omit<AltertableContext, 'session_id'> & {
   traits: UserTraits;
+};
+
+export type AliasPayload = Omit<
+  AltertableContext,
+  'session_id' | 'anonymous_id'
+> & {
+  distinct_id: DistinctId;
+  anonymous_id: DistinctId;
 };

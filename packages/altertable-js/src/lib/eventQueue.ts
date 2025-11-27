@@ -16,7 +16,7 @@ export class EventQueue<TPayload> {
   }
 
   enqueue(
-    eventType: 'track' | 'identify',
+    eventType: 'track' | 'identify' | 'alias',
     payload: TPayload,
     context: AltertableContext
   ): void {

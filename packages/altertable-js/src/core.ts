@@ -332,7 +332,7 @@ export class Altertable {
         environment: context.environment,
         device_id: context.device_id,
         distinct_id: newUserId,
-        anonymous_id: context.distinct_id,
+        anonymous_id: context.distinct_id as unknown as VisitorId,
         session_id: context.session_id,
       },
       context
