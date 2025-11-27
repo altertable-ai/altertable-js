@@ -39,6 +39,9 @@ altertable.identify('u_01jza857w4f23s1hf2s61befmw', {
 altertable.updateTraits({
   onboarding_completed: true,
 });
+
+// Attach a new alias id to current identity
+altertable.alias('alias_id');
 ```
 
 ## Features
@@ -136,6 +139,7 @@ altertable.page('https://example.com/products');
 #### `altertable.identify(userId, traits?)`
 
 Identifies a user with their ID and optional traits.
+It flags the identity as being a identitied user.
 
 **Parameters:**
 
@@ -173,30 +177,44 @@ altertable.updateTraits({
 });
 ```
 
+#### `alterable.alias(aliasId)`
+
+Attach a new alias id to current identity.
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+| ----------| --- | -- | --- |  --- |
+| `aliasId` | `string` | Yes | - | Alias id to be linked to current identity |
+
+**Example:**
+
+```javascript
+altertable.alias("backend_id");
+```
+
 ### Session Management
 
 #### `altertable.reset(options?)`
 
-Resets visitor and session IDs.
+Resets identity context. You should call this at user logout. It will ensure multiple users are not linked together by error.
 
 **Parameters:**
 
 | Parameter                | Type      | Required | Default | Description                 |
 | ------------------------ | --------- | -------- | ------- | --------------------------- |
 | `options`                | `object`  | No       | `{}`    | Reset options               |
-| `options.resetVisitorId` | `boolean` | No       | `false` | Whether to reset visitor ID |
-| `options.resetSessionId` | `boolean` | No       | `true`  | Whether to reset session ID |
+| `options.resetDeviceId`  | `boolean` | No       | `false` | Whether to reset device ID  |
 
 **Example:**
 
 ```javascript
-// Reset session only (default)
+// Reset everything except device_id
 altertable.reset();
 
-// Reset both visitor and session
+// Reset all IDs
 altertable.reset({
-  resetVisitorId: true,
-  resetSessionId: true,
+  resetDeviceId: true,
 });
 ```
 
