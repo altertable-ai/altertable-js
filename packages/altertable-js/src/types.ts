@@ -1,6 +1,6 @@
 export type StringWithAutocomplete<T> = T | (string & {});
 
-export type EventType = 'track' | 'identify';
+export type EventType = 'track' | 'identify' | 'alias';
 
 export type EventProperties = Record<string, unknown>;
 

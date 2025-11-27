@@ -795,6 +795,61 @@ describe('Altertable', () => {
     });
   });
 
+  describe('alias() method', () => {
+    it('aliases user to a new ID', () => {
+      setupAltertable();
+      // Spy on the requester.send method to check /alias is called
+      const requesterSendSpy = vi.spyOn(altertable['_requester'], 'send');
+
+      altertable.alias('user456');
+
+      expect(requesterSendSpy).toHaveBeenCalledWith(
+        '/alias',
+        expect.objectContaining({
+          environment: expect.any(String),
+          device_id: expect.any(String),
+          distinct_id: 'user456',
+          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          session_id: expect.any(String),
+        })
+      );
+
+      requesterSendSpy.mockRestore();
+    });
+
+    it('can call alias before identifying the user', () => {
+      setupAltertable();
+
+      expect(() => {
+        altertable.alias('user456');
+      }).toRequestApi('/alias', {
+        payload: expect.objectContaining({
+          distinct_id: 'user456',
+          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+        }),
+      });
+
+      expect(() => {
+        altertable.identify('user123', { email: 'user@example.com' });
+      }).toRequestApi('/identify');
+    });
+
+    it('can call alias after identifying the user', () => {
+      setupAltertable();
+
+      altertable.identify('user123', { email: 'user@example.com' });
+
+      expect(() => {
+        altertable.alias('user456');
+      }).toRequestApi('/alias', {
+        payload: expect.objectContaining({
+          distinct_id: 'user456',
+          anonymous_id: 'user123',
+        }),
+      });
+    });
+  });
+
   describe('session management', () => {
     describe('session ID generation', () => {
       it('generates new session ID on initialization', () => {

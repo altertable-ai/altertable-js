@@ -309,6 +309,37 @@ export class Altertable {
   }
 
   /**
+   * Alias a user to a new ID.
+   *
+   * @param newUserId The new user ID
+   *
+   * @example
+   * ```javascript
+   * altertable.alias('u_01jza857w4f23s1hf2s61befmw', 'u_01jza857w4f23s1hf2s61befmw');
+   * ```
+   */
+  alias(newUserId: string) {
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before aliasing users.'
+    );
+
+    const context = this._getContext();
+
+    this._processEvent(
+      'alias',
+      {
+        environment: context.environment,
+        device_id: context.device_id,
+        distinct_id: newUserId,
+        anonymous_id: context.distinct_id,
+        session_id: context.session_id,
+      },
+      context
+    );
+  }
+
+  /**
    * Updates user traits for the current user.
    *
    * @param traits User properties to update
