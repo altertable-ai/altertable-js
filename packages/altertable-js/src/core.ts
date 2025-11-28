@@ -300,7 +300,6 @@ export class Altertable {
       distinct_id: userId,
       traits,
       anonymous_id: context.distinct_id as VisitorId,
-      session_id: context.session_id,
     };
     this._processEvent('identify', payload, context);
 

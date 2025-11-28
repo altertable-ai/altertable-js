@@ -33,10 +33,10 @@ export type TrackPayload = AltertableContext & {
   timestamp: string;
 };
 
-export type IdentifyPayload = AltertableContext & {
+export type IdentifyPayload = Omit<AltertableContext, 'session_id'> & {
   traits: UserTraits;
 };
 
-export type AliasPayload = AltertableContext & {
+export type AliasPayload = Omit<AltertableContext, 'session_id'> & {
   new_user_id: DistinctId;
 };

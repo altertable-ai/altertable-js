@@ -36,7 +36,6 @@ function createIdentifyEventPayload(
     device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     anonymous_id: 'visitor-0197d9df-3c3b-734e-96dd-dfda52b0167c',
-    session_id: 'session-0197d9df-4e77-72cb-bf0a-e35b3f1f5425',
     ...overrides,
   };
 }

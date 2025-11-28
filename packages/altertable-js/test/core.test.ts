@@ -612,7 +612,6 @@ describe('Altertable', () => {
             traits: {},
             distinct_id: userId,
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
           },
         });
       });
@@ -631,7 +630,6 @@ describe('Altertable', () => {
             traits,
             distinct_id: userId,
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            session_id: expect.stringMatching(REGEXP_SESSION_ID),
           },
         });
       });
