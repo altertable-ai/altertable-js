@@ -612,6 +612,7 @@ describe('Altertable', () => {
             traits: {},
             distinct_id: userId,
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
           },
         });
       });
@@ -630,6 +631,7 @@ describe('Altertable', () => {
             traits,
             distinct_id: userId,
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
           },
         });
       });
@@ -733,6 +735,7 @@ describe('Altertable', () => {
             traits: newTraits,
             distinct_id: 'user123',
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+            session_id: expect.stringMatching(REGEXP_SESSION_ID),
           },
         });
       });
@@ -814,6 +817,7 @@ describe('Altertable', () => {
           device_id: expect.stringMatching(REGEXP_DEVICE_ID),
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          anonymous_id: null,
           session_id: expect.stringMatching(REGEXP_SESSION_ID),
         })
       );
@@ -830,6 +834,8 @@ describe('Altertable', () => {
         payload: expect.objectContaining({
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          anonymous_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         }),
       });
 
@@ -849,6 +855,8 @@ describe('Altertable', () => {
         payload: expect.objectContaining({
           new_user_id: 'user456',
           distinct_id: 'user123',
+          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         }),
       });
     });

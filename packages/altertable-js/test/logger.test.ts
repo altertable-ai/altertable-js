@@ -323,6 +323,7 @@ describe('Logger', () => {
       device_id: 'device-123',
       distinct_id: 'user123',
       anonymous_id: 'visitor-123' as const,
+      session_id: 'session-123' as const,
     };
 
     it('logs identify event with all components', () => {

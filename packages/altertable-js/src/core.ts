@@ -300,6 +300,7 @@ export class Altertable {
       distinct_id: userId,
       traits,
       anonymous_id: context.distinct_id as VisitorId,
+      session_id: context.session_id,
     };
     this._processEvent('identify', payload, context);
 
@@ -332,6 +333,7 @@ export class Altertable {
       {
         environment: context.environment,
         device_id: context.device_id,
+        anonymous_id: context.anonymous_id,
         distinct_id: context.distinct_id,
         new_user_id: newUserId,
         session_id: context.session_id,
@@ -366,6 +368,7 @@ export class Altertable {
       distinct_id: context.distinct_id,
       traits,
       anonymous_id: context.anonymous_id,
+      session_id: context.session_id,
     };
     this._processEvent('identify', payload, context);
 
