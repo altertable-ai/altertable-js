@@ -37,10 +37,6 @@ export type IdentifyPayload = Omit<AltertableContext, 'session_id'> & {
   traits: UserTraits;
 };
 
-export type AliasPayload = Omit<
-  AltertableContext,
-  'session_id' | 'anonymous_id'
-> & {
-  distinct_id: DistinctId;
-  anonymous_id: DistinctId;
+export type AliasPayload = Omit<AltertableContext, 'session_id'> & {
+  new_user_id: DistinctId;
 };

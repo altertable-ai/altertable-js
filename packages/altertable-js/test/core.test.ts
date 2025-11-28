@@ -812,8 +812,8 @@ describe('Altertable', () => {
         expect.objectContaining({
           environment: expect.any(String),
           device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-          distinct_id: 'user456',
-          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          new_user_id: 'user456',
+          distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
           session_id: expect.stringMatching(REGEXP_SESSION_ID),
         })
       );
@@ -828,8 +828,8 @@ describe('Altertable', () => {
         altertable.alias('user456');
       }).toRequestApi('/alias', {
         payload: expect.objectContaining({
-          distinct_id: 'user456',
-          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          new_user_id: 'user456',
+          distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
         }),
       });
 
@@ -847,8 +847,8 @@ describe('Altertable', () => {
         altertable.alias('user456');
       }).toRequestApi('/alias', {
         payload: expect.objectContaining({
-          distinct_id: 'user456',
-          anonymous_id: 'user123',
+          new_user_id: 'user456',
+          distinct_id: 'user123',
         }),
       });
     });
