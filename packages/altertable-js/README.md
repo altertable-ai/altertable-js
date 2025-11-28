@@ -41,7 +41,7 @@ altertable.updateTraits({
 });
 
 // Link a new ID to the current identity
-altertable.alias('alias_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
+altertable.alias('new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
 ```
 
 ## Features
@@ -177,7 +177,7 @@ altertable.updateTraits({
 });
 ```
 
-#### `altertable.alias(aliasId)`
+#### `altertable.alias(newUserId)`
 
 Links a new ID to the current identity.
 
@@ -190,7 +190,7 @@ Links a new ID to the current identity.
 **Example:**
 
 ```javascript
-altertable.alias("backend_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd");
+altertable.alias("new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd");
 ```
 
 ### Session Management
