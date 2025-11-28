@@ -197,7 +197,7 @@ altertable.alias("backend_id");
 
 #### `altertable.reset(options?)`
 
-Resets identity context. You should call this at user logout. It will ensure multiple users are not linked together by error.
+Resets the current identity context so future events are not associated with the previous user.
 
 **Parameters:**
 
