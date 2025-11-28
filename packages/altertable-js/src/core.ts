@@ -318,7 +318,7 @@ export class Altertable {
    * altertable.alias('u_01jza857w4f23s1hf2s61befmw');
    * ```
    */
-  alias(newUserId: string) {
+  alias(newUserId: DistinctId) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before aliasing users.'
