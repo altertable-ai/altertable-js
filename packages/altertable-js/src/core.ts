@@ -283,7 +283,7 @@ export class Altertable {
     invariant(
       !this._sessionManager.isIdentified() ||
         userId === this._sessionManager.getDistinctId(),
-      'User is already identified with a different ID. Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
+      `User (${userId}) is already identified with a different ID (${this._sessionManager.getDistinctId()}). Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.`
     );
 
     try {
