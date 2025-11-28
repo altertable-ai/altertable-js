@@ -183,9 +183,9 @@ Links a new ID to the current identity.
 
 **Parameters:**
 
-| Parameter | Type     | Required | Default | Description                            |
-| ----------| -------- | -------- | ------- | -------------------------------------- |
-| `aliasId` | `string` | Yes      | ------- | New ID to link to the current identity |
+| Parameter   | Type     | Required | Default | Description                            |
+| ----------- | -------- | -------- | ------- | -------------------------------------- |
+| `newUserId` | `string` | Yes      | ------- | New ID to link to the current identity |
 
 **Example:**
 

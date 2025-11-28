@@ -31,6 +31,7 @@ import { validateUserId } from './lib/validateUserId';
 import { getViewport } from './lib/viewport';
 import {
   AltertableContext,
+  DistinctId,
   Environment,
   EventPayload,
   EventProperties,
@@ -309,7 +310,7 @@ export class Altertable {
   }
 
   /**
-   * Alias a user to a new ID.
+   * Link a new ID to the current identity.
    *
    * @param newUserId The new user ID
    *
