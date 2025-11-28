@@ -209,7 +209,7 @@ Resets the current identity context so future events are not associated with the
 **Example:**
 
 ```javascript
-// Reset everything except device_id
+// Reset everything except device ID
 altertable.reset();
 
 // Reset all IDs
