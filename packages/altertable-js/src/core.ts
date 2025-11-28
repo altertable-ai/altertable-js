@@ -30,6 +30,7 @@ import {
 import { validateUserId } from './lib/validateUserId';
 import { getViewport } from './lib/viewport';
 import {
+  AliasPayload,
   AltertableContext,
   DistinctId,
   Environment,
@@ -325,20 +326,28 @@ export class Altertable {
       'The client must be initialized with init() before aliasing users.'
     );
 
+    try {
+      validateUserId(newUserId);
+    } catch (error) {
+      throw new Error(`[Altertable] ${error.message}`);
+    }
+
     const context = this._getContext();
 
-    this._processEvent(
-      'alias',
-      {
-        environment: context.environment,
-        device_id: context.device_id,
-        anonymous_id: context.anonymous_id,
-        distinct_id: context.distinct_id,
-        new_user_id: newUserId,
-        session_id: context.session_id,
-      },
-      context
-    );
+    const payload: AliasPayload = {
+      environment: context.environment,
+      device_id: context.device_id,
+      anonymous_id: context.anonymous_id,
+      distinct_id: context.distinct_id,
+      new_user_id: newUserId,
+    };
+
+    this._processEvent('alias', payload, context);
+
+    if (this._config.debug) {
+      const trackingConsent = this._sessionManager.getTrackingConsent();
+      this._logger.logAlias(payload, { trackingConsent });
+    }
   }
 
   /**

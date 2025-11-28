@@ -652,6 +652,24 @@ describe('Altertable', () => {
         );
       });
 
+      it('throws error for null user ID', () => {
+        setupAltertable();
+        expect(() => {
+          altertable.identify(null);
+        }).toThrow(
+          '[Altertable] User ID cannot be empty or contain only whitespace.'
+        );
+      });
+
+      it('throws error for undefined user ID', () => {
+        setupAltertable();
+        expect(() => {
+          altertable.identify(undefined);
+        }).toThrow(
+          '[Altertable] User ID cannot be empty or contain only whitespace.'
+        );
+      });
+
       it('throws error when calling identify on an already identified user', () => {
         setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
@@ -701,7 +719,7 @@ describe('Altertable', () => {
         );
 
         expect(consoleLogSpy).toHaveBeenCalledWith(
-          '%cUser ID %cuser123',
+          '%cDistinct ID %cuser123',
           expect.any(String),
           expect.any(String)
         );
@@ -781,7 +799,7 @@ describe('Altertable', () => {
         );
 
         expect(consoleLogSpy).toHaveBeenCalledWith(
-          '%cUser ID %cuser123',
+          '%cDistinct ID %cuser123',
           expect.any(String),
           expect.any(String)
         );
@@ -816,11 +834,46 @@ describe('Altertable', () => {
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
           anonymous_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         })
       );
 
       requesterSendSpy.mockRestore();
+    });
+
+    it('throws error for reserved new user ID', () => {
+      setupAltertable();
+      expect(() => {
+        altertable.alias('anonymous_id');
+      }).toThrow(
+        '[Altertable] User ID "anonymous_id" is a reserved identifier and cannot be used.'
+      );
+    });
+
+    it('throws error for empty new user ID', () => {
+      setupAltertable();
+      expect(() => {
+        altertable.alias('');
+      }).toThrow(
+        '[Altertable] User ID cannot be empty or contain only whitespace.'
+      );
+    });
+
+    it('throws error for null new user ID', () => {
+      setupAltertable();
+      expect(() => {
+        altertable.alias(null);
+      }).toThrow(
+        '[Altertable] User ID cannot be empty or contain only whitespace.'
+      );
+    });
+
+    it('throws error for undefined new user ID', () => {
+      setupAltertable();
+      expect(() => {
+        altertable.alias(undefined);
+      }).toThrow(
+        '[Altertable] User ID cannot be empty or contain only whitespace.'
+      );
     });
 
     it('can call alias before identifying the user', () => {
@@ -833,7 +886,6 @@ describe('Altertable', () => {
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
           anonymous_id: null,
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         }),
       });
 
@@ -854,7 +906,6 @@ describe('Altertable', () => {
           new_user_id: 'user456',
           distinct_id: 'user123',
           anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         }),
       });
     });

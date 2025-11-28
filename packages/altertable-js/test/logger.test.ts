@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, loggerCache } from '../src/lib/logger';
-import type { EventPayload, IdentifyPayload, TrackPayload } from '../src/types';
+import type {
+  AliasPayload,
+  EventPayload,
+  IdentifyPayload,
+  TrackPayload,
+} from '../src/types';
 
 describe('Logger', () => {
   const originalConsole = {
@@ -347,7 +352,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser ID %cuser123',
+        '%cDistinct ID %cuser123',
         expect.any(String),
         expect.any(String)
       );
@@ -365,7 +370,7 @@ describe('Logger', () => {
       });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser ID %cNot set',
+        '%cDistinct ID %cNot set',
         expect.any(String),
         expect.any(String)
       );
@@ -377,7 +382,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cvisitor-123',
+        '%cAnonymous ID %cvisitor-123',
         expect.any(String),
         expect.any(String)
       );
@@ -395,7 +400,7 @@ describe('Logger', () => {
       });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cNot set',
+        '%cAnonymous ID %cNot set',
         expect.any(String),
         expect.any(String)
       );
@@ -449,6 +454,128 @@ describe('Logger', () => {
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
           /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cPENDING$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+  });
+
+  describe('logAlias', () => {
+    const mockAliasPayload: AliasPayload = {
+      environment: 'development',
+      new_user_id: 'user--456',
+      device_id: 'device-123',
+      distinct_id: 'user123',
+      anonymous_id: 'visitor-123' as const,
+    };
+
+    it('logs alias event with all components', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs distinct ID information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cDistinct ID %cuser123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined distinct_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutDistinctId: AliasPayload = {
+        ...mockAliasPayload,
+        distinct_id: undefined,
+      };
+
+      logger.logAlias(payloadWithoutDistinctId, {
+        trackingConsent: 'granted',
+      });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cDistinct ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined new_user_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutAnonymousId: AliasPayload = {
+        ...mockAliasPayload,
+        new_user_id: undefined,
+      };
+
+      logger.logAlias(payloadWithoutAnonymousId, {
+        trackingConsent: 'granted',
+      });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cNew User ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays no badge when tracking consent is granted', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays DENIED badge when tracking consent is denied', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'denied' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cDENIED$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays PENDING badge when tracking consent is pending', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'pending' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cPENDING$/
         ),
         expect.any(String),
         expect.any(String),

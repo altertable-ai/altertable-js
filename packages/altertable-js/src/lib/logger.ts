@@ -5,7 +5,7 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
-import { IdentifyPayload, TrackPayload } from '../types';
+import { AliasPayload, IdentifyPayload, TrackPayload } from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -104,27 +104,71 @@ export function createLogger(prefix: string) {
         consentBadgeStyle
       );
 
-      const [userLabel, userLabelStyle] = createEventLabelElement('User ID');
-      const [userValueLabel, userValueStyle] = createValueElement(
+      const [distinctIdLabel, distinctIdLabelStyle] =
+        createEventLabelElement('Distinct ID');
+      const [distinctIdValueLabel, distinctIdValueStyle] = createValueElement(
         payload.distinct_id ?? 'Not set'
       );
-      const [visitorLabel, visitorLabelStyle] =
-        createEventLabelElement('Visitor ID');
-      const [visitorValueLabel, visitorValueStyle] = createValueElement(
+      const [anonymousLabel, anonymousLabelStyle] =
+        createEventLabelElement('Anonymous ID');
+      const [anonymousalueLabel, anonymousValueStyle] = createValueElement(
         payload.anonymous_id ?? 'Not set'
       );
 
       console.log(
-        `%c${userLabel} %c${userValueLabel}`,
-        userLabelStyle,
-        userValueStyle
+        `%c${distinctIdLabel} %c${distinctIdValueLabel}`,
+        distinctIdLabelStyle,
+        distinctIdValueStyle
       );
       console.log(
-        `%c${visitorLabel} %c${visitorValueLabel}`,
-        visitorLabelStyle,
-        visitorValueStyle
+        `%c${anonymousLabel} %c${anonymousalueLabel}`,
+        anonymousLabelStyle,
+        anonymousValueStyle
       );
       console.table(payload.traits);
+      console.groupEnd();
+    },
+    logAlias: (
+      payload: AliasPayload,
+      { trackingConsent }: { trackingConsent: TrackingConsentType }
+    ) => {
+      const [eventBadgeLabel, eventBadgeStyle] =
+        createEventBadgeElement('Alias');
+      const [environmentBadgeLabel, environmentBadgeStyle] =
+        createEnvironmentBadgeElement(payload.environment);
+      const [consentBadgeLabel, consentBadgeStyle] =
+        getConsentBadgeElement(trackingConsent);
+
+      console.groupCollapsed(
+        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
+        eventBadgeStyle,
+        'font-weight: 600;',
+        environmentBadgeStyle,
+        consentBadgeStyle
+      );
+
+      const [distinctIdLabel, distinctIdLabelStyle] =
+        createEventLabelElement('Distinct ID');
+      const [distinctIdValueLabel, distinctIdValueStyle] = createValueElement(
+        payload.distinct_id ?? 'Not set'
+      );
+
+      const [newUserIdLabel, newUserIdLabelStyle] =
+        createEventLabelElement('New User ID');
+      const [newUserIdValueLabel, newUserIdValueStyle] = createValueElement(
+        payload.new_user_id ?? 'Not set'
+      );
+
+      console.log(
+        `%c${distinctIdLabel} %c${distinctIdValueLabel}`,
+        distinctIdLabelStyle,
+        distinctIdValueStyle
+      );
+      console.log(
+        `%c${newUserIdLabel} %c${newUserIdValueLabel}`,
+        newUserIdLabelStyle,
+        newUserIdValueStyle
+      );
       console.groupEnd();
     },
     warn: (...args: unknown[]) => {
