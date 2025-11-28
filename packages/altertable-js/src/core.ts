@@ -385,18 +385,15 @@ export class Altertable {
    *
    * // Reset session, user, visitor and device
    * altertable.reset({
-   *   resetSessionId: true,
+   *   resetDeviceId: true,
    * });
    * ```
    */
   reset({
     resetDeviceId = false,
-    resetSessionId = true,
   }: {
     /** Whether to reset device ID (default: false) */
     resetDeviceId?: boolean;
-    /** Whether to reset session ID (default: true) */
-    resetSessionId?: boolean;
   } = {}) {
     invariant(
       this._isInitialized,
@@ -405,7 +402,6 @@ export class Altertable {
 
     this._sessionManager.reset({
       resetDeviceId,
-      resetSessionId,
     });
   }
 

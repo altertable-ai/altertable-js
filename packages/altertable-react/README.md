@@ -139,7 +139,7 @@ Returns an object with tracking methods and funnel utilities.
 | Property             | Type                                                                         | Description                                                                                    |
 | `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                                                                                |
 | `page`               | `(url: string) => void`                                                      | Manually track a page view (use only when `autoCapture` is false)                              |
-| `reset`              | `(options?: { resetDeviceId?: boolean; resetSessionId?: boolean }) => void`  | Resets the current identity context so future events are not associated with the previous user |
+| `reset`              | `(options?: { resetDeviceId?: boolean }) => void`                            | Resets the current identity context so future events are not associated with the previous user |
 | `alias`              | `(newUserId: string) => void`                                                | Link a new ID to the current identity                                                          |
 | `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                                                                             |
 | `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration                                                                           |

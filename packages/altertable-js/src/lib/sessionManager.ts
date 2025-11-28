@@ -140,25 +140,20 @@ export class SessionManager {
 
   reset({
     resetDeviceId = false,
-    resetSessionId = true,
     resetTrackingConsent = false,
   }: {
     resetDeviceId?: boolean;
-    resetSessionId?: boolean;
     resetTrackingConsent?: boolean;
   } = {}): void {
     if (resetDeviceId) {
       this._sessionData.deviceId = this._generateDeviceId();
     }
 
-    if (resetSessionId) {
-      this._sessionData.sessionId = this._generateSessionId();
-    }
-
     if (resetTrackingConsent) {
       this._sessionData.trackingConsent = this._defaultTrackingConsent;
     }
 
+    this._sessionData.sessionId = this._generateSessionId();
     this._sessionData.anonymousId = null;
     this._sessionData.distinctId = this._generateVisitorId();
     this._sessionData.isIdentified = false;

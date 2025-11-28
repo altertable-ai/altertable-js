@@ -104,7 +104,7 @@ describe('Altertable', () => {
     setupBeaconAvailable();
 
     if (altertable?.['_isInitialized']) {
-      altertable.reset({ resetDeviceId: true, resetSessionId: true });
+      altertable.reset({ resetDeviceId: true });
     }
     altertable = new Altertable();
   });
@@ -1030,18 +1030,6 @@ describe('Altertable', () => {
         const newDeviceId = altertable['_sessionManager'].getDeviceId();
         expect(newDeviceId).not.toEqual(originalDeviceId);
         expect(newDeviceId).toMatch(REGEXP_DEVICE_ID);
-      });
-
-      it('does not reset session ID when called with resetSessionId: false', () => {
-        setupAltertable();
-        altertable.identify('user123', { email: 'user@example.com' });
-
-        const originalSessionId = altertable['_sessionManager'].getSessionId();
-
-        altertable.reset({ resetSessionId: false });
-
-        const newSessionId = altertable['_sessionManager'].getSessionId();
-        expect(newSessionId).toEqual(originalSessionId);
       });
 
       it('throws when called before initialization', () => {
