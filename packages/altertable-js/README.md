@@ -179,7 +179,7 @@ altertable.updateTraits({
 
 #### `alterable.alias(aliasId)`
 
-Attach a new alias id to current identity.
+Links a new ID to the current identity.
 
 **Parameters:**
 
