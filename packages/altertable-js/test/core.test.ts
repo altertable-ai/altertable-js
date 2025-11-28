@@ -657,8 +657,12 @@ describe('Altertable', () => {
         altertable.identify('user123', { email: 'user@example.com' });
         expect(() => {
           altertable.identify('user124', { email: 'user@example.com' });
-        }).toThrow(
-          '[Altertable] User (user124) is already identified with a different ID (user123). Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
+        }).toThrowError(
+          expect.objectContaining({
+            message: expect.stringContaining(
+              '[Altertable] User (user124) is already identified as a different user (user123). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.'
+            ),
+          })
         );
       });
 
