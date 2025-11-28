@@ -385,7 +385,6 @@ export class Altertable {
    *
    * // Reset session, user, visitor and device
    * altertable.reset({
-   *   resetVisitorId: true,
    *   resetSessionId: true,
    * });
    * ```
