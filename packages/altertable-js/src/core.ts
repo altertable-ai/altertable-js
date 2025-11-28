@@ -354,7 +354,6 @@ export class Altertable {
   updateTraits(traits: UserTraits) {
     const context = this._getContext();
 
-    const distinctId = context.distinct_id;
     invariant(
       context.anonymous_id !== null,
       'User must be identified with identify() before updating traits.'
@@ -363,7 +362,7 @@ export class Altertable {
     const payload = {
       environment: context.environment,
       device_id: context.device_id,
-      distinct_id: distinctId,
+      distinct_id: context.distinct_id,
       traits,
       anonymous_id: context.anonymous_id,
     };
