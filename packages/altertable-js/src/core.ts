@@ -315,7 +315,7 @@ export class Altertable {
    *
    * @example
    * ```javascript
-   * altertable.alias('u_01jza857w4f23s1hf2s61befmw', 'u_01jza857w4f23s1hf2s61befmw');
+   * altertable.alias('u_01jza857w4f23s1hf2s61befmw');
    * ```
    */
   alias(newUserId: string) {
