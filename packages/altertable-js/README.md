@@ -185,7 +185,7 @@ Attach a new alias id to current identity.
 
 | Parameter | Type | Required | Default | Description |
 | ----------| --- | -- | --- |  --- |
-| `aliasId` | `string` | Yes | - | Alias id to be linked to current identity |
+| `aliasId` | `string` | Yes | - | New ID to link to the current identity |
 
 **Example:**
 
