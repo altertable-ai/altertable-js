@@ -658,7 +658,7 @@ describe('Altertable', () => {
         expect(() => {
           altertable.identify('user124', { email: 'user@example.com' });
         }).toThrow(
-          '[Altertable] User is already identified with a different ID. Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
+          '[Altertable] User (user124) is already identified with a different ID (user123). Please use alias() to alias the user to a new ID or call reset() before identifying with a new ID.'
         );
       });
 
