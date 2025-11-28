@@ -177,7 +177,7 @@ altertable.updateTraits({
 });
 ```
 
-#### `alterable.alias(aliasId)`
+#### `altertable.alias(aliasId)`
 
 Links a new ID to the current identity.
 
