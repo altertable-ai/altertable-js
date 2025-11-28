@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, loggerCache } from '../src/lib/logger';
-import type { EventPayload, IdentifyPayload } from '../src/types';
+import type {
+  AliasPayload,
+  EventPayload,
+  IdentifyPayload,
+  TrackPayload,
+} from '../src/types';
 
 describe('Logger', () => {
   const originalConsole = {
@@ -85,12 +90,13 @@ describe('Logger', () => {
   });
 
   describe('logEvent', () => {
-    const mockEventPayload: EventPayload = {
+    const mockEventPayload: TrackPayload = {
       timestamp: '2021-01-01T00:00:00.000Z',
       event: 'test_event',
-      user_id: 'user123',
+      device_id: 'device-123',
+      distinct_id: 'user123',
       session_id: 'session-123',
-      visitor_id: 'visitor-123',
+      anonymous_id: 'visitor-123',
       environment: 'development',
       properties: {
         key1: 'value1',
@@ -130,9 +136,9 @@ describe('Logger', () => {
 
     it('handles undefined user_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutUser: EventPayload = {
+      const payloadWithoutUser: TrackPayload = {
         ...mockEventPayload,
-        user_id: undefined,
+        distinct_id: undefined,
       };
 
       logger.logEvent(payloadWithoutUser, { trackingConsent: 'granted' });
@@ -158,9 +164,9 @@ describe('Logger', () => {
 
     it('handles undefined visitor_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutVisitor: EventPayload = {
+      const payloadWithoutVisitor: TrackPayload = {
         ...mockEventPayload,
-        visitor_id: undefined,
+        anonymous_id: undefined,
       };
 
       logger.logEvent(payloadWithoutVisitor, { trackingConsent: 'granted' });
@@ -319,8 +325,9 @@ describe('Logger', () => {
         name: 'Test User',
         age: 25,
       },
-      user_id: 'user123',
-      visitor_id: 'visitor-123' as const,
+      device_id: 'device-123',
+      distinct_id: 'user123',
+      anonymous_id: 'visitor-123' as const,
     };
 
     it('logs identify event with all components', () => {
@@ -345,23 +352,25 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser ID %cuser123',
+        '%cDistinct ID %cuser123',
         expect.any(String),
         expect.any(String)
       );
     });
 
-    it('handles undefined user_id', () => {
+    it('handles undefined distinct_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutUser: IdentifyPayload = {
+      const payloadWithoutDistinctId: IdentifyPayload = {
         ...mockIdentifyPayload,
-        user_id: undefined,
+        distinct_id: undefined,
       };
 
-      logger.logIdentify(payloadWithoutUser, { trackingConsent: 'granted' });
+      logger.logIdentify(payloadWithoutDistinctId, {
+        trackingConsent: 'granted',
+      });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cUser ID %cNot set',
+        '%cDistinct ID %cNot set',
         expect.any(String),
         expect.any(String)
       );
@@ -373,23 +382,25 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cvisitor-123',
+        '%cAnonymous ID %cvisitor-123',
         expect.any(String),
         expect.any(String)
       );
     });
 
-    it('handles undefined visitor_id', () => {
+    it('handles undefined anonymous_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutVisitor: IdentifyPayload = {
+      const payloadWithoutAnonymousId: IdentifyPayload = {
         ...mockIdentifyPayload,
-        visitor_id: undefined,
+        anonymous_id: undefined,
       };
 
-      logger.logIdentify(payloadWithoutVisitor, { trackingConsent: 'granted' });
+      logger.logIdentify(payloadWithoutAnonymousId, {
+        trackingConsent: 'granted',
+      });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cNot set',
+        '%cAnonymous ID %cNot set',
         expect.any(String),
         expect.any(String)
       );
@@ -443,6 +454,128 @@ describe('Logger', () => {
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
           /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cPENDING$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+  });
+
+  describe('logAlias', () => {
+    const mockAliasPayload: AliasPayload = {
+      environment: 'development',
+      new_user_id: 'user--456',
+      device_id: 'device-123',
+      distinct_id: 'user123',
+      anonymous_id: 'visitor-123' as const,
+    };
+
+    it('logs alias event with all components', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('logs distinct ID information', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cDistinct ID %cuser123',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined distinct_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutDistinctId: AliasPayload = {
+        ...mockAliasPayload,
+        distinct_id: undefined,
+      };
+
+      logger.logAlias(payloadWithoutDistinctId, {
+        trackingConsent: 'granted',
+      });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cDistinct ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('handles undefined new_user_id', () => {
+      const logger = createLogger('TestLogger');
+      const payloadWithoutAnonymousId: AliasPayload = {
+        ...mockAliasPayload,
+        new_user_id: undefined,
+      };
+
+      logger.logAlias(payloadWithoutAnonymousId, {
+        trackingConsent: 'granted',
+      });
+
+      expect(console.log).toHaveBeenCalledWith(
+        '%cNew User ID %cNot set',
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays no badge when tracking consent is granted', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays DENIED badge when tracking consent is denied', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'denied' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cDENIED$/
+        ),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('displays PENDING badge when tracking consent is pending', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.logAlias(mockAliasPayload, { trackingConsent: 'pending' });
+
+      expect(console.groupCollapsed).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cPENDING$/
         ),
         expect.any(String),
         expect.any(String),

@@ -1,19 +1,28 @@
 import {
+  PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
   PREFIX_VISITOR_ID,
   SESSION_EXPIRATION_TIME_MS,
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
+import type {
+  DeviceId,
+  DistinctId,
+  SessionId,
+  UserId,
+  VisitorId,
+} from '../types';
 import { generateId } from './generateId';
 import { Logger } from './logger';
 import { type StorageApi } from './storage';
-import type { UserId, VisitorId, SessionId } from '../types';
 
 type SessionData = {
-  visitorId: VisitorId;
+  deviceId: DeviceId;
+  distinctId: DistinctId;
+  anonymousId: VisitorId | null;
+  isIdentified: boolean;
   sessionId: SessionId;
-  userId: UserId | null;
   lastEventAt: string | null;
   trackingConsent: TrackingConsentType;
 };
@@ -52,10 +61,12 @@ export class SessionManager {
       const parsedData = JSON.parse(storedData) as Partial<SessionData>;
 
       this._sessionData = {
-        visitorId: parsedData.visitorId || this._generateVisitorId(),
+        deviceId: parsedData.deviceId || this._generateDeviceId(),
+        distinctId: parsedData.distinctId || this._generateVisitorId(),
         sessionId: parsedData.sessionId || this._generateSessionId(),
-        userId: parsedData.userId || null,
+        anonymousId: parsedData.anonymousId || null,
         lastEventAt: parsedData.lastEventAt || null,
+        isIdentified: parsedData.distinctId !== null,
         trackingConsent: isValidTrackingConsent(parsedData.trackingConsent)
           ? parsedData.trackingConsent
           : this._defaultTrackingConsent,
@@ -70,16 +81,24 @@ export class SessionManager {
     this._persistToStorage();
   }
 
-  getVisitorId(): VisitorId {
-    return this._sessionData.visitorId;
-  }
-
   getSessionId(): SessionId {
     return this._sessionData.sessionId;
   }
 
-  getUserId(): UserId | null {
-    return this._sessionData.userId;
+  getDeviceId(): DeviceId {
+    return this._sessionData.deviceId;
+  }
+
+  getDistinctId(): DistinctId {
+    return this._sessionData.distinctId;
+  }
+
+  getAnonymousId(): VisitorId | null {
+    return this._sessionData.anonymousId;
+  }
+
+  isIdentified(): boolean {
+    return this._sessionData.isIdentified;
   }
 
   getLastEventAt(): string | null {
@@ -90,8 +109,10 @@ export class SessionManager {
     return this._sessionData.trackingConsent;
   }
 
-  setUserId(userId: UserId | null): void {
-    this._sessionData.userId = userId;
+  identify(userId: UserId): void {
+    this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
+    this._sessionData.distinctId = userId;
+    this._sessionData.isIdentified = true;
     this._persistToStorage();
   }
 
@@ -118,43 +139,46 @@ export class SessionManager {
   }
 
   reset({
-    resetVisitorId = false,
-    resetSessionId = true,
+    resetDeviceId = false,
     resetTrackingConsent = false,
   }: {
-    resetVisitorId?: boolean;
-    resetSessionId?: boolean;
+    resetDeviceId?: boolean;
     resetTrackingConsent?: boolean;
   } = {}): void {
-    if (resetVisitorId) {
-      this._sessionData.visitorId = this._generateVisitorId();
-    }
-
-    if (resetSessionId) {
-      this._sessionData.sessionId = this._generateSessionId();
+    if (resetDeviceId) {
+      this._sessionData.deviceId = this._generateDeviceId();
     }
 
     if (resetTrackingConsent) {
       this._sessionData.trackingConsent = this._defaultTrackingConsent;
     }
 
-    this._sessionData.userId = null;
+    this._sessionData.sessionId = this._generateSessionId();
+    this._sessionData.anonymousId = null;
+    this._sessionData.distinctId = this._generateVisitorId();
+    this._sessionData.isIdentified = false;
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
   }
 
   private _createDefaultSessionData(): SessionData {
     return {
-      visitorId: this._generateVisitorId(),
-      sessionId: this._generateSessionId(),
-      userId: null,
+      anonymousId: null,
+      deviceId: this._generateDeviceId(),
+      distinctId: this._generateVisitorId(),
+      isIdentified: false,
       lastEventAt: null,
+      sessionId: this._generateSessionId(),
       trackingConsent: this._defaultTrackingConsent,
     };
   }
 
   private _generateSessionId(): SessionId {
     return generateId(PREFIX_SESSION_ID);
+  }
+
+  private _generateDeviceId(): DeviceId {
+    return generateId(PREFIX_DEVICE_ID);
   }
 
   private _generateVisitorId(): VisitorId {

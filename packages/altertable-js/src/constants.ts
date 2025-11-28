@@ -6,6 +6,7 @@ export const STORAGE_KEY_TEST = keyBuilder('check');
 
 export const PREFIX_SESSION_ID = 'session';
 export const PREFIX_VISITOR_ID = 'visitor';
+export const PREFIX_DEVICE_ID = 'device';
 
 const MINUTE_IN_MS = 1_000 * 60;
 export const AUTO_CAPTURE_INTERVAL_MS = 100;

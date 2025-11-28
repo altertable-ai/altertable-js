@@ -136,16 +136,15 @@ Returns an object with tracking methods and funnel utilities.
 
 **Returns:**
 
-| Property             | Type                                                                         | Description                                                       |
-| -------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `track`              | `(event: string, properties?: EventProperties) => void`                      | Track a custom event                                              |
-| `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                                                   |
-| `page`               | `(url: string) => void`                                                      | Manually track a page view (use only when `autoCapture` is false) |
-| `reset`              | `(options?: { resetVisitorId?: boolean; resetSessionId?: boolean }) => void` | Reset the visitor and session IDs                                 |
-| `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                                                |
-| `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration                                              |
-| `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state                                         |
-| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker                                       |
+| Property             | Type                                                                         | Description                                                                                    |
+| `identify`           | `(userId: string, traits?: UserTraits) => void`                              | Identify a user                                                                                |
+| `page`               | `(url: string) => void`                                                      | Manually track a page view (use only when `autoCapture` is false)                              |
+| `reset`              | `(options?: { resetDeviceId?: boolean }) => void`                            | Resets the current identity context so future events are not associated with the previous user |
+| `alias`              | `(newUserId: string) => void`                                                | Link a new ID to the current identity                                                          |
+| `updateTraits`       | `(traits: UserTraits) => void`                                               | Update user traits                                                                             |
+| `configure`          | `(updates: Partial<AltertableConfig>) => void`                               | Update configuration                                                                           |
+| `getTrackingConsent` | `() => TrackingConsentType`                                                  | Get current consent state                                                                      |
+| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }`             | Get funnel-specific tracker                                                                    |
 
 **Example:**
 

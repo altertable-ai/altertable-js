@@ -30,7 +30,9 @@ import {
 import { validateUserId } from './lib/validateUserId';
 import { getViewport } from './lib/viewport';
 import {
+  AliasPayload,
   AltertableContext,
+  DistinctId,
   Environment,
   EventPayload,
   EventProperties,
@@ -38,6 +40,7 @@ import {
   IdentifyPayload,
   TrackPayload,
   UserTraits,
+  VisitorId,
 } from './types';
 
 export interface AltertableConfig {
@@ -277,25 +280,73 @@ export class Altertable {
       'The client must be initialized with init() before identifying users.'
     );
 
+    const context = this._getContext();
+
+    invariant(
+      !this._sessionManager.isIdentified() ||
+        userId === this._sessionManager.getDistinctId(),
+      `User (${userId}) is already identified as a different user (${this._sessionManager.getDistinctId()}). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.`
+    );
+
     try {
       validateUserId(userId);
     } catch (error) {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
-    this._sessionManager.setUserId(userId);
-    const context = this._getContext();
+    this._sessionManager.identify(userId);
     const payload: IdentifyPayload = {
       environment: context.environment,
+      device_id: context.device_id,
+      distinct_id: userId,
       traits,
-      user_id: userId,
-      visitor_id: context.visitor_id,
+      anonymous_id: context.distinct_id as VisitorId,
     };
     this._processEvent('identify', payload, context);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
       this._logger.logIdentify(payload, { trackingConsent });
+    }
+  }
+
+  /**
+   * Link a new ID to the current identity.
+   *
+   * @param newUserId The new user ID
+   *
+   * @example
+   * ```javascript
+   * altertable.alias('u_01jza857w4f23s1hf2s61befmw');
+   * ```
+   */
+  alias(newUserId: DistinctId) {
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before aliasing users.'
+    );
+
+    try {
+      validateUserId(newUserId);
+    } catch (error) {
+      throw new Error(`[Altertable] ${error.message}`);
+    }
+
+    const context = this._getContext();
+
+    const payload: AliasPayload = {
+      environment: context.environment,
+      device_id: context.device_id,
+      anonymous_id: context.anonymous_id,
+      distinct_id: context.distinct_id,
+      new_user_id: newUserId,
+    };
+
+    this._processEvent('alias', payload, context);
+
+    if (this._config.debug) {
+      const trackingConsent = this._sessionManager.getTrackingConsent();
+      this._logger.logAlias(payload, { trackingConsent });
     }
   }
 
@@ -312,18 +363,20 @@ export class Altertable {
    * ```
    */
   updateTraits(traits: UserTraits) {
-    const userId = this._sessionManager.getUserId();
+    const context = this._getContext();
+
     invariant(
-      userId,
+      context.anonymous_id !== null,
       'User must be identified with identify() before updating traits.'
     );
 
-    const context = this._getContext();
     const payload = {
       environment: context.environment,
+      device_id: context.device_id,
+      distinct_id: context.distinct_id,
       traits,
-      user_id: userId,
-      visitor_id: context.visitor_id,
+      anonymous_id: context.anonymous_id,
+      session_id: context.session_id,
     };
     this._processEvent('identify', payload, context);
 
@@ -334,35 +387,33 @@ export class Altertable {
   }
 
   /**
-   * Resets visitor and session IDs.
+   * Resets device and session IDs.
    *
    * @example
    * ```javascript
-   * // Reset session only (default)
+   * // Reset session, user and visitor (default)
    * altertable.reset();
    *
-   * // Reset both visitor and session
+   * // Reset session, user, visitor and device
    * altertable.reset({
-   *   resetVisitorId: true,
-   *   resetSessionId: true,
+   *   resetDeviceId: true,
    * });
    * ```
    */
   reset({
-    resetVisitorId = false,
-    resetSessionId = true,
+    resetDeviceId = false,
   }: {
-    /** Whether to reset visitor ID (default: false) */
-    resetVisitorId?: boolean;
-    /** Whether to reset session ID (default: true) */
-    resetSessionId?: boolean;
+    /** Whether to reset device ID (default: false) */
+    resetDeviceId?: boolean;
   } = {}) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before resetting.'
     );
 
-    this._sessionManager.reset({ resetVisitorId, resetSessionId });
+    this._sessionManager.reset({
+      resetDeviceId,
+    });
   }
 
   /**
@@ -437,9 +488,10 @@ export class Altertable {
       timestamp,
       event,
       environment: context.environment,
-      user_id: context.user_id,
+      device_id: context.device_id,
+      distinct_id: context.distinct_id,
+      anonymous_id: context.anonymous_id,
       session_id: context.session_id,
-      visitor_id: context.visitor_id,
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -500,8 +552,9 @@ export class Altertable {
   private _getContext(): AltertableContext {
     return {
       environment: this._config.environment,
-      user_id: this._sessionManager.getUserId(),
-      visitor_id: this._sessionManager.getVisitorId(),
+      device_id: this._sessionManager.getDeviceId(),
+      distinct_id: this._sessionManager.getDistinctId(),
+      anonymous_id: this._sessionManager.getAnonymousId(),
       session_id: this._sessionManager.getSessionId(),
     };
   }

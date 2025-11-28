@@ -39,6 +39,9 @@ altertable.identify('u_01jza857w4f23s1hf2s61befmw', {
 altertable.updateTraits({
   onboarding_completed: true,
 });
+
+// Link a new ID to the current identity
+altertable.alias('new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
 ```
 
 ## Features
@@ -136,6 +139,7 @@ altertable.page('https://example.com/products');
 #### `altertable.identify(userId, traits?)`
 
 Identifies a user with their ID and optional traits.
+It flags the identity as being a identitied user.
 
 **Parameters:**
 
@@ -173,30 +177,44 @@ altertable.updateTraits({
 });
 ```
 
+#### `altertable.alias(newUserId)`
+
+Links a new ID to the current identity.
+
+**Parameters:**
+
+| Parameter   | Type     | Required | Default | Description                            |
+| ----------- | -------- | -------- | ------- | -------------------------------------- |
+| `newUserId` | `string` | Yes      | ------- | New ID to link to the current identity |
+
+**Example:**
+
+```javascript
+altertable.alias("new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd");
+```
+
 ### Session Management
 
 #### `altertable.reset(options?)`
 
-Resets visitor and session IDs.
+Resets the current identity context so future events are not associated with the previous user.
 
 **Parameters:**
 
 | Parameter                | Type      | Required | Default | Description                 |
 | ------------------------ | --------- | -------- | ------- | --------------------------- |
 | `options`                | `object`  | No       | `{}`    | Reset options               |
-| `options.resetVisitorId` | `boolean` | No       | `false` | Whether to reset visitor ID |
-| `options.resetSessionId` | `boolean` | No       | `true`  | Whether to reset session ID |
+| `options.resetDeviceId`  | `boolean` | No       | `false` | Whether to reset device ID  |
 
 **Example:**
 
 ```javascript
-// Reset session only (default)
+// Reset everything except device ID
 altertable.reset();
 
-// Reset both visitor and session
+// Reset all IDs
 altertable.reset({
-  resetVisitorId: true,
-  resetSessionId: true,
+  resetDeviceId: true,
 });
 ```
 

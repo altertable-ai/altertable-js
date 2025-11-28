@@ -144,9 +144,9 @@ describe('SessionManager with tracking consent', () => {
 
     it('should handle tracking consent in session data recovery', () => {
       const storedData = JSON.stringify({
-        visitorId: 'visitor-test-1',
+        anonymousId: 'visitor-test-1',
         sessionId: 'session-test-1',
-        userId: 'user123',
+        distinctId: 'user123',
         lastEventAt: '2023-01-01T00:00:00.000Z',
         trackingConsent: TrackingConsent.DENIED,
       });
@@ -162,7 +162,7 @@ describe('SessionManager with tracking consent', () => {
       sessionManager.init();
 
       expect(sessionManager.getTrackingConsent()).toBe(TrackingConsent.DENIED);
-      expect(sessionManager.getUserId()).toBe('user123');
+      expect(sessionManager.getDistinctId()).toBe('user123');
     });
   });
 
