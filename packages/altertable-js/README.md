@@ -40,7 +40,7 @@ altertable.updateTraits({
   onboarding_completed: true,
 });
 
-// Attach a new alias id to current identity
+// Link a new ID to the current identity
 altertable.alias('alias_id');
 ```
 
