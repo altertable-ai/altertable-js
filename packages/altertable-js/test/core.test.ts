@@ -652,7 +652,7 @@ describe('Altertable', () => {
         );
       });
 
-      it('throws error for calling identify on an already identified user', () => {
+      it('throws error when calling identify on an already identified user', () => {
         setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
         expect(() => {
