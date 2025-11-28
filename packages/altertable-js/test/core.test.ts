@@ -810,7 +810,7 @@ describe('Altertable', () => {
           device_id: expect.any(String),
           distinct_id: 'user456',
           anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          session_id: expect.any(String),
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
         })
       );
 
