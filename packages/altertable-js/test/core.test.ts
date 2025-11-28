@@ -807,7 +807,7 @@ describe('Altertable', () => {
         '/alias',
         expect.objectContaining({
           environment: expect.any(String),
-          device_id: expect.any(String),
+          device_id: expect.stringMatching(REGEXP_DEVICE_ID),
           distinct_id: 'user456',
           anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
           session_id: expect.stringMatching(REGEXP_SESSION_ID),
