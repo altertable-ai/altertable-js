@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "root",
@@ -41,8 +40,8 @@
         "@c15t/react": "1.8.1",
         "@tailwindcss/vite": "4.1.17",
         "lucide-react": "0.554.0",
-        "react": "19.2.0",
-        "react-dom": "19.2.0",
+        "react": "19.2.1",
+        "react-dom": "19.2.1",
         "tailwindcss": "4.1.17",
       },
       "devDependencies": {
@@ -60,13 +59,13 @@
     },
     "packages/altertable-js": {
       "name": "@altertable/altertable-js",
-      "version": "0.5.7",
+      "version": "1.0.0",
     },
     "packages/altertable-react": {
       "name": "@altertable/altertable-react",
-      "version": "0.5.7",
+      "version": "1.0.0",
       "dependencies": {
-        "@altertable/altertable-js": "^0.5.7",
+        "@altertable/altertable-js": "^1.0.0",
       },
       "devDependencies": {
         "@testing-library/react": "^16.3.0",
@@ -2072,6 +2071,10 @@
     "zod-validation-error": ["zod-validation-error@4.0.2", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ=="],
 
     "zustand": ["zustand@5.0.6", "", { "peerDependencies": { "@types/react": ">=18.0.0", "immer": ">=9.0.6", "react": ">=18.0.0", "use-sync-external-store": ">=1.2.0" }, "optionalPeers": ["@types/react", "immer", "react", "use-sync-external-store"] }, "sha512-ihAqNeUVhe0MAD+X8M5UzqyZ9k3FFZLBTtqo6JLPwV53cbRB/mJwBI0PxcIgqhBBHlEs8G45OTDTMq3gNcLq3A=="],
+
+    "@altertable/example-react/react": ["react@19.2.1", "", {}, "sha512-DGrYcCWK7tvYMnWh79yrPHt+vdx9tY+1gPZa7nJQtO/p8bLTDaHp4dzwEhQB7pZ4Xe3ok4XKuEPrVuc+wlpkmw=="],
+
+    "@altertable/example-react/react-dom": ["react-dom@19.2.1", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.1" } }, "sha512-ibrK8llX2a4eOskq1mXKu/TGZj9qzomO+sNfO98M6d9zIPOEhlBkMkBUBLd1vgS0gQsLDBzA+8jJBVXDnfHmJg=="],
 
     "@ampproject/remapping/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.29", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-uw6guiW/gcAGPDhLmd77/6lW8QLeiV5RUTsAX46Db6oLhGaVj4lhnPwb184s1bkc8kdVg/+h988dro8GRDpmYQ=="],
 
