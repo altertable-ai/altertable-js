@@ -66,7 +66,7 @@ export class SessionManager {
         sessionId: parsedData.sessionId || this._generateSessionId(),
         anonymousId: parsedData.anonymousId || null,
         lastEventAt: parsedData.lastEventAt || null,
-        isIdentified: parsedData.distinctId !== null,
+        isIdentified: !!parsedData.anonymousId,
         trackingConsent: isValidTrackingConsent(parsedData.trackingConsent)
           ? parsedData.trackingConsent
           : this._defaultTrackingConsent,
