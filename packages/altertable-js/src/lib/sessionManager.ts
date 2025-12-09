@@ -21,7 +21,6 @@ type SessionData = {
   deviceId: DeviceId;
   distinctId: DistinctId;
   anonymousId: VisitorId | null;
-  isIdentified: boolean;
   sessionId: SessionId;
   lastEventAt: string | null;
   trackingConsent: TrackingConsentType;
@@ -66,7 +65,6 @@ export class SessionManager {
         sessionId: parsedData.sessionId || this._generateSessionId(),
         anonymousId: parsedData.anonymousId || null,
         lastEventAt: parsedData.lastEventAt || null,
-        isIdentified: !!parsedData.anonymousId,
         trackingConsent: isValidTrackingConsent(parsedData.trackingConsent)
           ? parsedData.trackingConsent
           : this._defaultTrackingConsent,
@@ -97,8 +95,24 @@ export class SessionManager {
     return this._sessionData.anonymousId;
   }
 
+  /**
+   * Returns whether the current user is identified.
+   *
+   * The `anonymousId` field is a "before" snapshot: if set, the user was previously
+   * anonymous and is now identified. If `null`, the user is still anonymous.
+   *
+   * When transitioning from anonymous to identified, we preserve the anonymous ID
+   * to enable identity merging on the backend. This allows:
+   * - Linking pre-identification events (anonymous visitor ID) to post-identification events (user ID)
+   * - Merging user profiles so anonymous browsing behavior is associated with the identified user
+   * - Maintaining a complete user journey from first visit through identification
+   *
+   * **State Transitions:**
+   * - **Anonymous:** `anonymousId = null`, `distinctId = visitorId`, `isIdentified() = false`
+   * - **Identified:** `anonymousId = previous visitorId`, `distinctId = userId`, `isIdentified() = true`
+   */
   isIdentified(): boolean {
-    return this._sessionData.isIdentified;
+    return Boolean(this._sessionData.anonymousId);
   }
 
   getLastEventAt(): string | null {
@@ -112,7 +126,6 @@ export class SessionManager {
   identify(userId: UserId): void {
     this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
     this._sessionData.distinctId = userId;
-    this._sessionData.isIdentified = true;
     this._persistToStorage();
   }
 
@@ -156,7 +169,6 @@ export class SessionManager {
     this._sessionData.sessionId = this._generateSessionId();
     this._sessionData.anonymousId = null;
     this._sessionData.distinctId = this._generateVisitorId();
-    this._sessionData.isIdentified = false;
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
   }
@@ -166,7 +178,6 @@ export class SessionManager {
       anonymousId: null,
       deviceId: this._generateDeviceId(),
       distinctId: this._generateVisitorId(),
-      isIdentified: false,
       lastEventAt: null,
       sessionId: this._generateSessionId(),
       trackingConsent: this._defaultTrackingConsent,

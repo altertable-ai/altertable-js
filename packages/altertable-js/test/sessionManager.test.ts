@@ -4,7 +4,7 @@ import {
   createStorageMock,
   StorageMock,
 } from '../../../test-utils/mocks/storageMock';
-import { TrackingConsent } from '../src/constants';
+import { PREFIX_VISITOR_ID, TrackingConsent } from '../src/constants';
 import { createLogger } from '../src/lib/logger';
 import { SessionManager } from '../src/lib/sessionManager';
 
@@ -234,78 +234,126 @@ describe('SessionManager with tracking consent', () => {
     });
   });
 
-  describe('isIdentified initialization', () => {
-    it('should set isIdentified to false when anonymousId is null', () => {
-      const storedData = JSON.stringify({
-        deviceId: 'device-test-1',
-        distinctId: 'user123',
-        anonymousId: null,
-        sessionId: 'session-test-1',
-        lastEventAt: null,
-        trackingConsent: TrackingConsent.PENDING,
+  describe('isIdentified', () => {
+    describe('initial state', () => {
+      it('should return false for a fresh session manager (anonymous state)', () => {
+        sessionManager = new SessionManager({
+          storage: mockStorage,
+          storageKey: testStorageKey,
+          logger: mockLogger,
+          defaultTrackingConsent: TrackingConsent.PENDING,
+        });
+        sessionManager.init();
+
+        expect(sessionManager.isIdentified()).toBe(false);
+        expect(sessionManager.getAnonymousId()).toBe(null);
+        // distinctId should be a visitor ID when anonymous
+        const visitorId = sessionManager.getDistinctId();
+        expect(visitorId).toMatch(PREFIX_VISITOR_ID);
       });
-
-      mockStorage.getItem.mockReturnValue(storedData);
-
-      sessionManager = new SessionManager({
-        storage: mockStorage,
-        storageKey: testStorageKey,
-        logger: mockLogger,
-        defaultTrackingConsent: TrackingConsent.PENDING,
-      });
-      sessionManager.init();
-
-      expect(sessionManager.isIdentified()).toBe(false);
-      expect(sessionManager.getAnonymousId()).toBe(null);
-      expect(sessionManager.getDistinctId()).toBe('user123');
     });
 
-    it('should set isIdentified to true when anonymousId is not null', () => {
-      const storedData = JSON.stringify({
-        deviceId: 'device-test-1',
-        distinctId: 'user123',
-        anonymousId: 'visitor-test-1',
-        sessionId: 'session-test-1',
-        lastEventAt: null,
-        trackingConsent: TrackingConsent.PENDING,
+    describe('loading from storage', () => {
+      it('should return false when anonymousId is null (anonymous state)', () => {
+        const storedData = JSON.stringify({
+          deviceId: 'device-test-1',
+          distinctId: 'visitor_test-1', // visitor ID when anonymous
+          anonymousId: null,
+          sessionId: 'session-test-1',
+          lastEventAt: null,
+          trackingConsent: TrackingConsent.PENDING,
+        });
+
+        mockStorage.getItem.mockReturnValue(storedData);
+
+        sessionManager = new SessionManager({
+          storage: mockStorage,
+          storageKey: testStorageKey,
+          logger: mockLogger,
+          defaultTrackingConsent: TrackingConsent.PENDING,
+        });
+        sessionManager.init();
+
+        expect(sessionManager.isIdentified()).toBe(false);
+        expect(sessionManager.getAnonymousId()).toBe(null);
+        expect(sessionManager.getDistinctId()).toBe('visitor_test-1');
       });
 
-      mockStorage.getItem.mockReturnValue(storedData);
+      it('should return true when anonymousId is set (identified state)', () => {
+        const storedData = JSON.stringify({
+          deviceId: 'device-test-1',
+          distinctId: 'user123', // user ID after identification
+          anonymousId: 'visitor_test-1', // previous anonymous visitor ID
+          sessionId: 'session-test-1',
+          lastEventAt: null,
+          trackingConsent: TrackingConsent.PENDING,
+        });
 
-      sessionManager = new SessionManager({
-        storage: mockStorage,
-        storageKey: testStorageKey,
-        logger: mockLogger,
-        defaultTrackingConsent: TrackingConsent.PENDING,
+        mockStorage.getItem.mockReturnValue(storedData);
+
+        sessionManager = new SessionManager({
+          storage: mockStorage,
+          storageKey: testStorageKey,
+          logger: mockLogger,
+          defaultTrackingConsent: TrackingConsent.PENDING,
+        });
+        sessionManager.init();
+
+        expect(sessionManager.isIdentified()).toBe(true);
+        expect(sessionManager.getAnonymousId()).toBe('visitor_test-1');
+        expect(sessionManager.getDistinctId()).toBe('user123');
       });
-      sessionManager.init();
 
-      expect(sessionManager.isIdentified()).toBe(true);
-      expect(sessionManager.getAnonymousId()).toBe('visitor-test-1');
-      expect(sessionManager.getDistinctId()).toBe('user123');
+      it('should return false when anonymousId is missing from stored data', () => {
+        const storedData = JSON.stringify({
+          deviceId: 'device-test-1',
+          distinctId: 'visitor_test-1',
+          sessionId: 'session-test-1',
+          lastEventAt: null,
+          trackingConsent: TrackingConsent.PENDING,
+        });
+
+        mockStorage.getItem.mockReturnValue(storedData);
+
+        sessionManager = new SessionManager({
+          storage: mockStorage,
+          storageKey: testStorageKey,
+          logger: mockLogger,
+          defaultTrackingConsent: TrackingConsent.PENDING,
+        });
+        sessionManager.init();
+
+        expect(sessionManager.isIdentified()).toBe(false);
+        expect(sessionManager.getAnonymousId()).toBe(null);
+      });
     });
 
-    it('should set isIdentified to false when anonymousId is missing from stored data', () => {
-      const storedData = JSON.stringify({
-        deviceId: 'device-test-1',
-        distinctId: 'user123',
-        sessionId: 'session-test-1',
-        lastEventAt: null,
-        trackingConsent: TrackingConsent.PENDING,
+    describe('state transition via identify()', () => {
+      beforeEach(() => {
+        sessionManager = new SessionManager({
+          storage: mockStorage,
+          storageKey: testStorageKey,
+          logger: mockLogger,
+          defaultTrackingConsent: TrackingConsent.PENDING,
+        });
+        sessionManager.init();
       });
 
-      mockStorage.getItem.mockReturnValue(storedData);
+      it('should transition from anonymous to identified when identify() is called', () => {
+        // Initially anonymous
+        expect(sessionManager.isIdentified()).toBe(false);
+        expect(sessionManager.getAnonymousId()).toBe(null);
+        const initialDistinctId = sessionManager.getDistinctId();
+        expect(initialDistinctId).toMatch(PREFIX_VISITOR_ID);
 
-      sessionManager = new SessionManager({
-        storage: mockStorage,
-        storageKey: testStorageKey,
-        logger: mockLogger,
-        defaultTrackingConsent: TrackingConsent.PENDING,
+        // Identify the user
+        sessionManager.identify('user123');
+
+        // Now identified: anonymousId stores the previous visitor ID
+        expect(sessionManager.isIdentified()).toBe(true);
+        expect(sessionManager.getAnonymousId()).toBe(initialDistinctId);
+        expect(sessionManager.getDistinctId()).toBe('user123');
       });
-      sessionManager.init();
-
-      expect(sessionManager.isIdentified()).toBe(false);
-      expect(sessionManager.getAnonymousId()).toBe(null);
     });
   });
 });
