@@ -235,7 +235,7 @@ describe('SessionManager with tracking consent', () => {
   });
 
   describe('isIdentified initialization', () => {
-    it('should initialize isIdentified as true when anonymousId is null', () => {
+    it('should set isIdentified to false when anonymousId is null', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
         distinctId: 'user123',
@@ -260,7 +260,7 @@ describe('SessionManager with tracking consent', () => {
       expect(sessionManager.getDistinctId()).toBe('user123');
     });
 
-    it('should initialize isIdentified as false when anonymousId is not null', () => {
+    it('should set isIdentified to true when anonymousId is not null', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
         distinctId: 'user123',
@@ -285,7 +285,7 @@ describe('SessionManager with tracking consent', () => {
       expect(sessionManager.getDistinctId()).toBe('user123');
     });
 
-    it('should initialize isIdentified as false when anonymousId is missing from stored data', () => {
+    it('should set isIdentified to false when anonymousId is missing from stored data', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
         distinctId: 'user123',
