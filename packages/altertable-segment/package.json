@@ -1,0 +1,27 @@
+{
+  "name": "@altertable/altertable-segment",
+  "description": "Segment destination function for Altertable analytics",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/altertable-ai/altertable-js",
+  "repository": "altertable-ai/altertable-js",
+  "author": {
+    "name": "Altertable",
+    "url": "https://altertable.ai"
+  },
+  "main": "dist/index.mjs",
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.4.8"
+  }
+}
