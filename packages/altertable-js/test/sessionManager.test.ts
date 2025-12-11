@@ -258,7 +258,7 @@ describe('SessionManager with tracking consent', () => {
         sessionManager.init();
 
         expect(sessionManager.isIdentified()).toBe(false);
-        expect(sessionManager.getAnonymousId()).toBe(null);
+        expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
         // distinctId should be a visitor ID when anonymous
         const visitorId = sessionManager.getDistinctId();
         expect(visitorId).toMatch(PREFIX_VISITOR_ID);
@@ -287,7 +287,7 @@ describe('SessionManager with tracking consent', () => {
         sessionManager.init();
 
         expect(sessionManager.isIdentified()).toBe(false);
-        expect(sessionManager.getAnonymousId()).toBe(null);
+        expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
         expect(sessionManager.getDistinctId()).toBe('visitor_test-1');
       });
 
@@ -336,7 +336,7 @@ describe('SessionManager with tracking consent', () => {
         sessionManager.init();
 
         expect(sessionManager.isIdentified()).toBe(false);
-        expect(sessionManager.getAnonymousId()).toBe(null);
+        expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
       });
     });
 
@@ -354,7 +354,7 @@ describe('SessionManager with tracking consent', () => {
       it('should transition from anonymous to identified when identify() is called', () => {
         // Initially anonymous
         expect(sessionManager.isIdentified()).toBe(false);
-        expect(sessionManager.getAnonymousId()).toBe(null);
+        expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
         const initialDistinctId = sessionManager.getDistinctId();
         expect(initialDistinctId).toMatch(PREFIX_VISITOR_ID);
 
@@ -383,7 +383,7 @@ describe('SessionManager with tracking consent', () => {
       expect(sessionManager.getSessionId()).toMatch(PREFIX_SESSION_ID);
       expect(sessionManager.getDeviceId()).toMatch(PREFIX_DEVICE_ID);
       expect(sessionManager.getDistinctId()).toMatch(PREFIX_VISITOR_ID);
-      expect(sessionManager.getAnonymousId()).toBe(null);
+      expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
       expect(sessionManager.getLastEventAt()).toBe(null);
       expect(mockStorage.setItem).toHaveBeenCalled();
     });
@@ -485,7 +485,7 @@ describe('SessionManager with tracking consent', () => {
     });
 
     it('should return anonymous ID', () => {
-      expect(sessionManager.getAnonymousId()).toBe(null);
+      expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
 
       sessionManager.identify('user123');
       const anonymousId = sessionManager.getAnonymousId();
@@ -599,7 +599,7 @@ describe('SessionManager with tracking consent', () => {
       sessionManager.reset();
 
       expect(sessionManager.isIdentified()).toBe(false);
-      expect(sessionManager.getAnonymousId()).toBe(null);
+      expect(sessionManager.getAnonymousId()).toMatch(PREFIX_VISITOR_ID);
       expect(sessionManager.getDistinctId()).toMatch(PREFIX_VISITOR_ID);
       expect(sessionManager.getSessionId()).not.toBe(initialSessionId);
       expect(sessionManager.getSessionId()).toMatch(PREFIX_SESSION_ID);
@@ -641,7 +641,7 @@ describe('SessionManager with tracking consent', () => {
 
       expect(mockStorage.setItem).toHaveBeenCalledWith(
         testStorageKey,
-        expect.stringContaining('"anonymousId":null')
+        expect.stringContaining('"anonymousId":"visitor-')
       );
     });
   });

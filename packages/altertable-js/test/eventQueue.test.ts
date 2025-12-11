@@ -15,14 +15,14 @@ describe('EventQueue', () => {
     session_id: 'session-test-1',
     device_id: 'device-test-1',
     distinct_id: 'visitor-test-1',
-    anonymous_id: null,
+    anonymous_id: 'visitor-test-1',
   };
   const mockEvent: EventPayload = {
     timestamp: '2023-01-01T00:00:00.000Z',
     event: 'test-event',
     device_id: 'device-test-1',
     distinct_id: 'visitor-test-1',
-    anonymous_id: null,
+    anonymous_id: 'visitor-test-1',
     session_id: 'session-test-1',
     environment: 'production',
     properties: { foo: 'bar' },

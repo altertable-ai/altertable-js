@@ -20,7 +20,7 @@ import { type StorageApi } from './storage';
 type SessionData = {
   deviceId: DeviceId;
   distinctId: DistinctId;
-  anonymousId: VisitorId | null;
+  anonymousId: VisitorId;
   sessionId: SessionId;
   lastEventAt: string | null;
   trackingConsent: TrackingConsentType;
@@ -59,11 +59,15 @@ export class SessionManager {
     try {
       const parsedData = JSON.parse(storedData) as Partial<SessionData>;
 
+      const newVisitorId = this._generateVisitorId();
+      const distinctId = parsedData.distinctId || newVisitorId;
+      const anonymousId = parsedData.anonymousId || (distinctId as VisitorId);
+
       this._sessionData = {
         deviceId: parsedData.deviceId || this._generateDeviceId(),
-        distinctId: parsedData.distinctId || this._generateVisitorId(),
+        distinctId,
         sessionId: parsedData.sessionId || this._generateSessionId(),
-        anonymousId: parsedData.anonymousId || null,
+        anonymousId,
         lastEventAt: parsedData.lastEventAt || null,
         trackingConsent: isValidTrackingConsent(parsedData.trackingConsent)
           ? parsedData.trackingConsent
@@ -91,7 +95,7 @@ export class SessionManager {
     return this._sessionData.distinctId;
   }
 
-  getAnonymousId(): VisitorId | null {
+  getAnonymousId(): VisitorId {
     return this._sessionData.anonymousId;
   }
 
@@ -99,7 +103,7 @@ export class SessionManager {
    * Returns whether the current user is identified.
    *
    * The `anonymousId` field is a "before" snapshot: if set, the user was previously
-   * anonymous and is now identified. If `null`, the user is still anonymous.
+   * anonymous and is now identified. If `distinctId` is equal to `anonymousId`, the user is still anonymous.
    *
    * When transitioning from anonymous to identified, we preserve the anonymous ID
    * to enable identity merging on the backend. This allows:
@@ -108,11 +112,14 @@ export class SessionManager {
    * - Maintaining a complete user journey from first visit through identification
    *
    * **State Transitions:**
-   * - **Anonymous:** `anonymousId = null`, `distinctId = visitorId`, `isIdentified() = false`
+   * - **Anonymous:** `distinctId = visitorId`, `isIdentified() = false`
    * - **Identified:** `anonymousId = previous visitorId`, `distinctId = userId`, `isIdentified() = true`
    */
   isIdentified(): boolean {
-    return Boolean(this._sessionData.anonymousId);
+    return (
+      Boolean(this._sessionData.anonymousId) &&
+      this._sessionData.distinctId !== this._sessionData.anonymousId
+    );
   }
 
   getLastEventAt(): string | null {
@@ -167,17 +174,19 @@ export class SessionManager {
     }
 
     this._sessionData.sessionId = this._generateSessionId();
-    this._sessionData.anonymousId = null;
-    this._sessionData.distinctId = this._generateVisitorId();
+    const newVisitorId = this._generateVisitorId();
+    this._sessionData.distinctId = newVisitorId;
+    this._sessionData.anonymousId = newVisitorId;
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
   }
 
   private _createDefaultSessionData(): SessionData {
+    const newVisitorId = this._generateVisitorId();
     return {
-      anonymousId: null,
+      anonymousId: newVisitorId,
       deviceId: this._generateDeviceId(),
-      distinctId: this._generateVisitorId(),
+      distinctId: newVisitorId,
       lastEventAt: null,
       sessionId: this._generateSessionId(),
       trackingConsent: this._defaultTrackingConsent,

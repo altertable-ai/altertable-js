@@ -366,7 +366,7 @@ export class Altertable {
     const context = this._getContext();
 
     invariant(
-      context.anonymous_id !== null,
+      context.anonymous_id !== context.distinct_id,
       'User must be identified with identify() before updating traits.'
     );
 

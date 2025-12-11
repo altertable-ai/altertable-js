@@ -33,7 +33,7 @@ const REGEXP_VISITOR_ID = new RegExp(`^${PREFIX_VISITOR_ID}-`);
 function createSessionData(overrides: Record<string, any> = {}) {
   return JSON.stringify({
     distinctId: 'visitor-test-uuid-1-1234567890',
-    anonymousId: null,
+    anonymousId: 'visitor-test-uuid-1-1234567890',
     sessionId: 'session-test-uuid-2-1234567890',
     deviceId: 'device-test-uuid-3-1234567890',
     lastEventAt: null,
@@ -135,7 +135,7 @@ describe('Altertable', () => {
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
-            anonymous_id: null,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
             environment: 'production',
             properties: {
@@ -167,7 +167,7 @@ describe('Altertable', () => {
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            anonymous_id: null,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
             environment: 'production',
             properties: {
@@ -833,7 +833,7 @@ describe('Altertable', () => {
           device_id: expect.stringMatching(REGEXP_DEVICE_ID),
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          anonymous_id: null,
+          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
         })
       );
 
@@ -885,7 +885,7 @@ describe('Altertable', () => {
         payload: expect.objectContaining({
           new_user_id: 'user456',
           distinct_id: expect.stringMatching(REGEXP_VISITOR_ID),
-          anonymous_id: null,
+          anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
         }),
       });
 
@@ -1052,7 +1052,7 @@ describe('Altertable', () => {
         const distinctId = altertable['_sessionManager'].getDistinctId();
         expect(distinctId).toMatch(REGEXP_VISITOR_ID);
         const anonymousId = altertable['_sessionManager'].getAnonymousId();
-        expect(anonymousId).toBeNull();
+        expect(anonymousId).toMatch(REGEXP_VISITOR_ID);
       });
 
       it('resets session ID when called with default parameters', () => {
@@ -1073,7 +1073,7 @@ describe('Altertable', () => {
         const newDistinctId = altertable['_sessionManager'].getDistinctId();
         expect(newDistinctId).toMatch(REGEXP_VISITOR_ID);
         const newAnonymousId = altertable['_sessionManager'].getAnonymousId();
-        expect(newAnonymousId).toBeNull();
+        expect(newAnonymousId).toMatch(REGEXP_VISITOR_ID);
       });
 
       it('resets device ID when called with resetDeviceId', () => {
@@ -1186,7 +1186,7 @@ describe('Altertable', () => {
         const anonymousId = altertable['_sessionManager'].getAnonymousId();
         expect(distinctId).toMatch(REGEXP_VISITOR_ID);
         expect(sessionId).toMatch(REGEXP_SESSION_ID);
-        expect(anonymousId).toBeNull();
+        expect(anonymousId).toMatch(REGEXP_VISITOR_ID);
       });
     });
 
@@ -1588,7 +1588,9 @@ describe('Altertable', () => {
       expect(altertable['_sessionManager'].getDistinctId()).toMatch(
         REGEXP_VISITOR_ID
       );
-      expect(altertable['_sessionManager'].getAnonymousId()).toBeNull();
+      expect(altertable['_sessionManager'].getAnonymousId()).toMatch(
+        REGEXP_VISITOR_ID
+      );
       expect(altertable['_sessionManager'].getSessionId()).toMatch(
         REGEXP_SESSION_ID
       );
