@@ -1,6 +1,6 @@
 # @altertable/altertable-segment
 
-Segment destination for Altertable. This package allows you to forward events from Segment to your Altertable instance.
+Segment destination for Altertable. This package lets you forward events from Segment to your Altertable instance.
 
 ## Installation
 
