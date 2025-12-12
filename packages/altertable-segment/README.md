@@ -4,7 +4,7 @@ Segment destination for Altertable. This package lets you forward events from Se
 
 ## Installation
 
-This package is designed to be used within Segment's Functions environment. It's not meant to be installed directly in your application.
+This package is designed to be used within [Segment's Functions environment](https://www.twilio.com/docs/segment/connections/functions/environment). It's not meant to be installed directly in your application.
 
 ## Usage
 
