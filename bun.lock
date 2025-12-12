@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "root",
@@ -59,11 +60,11 @@
     },
     "packages/altertable-js": {
       "name": "@altertable/altertable-js",
-      "version": "1.0.0",
+      "version": "1.0.1",
     },
     "packages/altertable-react": {
       "name": "@altertable/altertable-react",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@altertable/altertable-js": "^1.0.0",
       },
@@ -75,6 +76,13 @@
       },
       "peerDependencies": {
         "react": "^16.8 || ^17.0 || ^18.0 || ^19.0",
+      },
+    },
+    "packages/altertable-segment": {
+      "name": "@altertable/altertable-segment",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@swc/core": "^1.4.8",
       },
     },
     "packages/altertable-snippet": {
@@ -95,6 +103,8 @@
     "@altertable/altertable-js": ["@altertable/altertable-js@workspace:packages/altertable-js"],
 
     "@altertable/altertable-react": ["@altertable/altertable-react@workspace:packages/altertable-react"],
+
+    "@altertable/altertable-segment": ["@altertable/altertable-segment@workspace:packages/altertable-segment"],
 
     "@altertable/altertable-snippet": ["@altertable/altertable-snippet@workspace:packages/altertable-snippet"],
 
