@@ -16,7 +16,7 @@ import {
   type SegmentTrackEvent,
 } from '../src/index';
 
-describe('AlterTable Segment Destination', () => {
+describe('Altertable Segment Destination', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe('AlterTable Segment Destination', () => {
   };
 
   describe('onTrack', () => {
-    it('should send track event to AlterTable API', async () => {
+    it('should send track event to Altertable API', async () => {
       const event: SegmentTrackEvent = {
         type: 'track',
         event: 'Button Clicked',
@@ -141,7 +141,7 @@ describe('AlterTable Segment Destination', () => {
       expect(body.properties.utm_content).toBe('ad-variant-a');
     });
 
-    it('should map device context to AlterTable properties', async () => {
+    it('should map device context to Altertable properties', async () => {
       const event: SegmentTrackEvent = {
         type: 'track',
         event: 'App Open',
@@ -312,7 +312,7 @@ describe('AlterTable Segment Destination', () => {
   });
 
   describe('onIdentify', () => {
-    it('should send identify event to AlterTable API', async () => {
+    it('should send identify event to Altertable API', async () => {
       const event: SegmentIdentifyEvent = {
         type: 'identify',
         messageId: 'msg-123',
@@ -409,7 +409,7 @@ describe('AlterTable Segment Destination', () => {
   });
 
   describe('onAlias', () => {
-    it('should send alias event to AlterTable API', async () => {
+    it('should send alias event to Altertable API', async () => {
       const event: SegmentAliasEvent = {
         type: 'alias',
         messageId: 'msg-123',
