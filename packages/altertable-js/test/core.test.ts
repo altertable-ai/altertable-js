@@ -761,6 +761,28 @@ describe('Altertable', () => {
           },
         });
       });
+
+      it('should not persist to storage when identify() is called again with the same user ID', () => {
+        const storageMock = createStorageMock();
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+
+        expect(storageMock.setItem).toHaveBeenCalledTimes(0);
+
+        setupAltertable();
+        expect(storageMock.setItem).toHaveBeenCalledTimes(1);
+
+        altertable.identify('user123', { email: 'user@example.com' });
+        expect(storageMock.setItem).toHaveBeenCalledTimes(2);
+
+        expect(storageMock.setItem).toHaveBeenCalledWith(
+          'atbl.test-api-key.production',
+          expect.stringContaining('"distinctId":"user123"')
+        );
+
+        altertable.identify('user123', { email: 'user@example.com' });
+
+        expect(storageMock.setItem).toHaveBeenCalledTimes(2);
+      });
     });
 
     describe('updateTraits() method', () => {
