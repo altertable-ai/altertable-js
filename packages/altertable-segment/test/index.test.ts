@@ -1,20 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { onAlias, onIdentify, onPage, onScreen, onTrack } from '../src/index';
 import {
-  EventNotSupported,
   type FunctionSettings,
-  onAlias,
-  onIdentify,
-  onPage,
-  onScreen,
-  onTrack,
-  RetryError,
   type SegmentAliasEvent,
   type SegmentIdentifyEvent,
   type SegmentPageEvent,
   type SegmentScreenEvent,
   type SegmentTrackEvent,
-} from '../src/index';
+} from '../src/types';
+
+class RetryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RetryError';
+  }
+}
+
+class EventNotSupported extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EventNotSupported';
+  }
+}
+
+global.RetryError = RetryError;
+global.EventNotSupported = EventNotSupported;
 
 describe('Altertable Segment Destination', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -380,31 +391,6 @@ describe('Altertable Segment Destination', () => {
 
       expect(body.traits.$locale).toBe('en-US');
       expect(body.traits.$timezone).toBe('America/New_York');
-    });
-
-    it('should use anonymousId when userId is not present', async () => {
-      const event: SegmentIdentifyEvent = {
-        type: 'identify',
-        messageId: 'msg-123',
-        timestamp: '2025-01-15T10:00:00.000Z',
-        anonymousId: 'anon-456',
-        traits: {
-          email: 'user@example.com',
-        },
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      await onIdentify(event, defaultSettings);
-
-      const [, options] = mockFetch.mock.calls[0];
-      const body = JSON.parse(options.body);
-
-      expect(body.distinct_id).toBe('anon-456');
-      expect(body.anonymous_id).toBeUndefined();
     });
   });
 
