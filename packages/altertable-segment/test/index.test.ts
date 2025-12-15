@@ -10,23 +10,6 @@ import {
   type SegmentTrackEvent,
 } from '../src/types';
 
-class RetryError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'RetryError';
-  }
-}
-
-class EventNotSupported extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'EventNotSupported';
-  }
-}
-
-global.RetryError = RetryError;
-global.EventNotSupported = EventNotSupported;
-
 describe('Altertable Segment Destination', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
