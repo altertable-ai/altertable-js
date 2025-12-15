@@ -40,7 +40,6 @@ import {
   IdentifyPayload,
   TrackPayload,
   UserTraits,
-  VisitorId,
 } from './types';
 
 export interface AltertableConfig {
@@ -261,6 +260,11 @@ export class Altertable {
   /**
    * Identifies a user with their ID and optional traits.
    *
+   * Notes:
+   * - You can call this method multiple times with the same ID.
+   * - To change traits, use {@link updateTraits} instead.
+   * - To switch to a new user ID, call {@link reset} first.
+   *
    * @param userId The user's unique identifier
    * @param traits User properties
    *
@@ -280,8 +284,6 @@ export class Altertable {
       'The client must be initialized with init() before identifying users.'
     );
 
-    const context = this._getContext();
-
     invariant(
       !this._sessionManager.isIdentified() ||
         userId === this._sessionManager.getDistinctId(),
@@ -294,13 +296,21 @@ export class Altertable {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
-    this._sessionManager.identify(userId);
+    if (userId !== this._sessionManager.getDistinctId()) {
+      /**
+       * Calling {@link SessionManager#identify} persists the new user ID to
+       * storage, which we get back from the context to construct the payload.
+       */
+      this._sessionManager.identify(userId);
+    }
+
+    const context = this._getContext();
     const payload: IdentifyPayload = {
       environment: context.environment,
       device_id: context.device_id,
-      distinct_id: userId,
+      distinct_id: context.distinct_id,
       traits,
-      anonymous_id: context.distinct_id as VisitorId,
+      anonymous_id: context.anonymous_id,
     };
     this._processEvent('identify', payload, context);
 

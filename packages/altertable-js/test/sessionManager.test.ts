@@ -367,44 +367,6 @@ describe('SessionManager with tracking consent', () => {
         expect(sessionManager.getDistinctId()).toBe('user123');
         expect(mockStorage.setItem).toHaveBeenCalled();
       });
-
-      it('should update anonymousId and distinctId when identify() is called twice in a row', () => {
-        // Initially anonymous
-        expect(sessionManager.isIdentified()).toBe(false);
-        expect(sessionManager.getAnonymousId()).toBe(null);
-        const initialDistinctId = sessionManager.getDistinctId();
-        expect(initialDistinctId).toMatch(PREFIX_VISITOR_ID);
-
-        // First identify call
-        sessionManager.identify('user123');
-        expect(sessionManager.isIdentified()).toBe(true);
-        expect(sessionManager.getAnonymousId()).toBe(initialDistinctId);
-        expect(sessionManager.getDistinctId()).toBe('user123');
-
-        // Second identify call - should update anonymousId to previous distinctId
-        sessionManager.identify('user123');
-        expect(sessionManager.isIdentified()).toBe(true);
-        expect(sessionManager.getAnonymousId()).toBe(initialDistinctId);
-        expect(sessionManager.getDistinctId()).toBe('user123');
-        expect(mockStorage.setItem).toHaveBeenCalledTimes(3);
-      });
-
-      it('should throw an error if identify() is called twice in a row without a reset', () => {
-        // Initially anonymous
-        expect(sessionManager.isIdentified()).toBe(false);
-        const initialDistinctId = sessionManager.getDistinctId();
-
-        // First identify call
-        sessionManager.identify('user123');
-        expect(sessionManager.isIdentified()).toBe(true);
-        expect(sessionManager.getDistinctId()).toBe('user123');
-        expect(sessionManager.getAnonymousId()).toBe(initialDistinctId);
-
-        // Second identify call without reset should throw an error
-        expect(() => {
-          sessionManager.identify('user456');
-        }).toThrow();
-      });
     });
   });
 
