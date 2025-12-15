@@ -126,20 +126,3 @@ export interface FunctionSettings {
   endpoint?: string;
   [key: string]: any;
 }
-
-/**
- * Custom error types
- */
-export class RetryError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'RetryError';
-  }
-}
-
-export class EventNotSupported extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'EventNotSupported';
-  }
-}

@@ -17,6 +17,8 @@ The destination requires the following settings:
 - **apiKey** (required): Your Altertable API key
 - **environment** (optional): Altertable environment (defaults to `production`)
 - **endpoint** (optional): Custom Altertable API endpoint (defaults to `https://api.altertable.ai`)
+- **samplingRate** (optional): Sampling rate for events (defaults to `1`)
+- **skip5xxErrors** (optional): Skip 5xx errors (defaults to `false`)
 
 ## Unsupported Events
 
