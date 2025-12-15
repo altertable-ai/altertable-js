@@ -14,11 +14,14 @@ export function invariant(
     return;
   }
 
-  if (__DEV__) {
-    throw new Error(
-      `[Altertable] ${typeof message === 'function' ? message() : message}`
-    );
-  }
+  throw new InvariantError(
+    `[Altertable] ${typeof message === 'function' ? message() : message}`
+  );
+}
 
-  throw new Error('Invariant failed');
+class InvariantError extends Error {
+  constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, InvariantError.prototype);
+  }
 }
