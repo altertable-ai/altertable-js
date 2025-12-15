@@ -9,9 +9,16 @@ import type {
   SegmentScreenEvent,
   SegmentTrackEvent,
 } from './types';
-import { EventNotSupported, RetryError } from './types';
 
-export * from './types';
+/**
+ * Skip 5xx errors
+ */
+const DEFAULT_SKIP_5XX_ERRORS = false;
+
+/**
+ * Default sampling rate (100% of events will be sent to Altertable)
+ */
+const DEFAULT_SAMPING_RATE = 1;
 
 /**
  * Default Altertable API endpoint
@@ -92,8 +99,14 @@ async function sendToAltertable(
   endpoint: string,
   apiKey: string,
   eventType: string,
-  payload: Record<string, any>
-): Promise<Response> {
+  payload: Record<string, any>,
+  settings: FunctionSettings
+): Promise<Response | undefined> {
+  const samplingRate = settings.samplingRate ?? DEFAULT_SAMPING_RATE;
+  if (Math.random() > samplingRate) {
+    return undefined;
+  }
+
   const url = new URL(`${endpoint}/${eventType}`);
   url.searchParams.set('apiKey', apiKey);
 
@@ -109,6 +122,11 @@ async function sendToAltertable(
     });
   } catch (error) {
     throw new RetryError((error as Error).message);
+  }
+
+  const skip5XXErrors = settings.skip5xxErrors ?? DEFAULT_SKIP_5XX_ERRORS;
+  if (response.status / 100 === 5 && skip5XXErrors) {
+    return undefined;
   }
 
   if (response.status / 100 !== 2) {
@@ -150,7 +168,7 @@ export async function onTrack(
     payload.anonymous_id = event.anonymousId;
   }
 
-  await sendToAltertable(endpoint, settings.apiKey, 'track', payload);
+  await sendToAltertable(endpoint, settings.apiKey, 'track', payload, settings);
 }
 
 /**
@@ -172,19 +190,21 @@ export async function onIdentify(
       ...event.traits,
     },
     timestamp: event.timestamp,
-    distinct_id: event.userId || event.anonymousId,
+    distinct_id: event.userId,
+    anonymous_id: event.anonymousId,
     device_id: event.context?.device?.id,
   };
-
-  // Add anonymous_id if user is identified
-  if (event.userId && event.anonymousId) {
-    payload.anonymous_id = event.anonymousId;
-  }
 
   // Include context properties in traits
   Object.assign(payload.traits, contextProps);
 
-  await sendToAltertable(endpoint, settings.apiKey, 'identify', payload);
+  await sendToAltertable(
+    endpoint,
+    settings.apiKey,
+    'identify',
+    payload,
+    settings
+  );
 }
 
 /**
@@ -207,7 +227,7 @@ export async function onAlias(
     device_id: event.context?.device?.id,
   };
 
-  await sendToAltertable(endpoint, settings.apiKey, 'alias', payload);
+  await sendToAltertable(endpoint, settings.apiKey, 'alias', payload, settings);
 }
 
 /**
