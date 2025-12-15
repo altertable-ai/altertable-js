@@ -259,6 +259,9 @@ export class Altertable {
 
   /**
    * Identifies a user with their ID and optional traits.
+   * It is permitted to call this method multiple times with the same user ID.
+   * If you want to update the traits for a user, use updateTraits() instead.
+   * However, it is not permitted to call this method with a different user ID, you must call reset() first.
    *
    * @param userId The user's unique identifier
    * @param traits User properties
