@@ -734,6 +734,33 @@ describe('Altertable', () => {
         consoleTableSpy.mockRestore();
         consoleGroupEndSpy.mockRestore();
       });
+
+      it('should accept a user ID that is the same as the current distinct ID', () => {
+        setupAltertable();
+        const userId: UserId = 'user123';
+        expect(() =>
+          altertable.identify(userId, { email: 'user@example.com' })
+        ).toRequestApi('/identify', {
+          payload: {
+            environment: 'production',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            traits: { email: 'user@example.com' },
+            distinct_id: userId,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          },
+        });
+        expect(() =>
+          altertable.identify(userId, { email: 'user@example.com' })
+        ).toRequestApi('/identify', {
+          payload: {
+            environment: 'production',
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            traits: { email: 'user@example.com' },
+            distinct_id: userId,
+            anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
+          },
+        });
+      });
     });
 
     describe('updateTraits() method', () => {

@@ -124,18 +124,6 @@ export class SessionManager {
   }
 
   identify(userId: UserId): void {
-    // If already identified, only allow re-identification with the same user ID
-    if (this.isIdentified()) {
-      if (this._sessionData.distinctId !== userId) {
-        throw new Error(
-          'Cannot identify with a different user ID. Call reset() first to identify a new user.'
-        );
-      }
-      // Already identified with the same user ID, no-op but persist to storage
-      this._persistToStorage();
-      return;
-    }
-
     // Transition from anonymous to identified
     this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
     this._sessionData.distinctId = userId;

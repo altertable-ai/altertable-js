@@ -40,7 +40,6 @@ import {
   IdentifyPayload,
   TrackPayload,
   UserTraits,
-  VisitorId,
 } from './types';
 
 export interface AltertableConfig {
@@ -280,8 +279,6 @@ export class Altertable {
       'The client must be initialized with init() before identifying users.'
     );
 
-    const context = this._getContext();
-
     invariant(
       !this._sessionManager.isIdentified() ||
         userId === this._sessionManager.getDistinctId(),
@@ -294,13 +291,18 @@ export class Altertable {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
-    this._sessionManager.identify(userId);
+    if (userId !== this._sessionManager.getDistinctId()) {
+      this._sessionManager.identify(userId);
+    }
+
+    const context = this._getContext();
+
     const payload: IdentifyPayload = {
       environment: context.environment,
       device_id: context.device_id,
-      distinct_id: userId,
+      distinct_id: context.distinct_id,
       traits,
-      anonymous_id: context.distinct_id as VisitorId,
+      anonymous_id: context.anonymous_id,
     };
     this._processEvent('identify', payload, context);
 
