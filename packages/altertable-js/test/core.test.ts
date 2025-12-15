@@ -738,6 +738,7 @@ describe('Altertable', () => {
       it('should accept a user ID that is the same as the current distinct ID', () => {
         setupAltertable();
         const userId: UserId = 'user123';
+
         expect(() =>
           altertable.identify(userId, { email: 'user@example.com' })
         ).toRequestApi('/identify', {
@@ -749,6 +750,7 @@ describe('Altertable', () => {
             anonymous_id: expect.stringMatching(REGEXP_VISITOR_ID),
           },
         });
+
         expect(() =>
           altertable.identify(userId, { email: 'user@example.com' })
         ).toRequestApi('/identify', {
@@ -773,14 +775,12 @@ describe('Altertable', () => {
 
         altertable.identify('user123', { email: 'user@example.com' });
         expect(storageMock.setItem).toHaveBeenCalledTimes(2);
-
         expect(storageMock.setItem).toHaveBeenCalledWith(
           'atbl.test-api-key.production',
           expect.stringContaining('"distinctId":"user123"')
         );
 
         altertable.identify('user123', { email: 'user@example.com' });
-
         expect(storageMock.setItem).toHaveBeenCalledTimes(2);
       });
     });

@@ -259,9 +259,11 @@ export class Altertable {
 
   /**
    * Identifies a user with their ID and optional traits.
-   * It is permitted to call this method multiple times with the same user ID.
-   * If you want to update the traits for a user, use updateTraits() instead.
-   * However, it is not permitted to call this method with a different user ID, you must call reset() first.
+   *
+   * Notes:
+   * - You can call this method multiple times with the same ID.
+   * - To change traits, use {@link updateTraits} instead.
+   * - To switch to a new user ID, call {@link reset} first.
    *
    * @param userId The user's unique identifier
    * @param traits User properties
@@ -295,11 +297,14 @@ export class Altertable {
     }
 
     if (userId !== this._sessionManager.getDistinctId()) {
+      /**
+       * Calling {@link SessionManager#identify} persists the new user ID to
+       * storage, which we get back from the context to construct the payload.
+       */
       this._sessionManager.identify(userId);
     }
 
     const context = this._getContext();
-
     const payload: IdentifyPayload = {
       environment: context.environment,
       device_id: context.device_id,
