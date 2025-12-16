@@ -63,7 +63,20 @@ function parseContext(context?: SegmentContext): Record<string, any> {
   // Special handling for campaign data
   if (context.campaign) {
     Object.entries(context.campaign).forEach(([key, value]) => {
-      const utmKey = key === 'name' ? 'utm_campaign' : `utm_${key}`;
+      const utmKey = (k => {
+        switch (k) {
+          case 'name':
+          case 'campaign':
+            return '$utm_campaign';
+          case 'source':
+          case 'term':
+          case 'content':
+          case 'medium':
+            return `$utm_${k}`;
+          default:
+            return `utm_${k}`;
+        }
+      })(key);
       result[utmKey] = value;
     });
   }

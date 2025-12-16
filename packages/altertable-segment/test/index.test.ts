@@ -113,7 +113,8 @@ describe('Altertable Segment Destination', () => {
             medium: 'cpc',
             term: 'shoes',
             content: 'ad-variant-a',
-          },
+            foo: 'bar',
+          } as NonNullable<SegmentTrackEvent['context']>['campaign'], // force usage of `foo`
         },
       };
 
@@ -127,11 +128,12 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.properties.utm_campaign).toBe('summer-sale');
-      expect(body.properties.utm_source).toBe('google');
-      expect(body.properties.utm_medium).toBe('cpc');
-      expect(body.properties.utm_term).toBe('shoes');
-      expect(body.properties.utm_content).toBe('ad-variant-a');
+      expect(body.properties.$utm_campaign).toBe('summer-sale');
+      expect(body.properties.$utm_source).toBe('google');
+      expect(body.properties.$utm_medium).toBe('cpc');
+      expect(body.properties.$utm_term).toBe('shoes');
+      expect(body.properties.$utm_content).toBe('ad-variant-a');
+      expect(body.properties.utm_foo).toBe('bar');
     });
 
     it('should map device context to Altertable properties', async () => {
