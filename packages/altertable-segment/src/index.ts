@@ -36,11 +36,9 @@ const DEFAULT_ENVIRONMENT = 'production';
 const contextMapping: Record<string, string> = {
   ip: '$ip',
   'page.url': '$url',
-  'page.path': '$pathname',
-  'page.referrer': '$referrer',
+  'page.referrer': '$referer',
   'os.name': '$os',
-  'device.type': '$device_type',
-  'device.id': '$device_id',
+  'device.type': '$device',
   'device.model': '$device_model',
   userAgent: '$user_agent',
 };
