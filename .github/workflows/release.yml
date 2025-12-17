@@ -3,6 +3,10 @@ name: Release
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -28,12 +32,8 @@ jobs:
         run: |
           cd packages/altertable-js
           bun publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish altertable-react
         run: |
           cd packages/altertable-react
           bun publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
