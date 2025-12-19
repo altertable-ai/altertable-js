@@ -184,14 +184,20 @@ export async function onIdentify(
   const environment = settings.environment || DEFAULT_ENVIRONMENT;
   const contextProps = parseContext(event.context);
 
+  const distinctId = event.userId || event.anonymousId;
+  const anonymousId =
+    event.userId && event.userId !== event.anonymousId
+      ? event.anonymousId
+      : undefined;
+
   const payload: Record<string, any> = {
     environment,
     traits: {
       ...event.traits,
     },
     timestamp: event.timestamp,
-    distinct_id: event.userId,
-    anonymous_id: event.anonymousId,
+    distinct_id: distinctId,
+    anonymous_id: anonymousId,
     device_id: event.context?.device?.id,
   };
 

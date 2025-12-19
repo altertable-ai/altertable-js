@@ -375,6 +375,62 @@ describe('Altertable Segment Destination', () => {
       expect(body.traits.$locale).toBe('en-US');
       expect(body.traits.$timezone).toBe('America/New_York');
     });
+
+    it('should use anonymousId as distinct_id when userId is not present', async () => {
+      const event: SegmentIdentifyEvent = {
+        type: 'identify',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        anonymousId: 'anon-456',
+        traits: {
+          email: 'user@example.com',
+          name: 'John Doe',
+        },
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onIdentify(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.distinct_id).toBe('anon-456');
+      expect(body.anonymous_id).toBeUndefined();
+      expect(body.traits.email).toBe('user@example.com');
+      expect(body.traits.name).toBe('John Doe');
+    });
+
+    it('should use userId as distinct_id when anonymousId is not present', async () => {
+      const event: SegmentIdentifyEvent = {
+        type: 'identify',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        userId: 'user-123',
+        traits: {
+          email: 'user@example.com',
+          name: 'John Doe',
+        },
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onIdentify(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.distinct_id).toBe('user-123');
+      expect(body.anonymous_id).toBeUndefined();
+      expect(body.traits.email).toBe('user@example.com');
+      expect(body.traits.name).toBe('John Doe');
+    });
   });
 
   describe('onAlias', () => {
