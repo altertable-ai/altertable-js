@@ -35,18 +35,12 @@ const DEFAULT_ENVIRONMENT = 'production';
  */
 const contextMapping: Record<string, string> = {
   ip: '$ip',
-  'page.url': '$current_url',
-  'page.path': '$pathname',
-  'page.referrer': '$referrer',
+  'page.url': '$url',
+  'page.referrer': '$referer',
   'os.name': '$os',
-  'screen.width': '$screen_width',
-  'screen.height': '$screen_height',
-  'device.type': '$device_type',
-  'device.id': '$device_id',
+  'device.type': '$device',
   'device.model': '$device_model',
   userAgent: '$user_agent',
-  locale: '$locale',
-  timezone: '$timezone',
 };
 
 /**
@@ -66,13 +60,28 @@ function parseContext(context?: SegmentContext): Record<string, any> {
 
   const result: Record<string, any> = {};
 
+  // Special handling for campaign data
   if (context.campaign) {
     Object.entries(context.campaign).forEach(([key, value]) => {
-      const utmKey = key === 'name' ? 'utm_campaign' : `utm_${key}`;
+      const utmKey = (k => {
+        switch (k) {
+          case 'name':
+          case 'campaign':
+            return '$utm_campaign';
+          case 'source':
+          case 'term':
+          case 'content':
+          case 'medium':
+            return `$utm_${k}`;
+          default:
+            return `utm_${k}`;
+        }
+      })(key);
       result[utmKey] = value;
     });
   }
 
+  // Map known context properties to Altertable properties
   Object.entries(contextMapping).forEach(([segmentPath, altertableProp]) => {
     const value = getNestedValue(context, segmentPath);
     if (value !== undefined) {
@@ -80,6 +89,14 @@ function parseContext(context?: SegmentContext): Record<string, any> {
     }
   });
 
+  // Special handling for screen size
+  const screenWidth = context.screen?.width;
+  const screenHeight = context.screen?.height;
+  if (screenWidth && screenHeight) {
+    result['$viewport'] = `${screenWidth}x${screenHeight}`;
+  }
+
+  // Special handling for library data
   if (context.library) {
     result.$lib = context.library.name || 'altertable-segment';
     if (context.library.version) {

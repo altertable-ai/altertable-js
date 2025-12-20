@@ -68,9 +68,8 @@ describe('Altertable Segment Destination', () => {
       expect(body.event).toBe('Button Clicked');
       expect(body.properties.buttonId).toBe('signup-button');
       expect(body.properties.$ip).toBe('192.168.1.1');
-      expect(body.properties.$current_url).toBe('https://example.com/landing');
-      expect(body.properties.$pathname).toBe('/landing');
-      expect(body.properties.$referrer).toBe('https://google.com');
+      expect(body.properties.$url).toBe('https://example.com/landing');
+      expect(body.properties.$referer).toBe('https://google.com');
       expect(body.distinct_id).toBe('user-123');
       expect(body.anonymous_id).toBe('anon-456');
     });
@@ -114,7 +113,8 @@ describe('Altertable Segment Destination', () => {
             medium: 'cpc',
             term: 'shoes',
             content: 'ad-variant-a',
-          },
+            foo: 'bar',
+          } as NonNullable<SegmentTrackEvent['context']>['campaign'], // force usage of `foo`
         },
       };
 
@@ -128,11 +128,12 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.properties.utm_campaign).toBe('summer-sale');
-      expect(body.properties.utm_source).toBe('google');
-      expect(body.properties.utm_medium).toBe('cpc');
-      expect(body.properties.utm_term).toBe('shoes');
-      expect(body.properties.utm_content).toBe('ad-variant-a');
+      expect(body.properties.$utm_campaign).toBe('summer-sale');
+      expect(body.properties.$utm_source).toBe('google');
+      expect(body.properties.$utm_medium).toBe('cpc');
+      expect(body.properties.$utm_term).toBe('shoes');
+      expect(body.properties.$utm_content).toBe('ad-variant-a');
+      expect(body.properties.utm_foo).toBe('bar');
     });
 
     it('should map device context to Altertable properties', async () => {
@@ -172,15 +173,11 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.properties.$device_type).toBe('mobile');
-      expect(body.properties.$device_id).toBe('device-abc');
+      expect(body.properties.$device).toBe('mobile');
       expect(body.properties.$device_model).toBe('iPhone 14');
-      expect(body.properties.$screen_width).toBe(390);
-      expect(body.properties.$screen_height).toBe(844);
+      expect(body.properties.$viewport).toBe('390x844');
       expect(body.properties.$os).toBe('iOS');
       expect(body.properties.$user_agent).toBe('Mozilla/5.0...');
-      expect(body.properties.$locale).toBe('en-US');
-      expect(body.properties.$timezone).toBe('America/New_York');
       expect(body.device_id).toBe('device-abc');
     });
 
@@ -357,8 +354,9 @@ describe('Altertable Segment Destination', () => {
           email: 'user@example.com',
         },
         context: {
-          locale: 'en-US',
-          timezone: 'America/New_York',
+          device: {
+            type: 'mobile',
+          },
         },
       };
 
@@ -372,8 +370,7 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.traits.$locale).toBe('en-US');
-      expect(body.traits.$timezone).toBe('America/New_York');
+      expect(body.traits.$device).toBe('mobile');
     });
 
     it('should use anonymousId as distinct_id when userId is not present', async () => {
@@ -507,8 +504,7 @@ describe('Altertable Segment Destination', () => {
       expect(body.properties.$page_category).toBe('Marketing');
       expect(body.properties.url).toBe('https://example.com');
       expect(body.properties.title).toBe('Homepage');
-      expect(body.properties.$current_url).toBe('https://example.com');
-      expect(body.properties.$pathname).toBe('/');
+      expect(body.properties.$url).toBe('https://example.com');
     });
 
     it('should handle page event without name and category', async () => {
@@ -572,7 +568,7 @@ describe('Altertable Segment Destination', () => {
       expect(body.properties.$screen_name).toBe('Dashboard');
       expect(body.properties.$screen_category).toBe('App');
       expect(body.properties.screenId).toBe('dashboard-main');
-      expect(body.properties.$device_type).toBe('mobile');
+      expect(body.properties.$device).toBe('mobile');
     });
 
     it('should handle screen event without name and category', async () => {
