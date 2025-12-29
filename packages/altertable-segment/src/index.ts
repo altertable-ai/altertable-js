@@ -1,6 +1,7 @@
 import type {
   FunctionSettings,
   SegmentAliasEvent,
+  SegmentAnyEvent,
   SegmentContext,
   SegmentDeleteEvent,
   SegmentGroupEvent,
@@ -38,8 +39,6 @@ const contextMapping: Record<string, string> = {
   'page.url': '$url',
   'page.referrer': '$referer',
   'os.name': '$os',
-  'device.type': '$device',
-  'device.model': '$device_model',
   userAgent: '$user_agent',
 };
 
@@ -113,10 +112,8 @@ function parseContext(context?: SegmentContext): Record<string, any> {
  * Send event to Altertable API
  */
 async function sendToAltertable(
-  endpoint: string,
-  apiKey: string,
   eventType: string,
-  payload: Record<string, any>,
+  payload: Record<string, any> | Record<string, any>[],
   settings: FunctionSettings
 ): Promise<Response | undefined> {
   const samplingRate = settings.samplingRate ?? DEFAULT_SAMPING_RATE;
@@ -124,8 +121,8 @@ async function sendToAltertable(
     return undefined;
   }
 
-  const url = new URL(`${endpoint}/${eventType}`);
-  url.searchParams.set('apiKey', apiKey);
+  const url = new URL(`${settings.endpoint || DEFAULT_ENDPOINT}/${eventType}`);
+  url.searchParams.set('apiKey', settings.apiKey);
 
   let response: Response;
 
@@ -155,16 +152,10 @@ async function sendToAltertable(
   return response;
 }
 
-/**
- * Handle track event
- * @param event SegmentTrackEvent
- * @param settings FunctionSettings
- */
-export async function onTrack(
+function buildTrackPayload(
   event: SegmentTrackEvent,
   settings: FunctionSettings
-): Promise<void> {
-  const endpoint = settings.endpoint || DEFAULT_ENDPOINT;
+): Record<string, any> {
   const environment = settings.environment || DEFAULT_ENVIRONMENT;
   const contextProps = parseContext(event.context);
 
@@ -185,19 +176,13 @@ export async function onTrack(
     payload.anonymous_id = event.anonymousId;
   }
 
-  await sendToAltertable(endpoint, settings.apiKey, 'track', payload, settings);
+  return payload;
 }
 
-/**
- * Handle identify event
- * @param event SegmentIdentifyEvent
- * @param settings FunctionSettings
- */
-export async function onIdentify(
+function buildIdentifyPayload(
   event: SegmentIdentifyEvent,
   settings: FunctionSettings
-): Promise<void> {
-  const endpoint = settings.endpoint || DEFAULT_ENDPOINT;
+): Record<string, any> {
   const environment = settings.environment || DEFAULT_ENVIRONMENT;
   const contextProps = parseContext(event.context);
 
@@ -221,11 +206,77 @@ export async function onIdentify(
   // Include context properties in traits
   Object.assign(payload.traits, contextProps);
 
+  return payload;
+}
+
+function buildAliasPayload(
+  event: SegmentAliasEvent,
+  settings: FunctionSettings
+): Record<string, any> {
+  const environment = settings.environment || DEFAULT_ENVIRONMENT;
+
+  const payload = {
+    environment,
+    new_user_id: event.userId,
+    timestamp: event.timestamp,
+    distinct_id: event.previousId,
+    device_id: event.context?.device?.id,
+  };
+
+  return payload;
+}
+
+/**
+ * Handle track event
+ * @param event SegmentTrackEvent
+ * @param settings FunctionSettings
+ */
+export async function onTrack(
+  event: SegmentTrackEvent,
+  settings: FunctionSettings
+): Promise<void> {
+  await sendToAltertable('track', buildTrackPayload(event, settings), settings);
+}
+
+function batchTrack(
+  events: SegmentTrackEvent[],
+  settings: FunctionSettings
+): Promise<Response | undefined> {
+  return sendToAltertable(
+    'track',
+    events.map(event => buildTrackPayload(event, settings)),
+    settings
+  );
+}
+
+/**
+ * Handle identify event
+ * @param event SegmentIdentifyEvent
+ * @param settings FunctionSettings
+ */
+export async function onIdentify(
+  event: SegmentIdentifyEvent,
+  settings: FunctionSettings
+): Promise<void> {
   await sendToAltertable(
-    endpoint,
-    settings.apiKey,
     'identify',
-    payload,
+    buildIdentifyPayload(event, settings),
+    settings
+  );
+}
+
+/**
+ * Handle identify event batch
+ * @param events SegmentIdentifyEvent[]
+ * @param settings FunctionSettings
+ */
+function batchIdentify(
+  events: SegmentIdentifyEvent[],
+  settings: FunctionSettings
+): Promise<Response | undefined> {
+  return sendToAltertable(
+    'identify',
+    events.map(event => buildIdentifyPayload(event, settings)),
     settings
   );
 }
@@ -239,18 +290,38 @@ export async function onAlias(
   event: SegmentAliasEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  const endpoint = settings.endpoint || DEFAULT_ENDPOINT;
-  const environment = settings.environment || DEFAULT_ENVIRONMENT;
+  await sendToAltertable('alias', buildAliasPayload(event, settings), settings);
+}
 
-  const payload = {
-    environment,
-    new_user_id: event.userId,
-    timestamp: event.timestamp,
-    distinct_id: event.previousId,
-    device_id: event.context?.device?.id,
+/**
+ * Handle alias event batch
+ * @param events SegmentAliasEvent[]
+ * @param settings FunctionSettings
+ */
+function batchAlias(
+  events: SegmentAliasEvent[],
+  settings: FunctionSettings
+): Promise<Response | undefined> {
+  return sendToAltertable(
+    'alias',
+    events.map(event => buildAliasPayload(event, settings)),
+    settings
+  );
+}
+
+/**
+ * Convert page event to track event
+ * @param event SegmentPageEvent
+ * @returns SegmentTrackEvent
+ */
+function convertPageEventToTrackEvent(
+  event: SegmentPageEvent
+): SegmentTrackEvent {
+  return {
+    ...event,
+    type: 'track',
+    event: '$pageview',
   };
-
-  await sendToAltertable(endpoint, settings.apiKey, 'alias', payload, settings);
 }
 
 /**
@@ -262,18 +333,22 @@ export async function onPage(
   event: SegmentPageEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  const trackEvent: SegmentTrackEvent = {
+  await onTrack(convertPageEventToTrackEvent(event), settings);
+}
+
+/**
+ * Convert screen event to track event
+ * @param event SegmentScreenEvent
+ * @returns SegmentTrackEvent
+ */
+function convertScreenEventToTrackEvent(
+  event: SegmentScreenEvent
+): SegmentTrackEvent {
+  return {
     ...event,
     type: 'track',
-    event: '$pageview',
-    properties: {
-      ...event.properties,
-      $page_name: event.name,
-      $page_category: event.category,
-    },
+    event: '$screen',
   };
-
-  await onTrack(trackEvent, settings);
 }
 
 /**
@@ -285,18 +360,7 @@ export async function onScreen(
   event: SegmentScreenEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  const trackEvent: SegmentTrackEvent = {
-    ...event,
-    type: 'track',
-    event: '$screen',
-    properties: {
-      ...event.properties,
-      $screen_name: event.name,
-      $screen_category: event.category,
-    },
-  };
-
-  await onTrack(trackEvent, settings);
+  await onTrack(convertScreenEventToTrackEvent(event), settings);
 }
 
 /**
@@ -321,4 +385,66 @@ export async function onDelete(
   _settings: FunctionSettings
 ): Promise<void> {
   throw new EventNotSupported('delete is not supported');
+}
+
+/**
+ * Handle batch event
+ * @param events SegmentEvent[]
+ * @param settings FunctionSettings
+ */
+export async function onBatch(
+  events: SegmentAnyEvent[],
+  settings: FunctionSettings
+): Promise<void> {
+  const eventsByType: Record<
+    'track' | 'identify' | 'alias',
+    SegmentAnyEvent[]
+  > = {
+    track: [],
+    identify: [],
+    alias: [],
+  };
+  for (const event of events) {
+    let type: 'track' | 'identify' | 'alias';
+    let payload: SegmentAnyEvent;
+    switch (event.type) {
+      case 'page':
+        type = 'track';
+        payload = convertPageEventToTrackEvent(event);
+        break;
+      case 'screen':
+        type = 'track';
+        payload = convertScreenEventToTrackEvent(event);
+        break;
+      case 'identify':
+      case 'alias':
+      case 'track':
+        type = event.type;
+        payload = event;
+        break;
+      default:
+        throw new EventNotSupported(
+          `event type ${event.type} is not supported`
+        );
+    }
+    eventsByType[type].push(payload);
+  }
+
+  const promises = Object.entries(eventsByType).map(([type, payloads]) => {
+    if (payloads.length === 0) {
+      return Promise.resolve(undefined);
+    }
+    switch (type) {
+      case 'track':
+        return batchTrack(payloads as SegmentTrackEvent[], settings);
+      case 'identify':
+        return batchIdentify(payloads as SegmentIdentifyEvent[], settings);
+      case 'alias':
+        return batchAlias(payloads as SegmentAliasEvent[], settings);
+      default:
+        throw new EventNotSupported(`event type ${type} is not supported`);
+    }
+  });
+
+  await Promise.all(promises);
 }

@@ -1,9 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { onAlias, onIdentify, onPage, onScreen, onTrack } from '../src/index';
+// Global error classes from setup.ts
+declare const RetryError: {
+  new (message: string): Error;
+};
+declare const EventNotSupported: {
+  new (message: string): Error;
+};
+
+import {
+  onAlias,
+  onBatch,
+  onIdentify,
+  onPage,
+  onScreen,
+  onTrack,
+} from '../src/index';
 import {
   type FunctionSettings,
   type SegmentAliasEvent,
+  type SegmentAnyEvent,
+  type SegmentDeleteEvent,
+  type SegmentGroupEvent,
   type SegmentIdentifyEvent,
   type SegmentPageEvent,
   type SegmentScreenEvent,
@@ -173,8 +191,6 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.properties.$device).toBe('mobile');
-      expect(body.properties.$device_model).toBe('iPhone 14');
       expect(body.properties.$viewport).toBe('390x844');
       expect(body.properties.$os).toBe('iOS');
       expect(body.properties.$user_agent).toBe('Mozilla/5.0...');
@@ -354,9 +370,7 @@ describe('Altertable Segment Destination', () => {
           email: 'user@example.com',
         },
         context: {
-          device: {
-            type: 'mobile',
-          },
+          userAgent: 'a user agent',
         },
       };
 
@@ -370,7 +384,7 @@ describe('Altertable Segment Destination', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
 
-      expect(body.traits.$device).toBe('mobile');
+      expect(body.traits.$user_agent).toBe('a user agent');
     });
 
     it('should use anonymousId as distinct_id when userId is not present', async () => {
@@ -500,35 +514,9 @@ describe('Altertable Segment Destination', () => {
 
       const body = JSON.parse(options.body);
       expect(body.event).toBe('$pageview');
-      expect(body.properties.$page_name).toBe('Home');
-      expect(body.properties.$page_category).toBe('Marketing');
       expect(body.properties.url).toBe('https://example.com');
       expect(body.properties.title).toBe('Homepage');
       expect(body.properties.$url).toBe('https://example.com');
-    });
-
-    it('should handle page event without name and category', async () => {
-      const event: SegmentPageEvent = {
-        type: 'page',
-        messageId: 'msg-123',
-        timestamp: '2025-01-15T10:00:00.000Z',
-        userId: 'user-123',
-        properties: {},
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      await onPage(event, defaultSettings);
-
-      const [, options] = mockFetch.mock.calls[0];
-      const body = JSON.parse(options.body);
-
-      expect(body.event).toBe('$pageview');
-      expect(body.properties.$page_name).toBeUndefined();
-      expect(body.properties.$page_category).toBeUndefined();
     });
   });
 
@@ -545,9 +533,7 @@ describe('Altertable Segment Destination', () => {
           screenId: 'dashboard-main',
         },
         context: {
-          device: {
-            type: 'mobile',
-          },
+          userAgent: 'a user agent',
         },
       };
 
@@ -565,34 +551,393 @@ describe('Altertable Segment Destination', () => {
 
       const body = JSON.parse(options.body);
       expect(body.event).toBe('$screen');
-      expect(body.properties.$screen_name).toBe('Dashboard');
-      expect(body.properties.$screen_category).toBe('App');
       expect(body.properties.screenId).toBe('dashboard-main');
-      expect(body.properties.$device).toBe('mobile');
+      expect(body.properties.$user_agent).toBe('a user agent');
     });
+  });
 
-    it('should handle screen event without name and category', async () => {
-      const event: SegmentScreenEvent = {
-        type: 'screen',
-        messageId: 'msg-123',
-        timestamp: '2025-01-15T10:00:00.000Z',
-        userId: 'user-123',
-        properties: {},
-      };
+  describe('onBatch', () => {
+    it('should batch multiple track events together', async () => {
+      const events: SegmentTrackEvent[] = [
+        {
+          type: 'track',
+          event: 'Button Clicked',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          properties: { buttonId: 'btn-1' },
+        },
+        {
+          type: 'track',
+          event: 'Page Viewed',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-123',
+          properties: { page: '/home' },
+        },
+      ];
 
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
       });
 
-      await onScreen(event, defaultSettings);
+      await onBatch(events, defaultSettings);
 
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+
+      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+      expect(options.method).toBe('POST');
+
+      const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(2);
+      expect(body[0].event).toBe('Button Clicked');
+      expect(body[0].properties.buttonId).toBe('btn-1');
+      expect(body[1].event).toBe('Page Viewed');
+      expect(body[1].properties.page).toBe('/home');
+    });
+
+    it('should batch multiple identify events together', async () => {
+      const events: SegmentIdentifyEvent[] = [
+        {
+          type: 'identify',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          traits: { email: 'user@example.com' },
+        },
+        {
+          type: 'identify',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-456',
+          traits: { name: 'Jane Doe' },
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+
+      expect(url).toBe(
+        'https://api.altertable.ai/identify?apiKey=test-api-key'
+      );
+      expect(options.method).toBe('POST');
+
+      const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(2);
+      expect(body[0].traits.email).toBe('user@example.com');
+      expect(body[0].distinct_id).toBe('user-123');
+      expect(body[1].traits.name).toBe('Jane Doe');
+      expect(body[1].distinct_id).toBe('user-456');
+    });
+
+    it('should batch multiple alias events together', async () => {
+      const events: SegmentAliasEvent[] = [
+        {
+          type: 'alias',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          previousId: 'anon-456',
+        },
+        {
+          type: 'alias',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-789',
+          previousId: 'anon-012',
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+
+      expect(url).toBe('https://api.altertable.ai/alias?apiKey=test-api-key');
+      expect(options.method).toBe('POST');
+
+      const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(2);
+      expect(body[0].new_user_id).toBe('user-123');
+      expect(body[0].distinct_id).toBe('anon-456');
+      expect(body[1].new_user_id).toBe('user-789');
+      expect(body[1].distinct_id).toBe('anon-012');
+    });
+
+    it('should batch multiple page events together as track events', async () => {
+      const events: SegmentPageEvent[] = [
+        {
+          type: 'page',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          name: 'Home',
+          properties: { url: 'https://example.com' },
+        },
+        {
+          type: 'page',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-123',
+          name: 'About',
+          properties: { url: 'https://example.com/about' },
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+
+      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+
+      const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(2);
+      expect(body[0].event).toBe('$pageview');
+      expect(body[0].properties.url).toBe('https://example.com');
+      expect(body[1].event).toBe('$pageview');
+      expect(body[1].properties.url).toBe('https://example.com/about');
+    });
+
+    it('should batch multiple screen events together as track events', async () => {
+      const events: SegmentScreenEvent[] = [
+        {
+          type: 'screen',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          name: 'Dashboard',
+          properties: { screenId: 'dashboard-main' },
+        },
+        {
+          type: 'screen',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-123',
+          name: 'Settings',
+          properties: { screenId: 'settings-main' },
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+
+      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+
+      const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(2);
+      expect(body[0].event).toBe('$screen');
+      expect(body[0].properties.screenId).toBe('dashboard-main');
+      expect(body[1].event).toBe('$screen');
+      expect(body[1].properties.screenId).toBe('settings-main');
+    });
+
+    it('should batch mixed event types separately by type', async () => {
+      const events: SegmentAnyEvent[] = [
+        {
+          type: 'track',
+          event: 'Button Clicked',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          properties: {},
+        },
+        {
+          type: 'identify',
+          messageId: 'msg-2',
+          timestamp: '2025-01-15T10:01:00.000Z',
+          userId: 'user-123',
+          traits: { email: 'user@example.com' },
+        },
+        {
+          type: 'track',
+          event: 'Page Viewed',
+          messageId: 'msg-3',
+          timestamp: '2025-01-15T10:02:00.000Z',
+          userId: 'user-123',
+          properties: {},
+        },
+        {
+          type: 'page',
+          messageId: 'msg-4',
+          timestamp: '2025-01-15T10:03:00.000Z',
+          userId: 'user-123',
+          properties: {},
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      // Should have 2 calls: track (2 track events + 1 page event converted), identify (1 event)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      // First call: track events (msg-1, msg-3) and page event converted to track (msg-4)
+      const [url1, options1] = mockFetch.mock.calls[0];
+      expect(url1).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+      const body1 = JSON.parse(options1.body);
+      expect(Array.isArray(body1)).toBe(true);
+      expect(body1).toHaveLength(3);
+      expect(body1[0].event).toBe('Button Clicked');
+      expect(body1[1].event).toBe('Page Viewed');
+      expect(body1[2].event).toBe('$pageview');
+
+      // Second call: identify event (msg-2)
+      const [url2, options2] = mockFetch.mock.calls[1];
+      expect(url2).toBe(
+        'https://api.altertable.ai/identify?apiKey=test-api-key'
+      );
+      const body2 = JSON.parse(options2.body);
+      expect(Array.isArray(body2)).toBe(true);
+      expect(body2).toHaveLength(1);
+      expect(body2[0].traits.email).toBe('user@example.com');
+    });
+
+    it('should throw EventNotSupported for group events', async () => {
+      const events: SegmentGroupEvent[] = [
+        {
+          type: 'group',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          groupId: 'group-456',
+          traits: {},
+        },
+      ];
+
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        EventNotSupported
+      );
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        'group is not supported'
+      );
+    });
+
+    it('should throw EventNotSupported for delete events', async () => {
+      const events: SegmentDeleteEvent[] = [
+        {
+          type: 'delete',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+        },
+      ];
+
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        EventNotSupported
+      );
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        'delete is not supported'
+      );
+    });
+
+    it('should throw EventNotSupported for unknown event types', async () => {
+      const events = [
+        {
+          type: 'unknown',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+      ] as unknown as SegmentAnyEvent[];
+
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        EventNotSupported
+      );
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        'event type unknown is not supported'
+      );
+    });
+
+    it('should handle empty batch', async () => {
+      const events: SegmentAnyEvent[] = [];
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should handle batch with single event', async () => {
+      const events: SegmentTrackEvent[] = [
+        {
+          type: 'track',
+          event: 'Single Event',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          properties: {},
+        },
+      ];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onBatch(events, defaultSettings);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse(options.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveLength(1);
+      expect(body[0].event).toBe('Single Event');
+    });
 
-      expect(body.event).toBe('$screen');
-      expect(body.properties.$screen_name).toBeUndefined();
-      expect(body.properties.$screen_category).toBeUndefined();
+    it('should propagate errors from individual batch handlers', async () => {
+      const events: SegmentTrackEvent[] = [
+        {
+          type: 'track',
+          event: 'Test Event',
+          messageId: 'msg-1',
+          timestamp: '2025-01-15T10:00:00.000Z',
+          userId: 'user-123',
+          properties: {},
+        },
+      ];
+
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        RetryError
+      );
+      await expect(onBatch(events, defaultSettings)).rejects.toThrow(
+        'Network error'
+      );
     });
   });
 
