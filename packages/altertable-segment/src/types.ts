@@ -119,6 +119,18 @@ export interface SegmentDeleteEvent extends SegmentEventBase {
 }
 
 /**
+ * Union type for all Segment events (to be used in the onBatch function)
+ */
+export type SegmentAnyEvent =
+  | SegmentTrackEvent
+  | SegmentIdentifyEvent
+  | SegmentAliasEvent
+  | SegmentPageEvent
+  | SegmentScreenEvent
+  | SegmentGroupEvent
+  | SegmentDeleteEvent;
+
+/**
  * Settings passed from Segment
  */
 export interface FunctionSettings {
