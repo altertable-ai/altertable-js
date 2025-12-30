@@ -47,7 +47,7 @@ altertable.alias('new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
 ## Features
 
 - **Automatic page view tracking** – Captures page views automatically
-- **Session management** – Handles visitor and session IDs automatically
+- **Session management** – Handles anonymous and session IDs automatically
 - **Event queuing** – Queues events when offline or consent is pending
 - **Privacy compliance** – Built-in tracking consent management
 - **Multiple storage options** – localStorage, cookies, or both
