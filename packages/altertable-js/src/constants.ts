@@ -5,7 +5,7 @@ export const keyBuilder = createKeyBuilder(STORAGE_KEY_PREFIX, '.');
 export const STORAGE_KEY_TEST = keyBuilder('check');
 
 export const PREFIX_SESSION_ID = 'session';
-export const PREFIX_VISITOR_ID = 'visitor';
+export const PREFIX_ANONYMOUS_ID = 'anonymous';
 export const PREFIX_DEVICE_ID = 'device';
 
 const MINUTE_IN_MS = 1_000 * 60;

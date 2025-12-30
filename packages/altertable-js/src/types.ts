@@ -5,9 +5,9 @@ export type EventType = 'track' | 'identify' | 'alias';
 export type EventProperties = Record<string, unknown>;
 
 export type UserId = string;
-export type DistinctId = StringWithAutocomplete<UserId | VisitorId>;
+export type DistinctId = StringWithAutocomplete<UserId | AnonymousId>;
 export type DeviceId = `device-${string}`;
-export type VisitorId = `visitor-${string}`;
+export type AnonymousId = `anonymous-${string}`;
 export type SessionId = `session-${string}`;
 export type Environment = StringWithAutocomplete<
   'production' | 'development' | 'staging'
@@ -21,7 +21,7 @@ export type AltertableContext = {
   environment: Environment;
   device_id: DeviceId;
   distinct_id: DistinctId;
-  anonymous_id: VisitorId | null;
+  anonymous_id: AnonymousId | null;
   session_id: SessionId;
 };
 
