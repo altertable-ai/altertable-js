@@ -81,7 +81,7 @@ function SignupPage() {
 ## Features
 
 - **Automatic page view tracking** – Captures page views automatically
-- **Session management** – Handles visitor and session IDs automatically
+- **Session management** – Handles anonymous and session IDs automatically
 - **Event queuing** – Queues events when offline or consent is pending
 - **Privacy compliance** – Built-in tracking consent management
 - **Multiple storage options** – localStorage, cookies, or both

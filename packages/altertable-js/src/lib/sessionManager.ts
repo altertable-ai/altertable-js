@@ -1,17 +1,17 @@
 import {
+  PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
-  PREFIX_VISITOR_ID,
   SESSION_EXPIRATION_TIME_MS,
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
 import type {
+  AnonymousId,
   DeviceId,
   DistinctId,
   SessionId,
   UserId,
-  VisitorId,
 } from '../types';
 import { generateId } from './generateId';
 import { Logger } from './logger';
@@ -20,7 +20,7 @@ import { type StorageApi } from './storage';
 type SessionData = {
   deviceId: DeviceId;
   distinctId: DistinctId;
-  anonymousId: VisitorId | null;
+  anonymousId: AnonymousId | null;
   sessionId: SessionId;
   lastEventAt: string | null;
   trackingConsent: TrackingConsentType;
@@ -61,7 +61,7 @@ export class SessionManager {
 
       this._sessionData = {
         deviceId: parsedData.deviceId || this._generateDeviceId(),
-        distinctId: parsedData.distinctId || this._generateVisitorId(),
+        distinctId: parsedData.distinctId || this._generateAnonymousId(),
         sessionId: parsedData.sessionId || this._generateSessionId(),
         anonymousId: parsedData.anonymousId || null,
         lastEventAt: parsedData.lastEventAt || null,
@@ -91,7 +91,7 @@ export class SessionManager {
     return this._sessionData.distinctId;
   }
 
-  getAnonymousId(): VisitorId | null {
+  getAnonymousId(): AnonymousId | null {
     return this._sessionData.anonymousId;
   }
 
@@ -103,13 +103,13 @@ export class SessionManager {
    *
    * When transitioning from anonymous to identified, we preserve the anonymous ID
    * to enable identity merging on the backend. This allows:
-   * - Linking pre-identification events (anonymous visitor ID) to post-identification events (user ID)
+   * - Linking pre-identification events (anonymous ID) to post-identification events (user ID)
    * - Merging user profiles so anonymous browsing behavior is associated with the identified user
    * - Maintaining a complete user journey from first visit through identification
    *
    * **State Transitions:**
-   * - **Anonymous:** `anonymousId = null`, `distinctId = visitorId`, `isIdentified() = false`
-   * - **Identified:** `anonymousId = previous visitorId`, `distinctId = userId`, `isIdentified() = true`
+   * - **Anonymous:** `anonymousId = null`, `distinctId = anonymousId`, `isIdentified() = false`
+   * - **Identified:** `anonymousId = previous distinctId`, `distinctId = userId`, `isIdentified() = true`
    */
   isIdentified(): boolean {
     return Boolean(this._sessionData.anonymousId);
@@ -124,7 +124,7 @@ export class SessionManager {
   }
 
   identify(userId: UserId): void {
-    this._sessionData.anonymousId = this._sessionData.distinctId as VisitorId;
+    this._sessionData.anonymousId = this._sessionData.distinctId as AnonymousId;
     this._sessionData.distinctId = userId;
     this._persistToStorage();
   }
@@ -168,7 +168,7 @@ export class SessionManager {
 
     this._sessionData.sessionId = this._generateSessionId();
     this._sessionData.anonymousId = null;
-    this._sessionData.distinctId = this._generateVisitorId();
+    this._sessionData.distinctId = this._generateAnonymousId();
     this._sessionData.lastEventAt = null;
     this._persistToStorage();
   }
@@ -177,7 +177,7 @@ export class SessionManager {
     return {
       anonymousId: null,
       deviceId: this._generateDeviceId(),
-      distinctId: this._generateVisitorId(),
+      distinctId: this._generateAnonymousId(),
       lastEventAt: null,
       sessionId: this._generateSessionId(),
       trackingConsent: this._defaultTrackingConsent,
@@ -192,8 +192,8 @@ export class SessionManager {
     return generateId(PREFIX_DEVICE_ID);
   }
 
-  private _generateVisitorId(): VisitorId {
-    return generateId(PREFIX_VISITOR_ID);
+  private _generateAnonymousId(): AnonymousId {
+    return generateId(PREFIX_ANONYMOUS_ID);
   }
 
   private _shouldRenewSession(): boolean {

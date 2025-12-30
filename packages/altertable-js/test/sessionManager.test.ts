@@ -5,9 +5,9 @@ import {
   StorageMock,
 } from '../../../test-utils/mocks/storageMock';
 import {
+  PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
-  PREFIX_VISITOR_ID,
   SESSION_EXPIRATION_TIME_MS,
   TrackingConsent,
 } from '../src/constants';
@@ -54,7 +54,7 @@ describe('SessionManager with tracking consent', () => {
       mockStorage.getItem.mockReturnValue(
         JSON.stringify({
           deviceId: 'device-test-1',
-          distinctId: 'visitor-test-1',
+          distinctId: 'anonymous-test-1',
           anonymousId: null,
           sessionId: 'session-test-1',
           lastEventAt: null,
@@ -77,7 +77,7 @@ describe('SessionManager with tracking consent', () => {
       mockStorage.getItem.mockReturnValue(
         JSON.stringify({
           deviceId: 'device-test-1',
-          distinctId: 'visitor-test-1',
+          distinctId: 'anonymous-test-1',
           anonymousId: null,
           sessionId: 'session-test-1',
           lastEventAt: null,
@@ -153,7 +153,7 @@ describe('SessionManager with tracking consent', () => {
     it('should handle tracking consent in session data recovery', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
-        anonymousId: 'visitor-test-1',
+        anonymousId: 'anonymous-test-1',
         sessionId: 'session-test-1',
         distinctId: 'user123',
         lastEventAt: '2023-01-01T00:00:00.000Z',
@@ -179,7 +179,7 @@ describe('SessionManager with tracking consent', () => {
     it('should handle missing tracking consent in stored data', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
-        distinctId: 'visitor-test-1',
+        distinctId: 'anonymous-test-1',
         anonymousId: null,
         sessionId: 'session-test-1',
         lastEventAt: null,
@@ -202,7 +202,7 @@ describe('SessionManager with tracking consent', () => {
     it('should handle null tracking consent in stored data', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
-        distinctId: 'visitor-test-1',
+        distinctId: 'anonymous-test-1',
         anonymousId: null,
         sessionId: 'session-test-1',
         lastEventAt: null,
@@ -225,7 +225,7 @@ describe('SessionManager with tracking consent', () => {
     it('should handle undefined tracking consent in stored data', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
-        distinctId: 'visitor-test-1',
+        distinctId: 'anonymous-test-1',
         anonymousId: null,
         sessionId: 'session-test-1',
         lastEventAt: null,
@@ -259,9 +259,9 @@ describe('SessionManager with tracking consent', () => {
 
         expect(sessionManager.isIdentified()).toBe(false);
         expect(sessionManager.getAnonymousId()).toBe(null);
-        // distinctId should be a visitor ID when anonymous
-        const visitorId = sessionManager.getDistinctId();
-        expect(visitorId).toMatch(PREFIX_VISITOR_ID);
+        // distinctId should be a anonymous ID when anonymous
+        const anonymousId = sessionManager.getDistinctId();
+        expect(anonymousId).toMatch(PREFIX_ANONYMOUS_ID);
       });
     });
 
@@ -269,7 +269,7 @@ describe('SessionManager with tracking consent', () => {
       it('should return false when anonymousId is null (anonymous state)', () => {
         const storedData = JSON.stringify({
           deviceId: 'device-test-1',
-          distinctId: 'visitor_test-1', // visitor ID when anonymous
+          distinctId: 'anonymous-test-1', // anonymous ID when anonymous
           anonymousId: null,
           sessionId: 'session-test-1',
           lastEventAt: null,
@@ -288,14 +288,14 @@ describe('SessionManager with tracking consent', () => {
 
         expect(sessionManager.isIdentified()).toBe(false);
         expect(sessionManager.getAnonymousId()).toBe(null);
-        expect(sessionManager.getDistinctId()).toBe('visitor_test-1');
+        expect(sessionManager.getDistinctId()).toBe('anonymous-test-1');
       });
 
       it('should return true when anonymousId is set (identified state)', () => {
         const storedData = JSON.stringify({
           deviceId: 'device-test-1',
           distinctId: 'user123', // user ID after identification
-          anonymousId: 'visitor_test-1', // previous anonymous visitor ID
+          anonymousId: 'anonymous-test-1', // previous anonymous ID
           sessionId: 'session-test-1',
           lastEventAt: null,
           trackingConsent: TrackingConsent.PENDING,
@@ -312,14 +312,14 @@ describe('SessionManager with tracking consent', () => {
         sessionManager.init();
 
         expect(sessionManager.isIdentified()).toBe(true);
-        expect(sessionManager.getAnonymousId()).toBe('visitor_test-1');
+        expect(sessionManager.getAnonymousId()).toBe('anonymous-test-1');
         expect(sessionManager.getDistinctId()).toBe('user123');
       });
 
       it('should return false when anonymousId is missing from stored data', () => {
         const storedData = JSON.stringify({
           deviceId: 'device-test-1',
-          distinctId: 'visitor_test-1',
+          distinctId: 'anonymous-test-1',
           sessionId: 'session-test-1',
           lastEventAt: null,
           trackingConsent: TrackingConsent.PENDING,
@@ -356,12 +356,12 @@ describe('SessionManager with tracking consent', () => {
         expect(sessionManager.isIdentified()).toBe(false);
         expect(sessionManager.getAnonymousId()).toBe(null);
         const initialDistinctId = sessionManager.getDistinctId();
-        expect(initialDistinctId).toMatch(PREFIX_VISITOR_ID);
+        expect(initialDistinctId).toMatch(PREFIX_ANONYMOUS_ID);
 
         // Identify the user
         sessionManager.identify('user123');
 
-        // Now identified: anonymousId stores the previous visitor ID
+        // Now identified: anonymousId stores the previous anonymous ID
         expect(sessionManager.isIdentified()).toBe(true);
         expect(sessionManager.getAnonymousId()).toBe(initialDistinctId);
         expect(sessionManager.getDistinctId()).toBe('user123');
@@ -382,7 +382,7 @@ describe('SessionManager with tracking consent', () => {
 
       expect(sessionManager.getSessionId()).toMatch(PREFIX_SESSION_ID);
       expect(sessionManager.getDeviceId()).toMatch(PREFIX_DEVICE_ID);
-      expect(sessionManager.getDistinctId()).toMatch(PREFIX_VISITOR_ID);
+      expect(sessionManager.getDistinctId()).toMatch(PREFIX_ANONYMOUS_ID);
       expect(sessionManager.getAnonymousId()).toBe(null);
       expect(sessionManager.getLastEventAt()).toBe(null);
       expect(mockStorage.setItem).toHaveBeenCalled();
@@ -391,7 +391,7 @@ describe('SessionManager with tracking consent', () => {
     it('should load data from storage when available', () => {
       const storedData = JSON.stringify({
         deviceId: 'device-test-1',
-        distinctId: 'visitor-test-1',
+        distinctId: 'anonymous-test-1',
         anonymousId: null,
         sessionId: 'session-test-1',
         lastEventAt: '2023-01-01T00:00:00.000Z',
@@ -409,7 +409,7 @@ describe('SessionManager with tracking consent', () => {
       sessionManager.init();
 
       expect(sessionManager.getDeviceId()).toBe('device-test-1');
-      expect(sessionManager.getDistinctId()).toBe('visitor-test-1');
+      expect(sessionManager.getDistinctId()).toBe('anonymous-test-1');
       expect(sessionManager.getSessionId()).toBe('session-test-1');
       expect(sessionManager.getLastEventAt()).toBe('2023-01-01T00:00:00.000Z');
     });
@@ -435,7 +435,7 @@ describe('SessionManager with tracking consent', () => {
 
     it('should generate missing IDs when partial data exists', () => {
       const storedData = JSON.stringify({
-        distinctId: 'visitor-test-1',
+        distinctId: 'anonymous-test-1',
         // deviceId and sessionId are missing
       });
 
@@ -449,7 +449,7 @@ describe('SessionManager with tracking consent', () => {
       });
       sessionManager.init();
 
-      expect(sessionManager.getDistinctId()).toBe('visitor-test-1');
+      expect(sessionManager.getDistinctId()).toBe('anonymous-test-1');
       expect(sessionManager.getDeviceId()).toMatch(PREFIX_DEVICE_ID);
       expect(sessionManager.getSessionId()).toMatch(PREFIX_SESSION_ID);
     });
@@ -480,7 +480,7 @@ describe('SessionManager with tracking consent', () => {
 
     it('should return distinct ID', () => {
       const distinctId = sessionManager.getDistinctId();
-      expect(distinctId).toMatch(PREFIX_VISITOR_ID);
+      expect(distinctId).toMatch(PREFIX_ANONYMOUS_ID);
       expect(typeof distinctId).toBe('string');
     });
 
@@ -489,7 +489,7 @@ describe('SessionManager with tracking consent', () => {
 
       sessionManager.identify('user123');
       const anonymousId = sessionManager.getAnonymousId();
-      expect(anonymousId).toMatch(PREFIX_VISITOR_ID);
+      expect(anonymousId).toMatch(PREFIX_ANONYMOUS_ID);
     });
 
     it('should return last event timestamp', () => {
@@ -600,7 +600,7 @@ describe('SessionManager with tracking consent', () => {
 
       expect(sessionManager.isIdentified()).toBe(false);
       expect(sessionManager.getAnonymousId()).toBe(null);
-      expect(sessionManager.getDistinctId()).toMatch(PREFIX_VISITOR_ID);
+      expect(sessionManager.getDistinctId()).toMatch(PREFIX_ANONYMOUS_ID);
       expect(sessionManager.getSessionId()).not.toBe(initialSessionId);
       expect(sessionManager.getSessionId()).toMatch(PREFIX_SESSION_ID);
       expect(sessionManager.getLastEventAt()).toBe(null);

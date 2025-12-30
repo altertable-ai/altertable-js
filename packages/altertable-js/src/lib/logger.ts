@@ -56,9 +56,9 @@ export function createLogger(prefix: string) {
       const [userValueLabel, userValueStyle] = createValueElement(
         payload.distinct_id ?? 'Not set'
       );
-      const [visitorLabel, visitorLabelStyle] =
-        createEventLabelElement('Visitor ID');
-      const [visitorValueLabel, visitorValueStyle] = createValueElement(
+      const [anonymousLabel, anonymousLabelStyle] =
+        createEventLabelElement('Anonymous ID');
+      const [anonymousValueLabel, anonymousValueStyle] = createValueElement(
         payload.anonymous_id ?? 'Not set'
       );
       const [sessionLabel, sessionLabelStyle] =
@@ -73,9 +73,9 @@ export function createLogger(prefix: string) {
         userValueStyle
       );
       console.log(
-        `%c${visitorLabel} %c${visitorValueLabel}`,
-        visitorLabelStyle,
-        visitorValueStyle
+        `%c${anonymousLabel} %c${anonymousValueLabel}`,
+        anonymousLabelStyle,
+        anonymousValueStyle
       );
       console.log(
         `%c${sessionLabel} %c${sessionValueLabel}`,

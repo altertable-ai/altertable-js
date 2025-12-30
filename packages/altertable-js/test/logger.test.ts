@@ -96,7 +96,7 @@ describe('Logger', () => {
       device_id: 'device-123',
       distinct_id: 'user123',
       session_id: 'session-123',
-      anonymous_id: 'visitor-123',
+      anonymous_id: 'anonymous-123',
       environment: 'development',
       properties: {
         key1: 'value1',
@@ -134,7 +134,7 @@ describe('Logger', () => {
       );
     });
 
-    it('handles undefined user_id', () => {
+    it('handles undefined distinct_id', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutUser: TrackPayload = {
         ...mockEventPayload,
@@ -150,29 +150,31 @@ describe('Logger', () => {
       );
     });
 
-    it('logs visitor information', () => {
+    it('logs anonymous information', () => {
       const logger = createLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cvisitor-123',
+        '%cAnonymous ID %canonymous-123',
         expect.any(String),
         expect.any(String)
       );
     });
 
-    it('handles undefined visitor_id', () => {
+    it('handles undefined anonymous_id', () => {
       const logger = createLogger('TestLogger');
-      const payloadWithoutVisitor: TrackPayload = {
+      const payloadWithoutAnonymousId: TrackPayload = {
         ...mockEventPayload,
         anonymous_id: undefined,
       };
 
-      logger.logEvent(payloadWithoutVisitor, { trackingConsent: 'granted' });
+      logger.logEvent(payloadWithoutAnonymousId, {
+        trackingConsent: 'granted',
+      });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cVisitor ID %cNot set',
+        '%cAnonymous ID %cNot set',
         expect.any(String),
         expect.any(String)
       );
@@ -327,7 +329,7 @@ describe('Logger', () => {
       },
       device_id: 'device-123',
       distinct_id: 'user123',
-      anonymous_id: 'visitor-123' as const,
+      anonymous_id: 'anonymous-123' as const,
     };
 
     it('logs identify event with all components', () => {
@@ -376,13 +378,13 @@ describe('Logger', () => {
       );
     });
 
-    it('logs visitor information', () => {
+    it('logs anonymous information', () => {
       const logger = createLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.log).toHaveBeenCalledWith(
-        '%cAnonymous ID %cvisitor-123',
+        '%cAnonymous ID %canonymous-123',
         expect.any(String),
         expect.any(String)
       );
@@ -469,7 +471,7 @@ describe('Logger', () => {
       new_user_id: 'user--456',
       device_id: 'device-123',
       distinct_id: 'user123',
-      anonymous_id: 'visitor-123' as const,
+      anonymous_id: 'anonymous-123' as const,
     };
 
     it('logs alias event with all components', () => {
