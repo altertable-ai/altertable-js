@@ -103,6 +103,9 @@ describe('Altertable', () => {
     // Default to beacon available
     setupBeaconAvailable();
 
+    // Default window state for deterministic tests
+    setupWindow();
+
     if (altertable?.['_isInitialized']) {
       altertable.reset({ resetDeviceId: true });
     }
@@ -248,6 +251,44 @@ describe('Altertable', () => {
         expect(altertable['_referrer']).toBe('http://localhost/initial-page');
       });
 
+      it('includes correct referrer in pageview payload when auto-capture detects URL change', () => {
+        setupWindow({ url: 'http://localhost/page-1' });
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: true,
+          trackingConsent: 'granted',
+        });
+
+        // Navigate to page-2
+        setupWindow({ url: 'http://localhost/page-2' });
+        expect(() => {
+          altertable['_checkForChanges']();
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/page-2',
+              [PROPERTY_REFERER]: 'http://localhost/page-1',
+            }),
+          }),
+        });
+
+        // Navigate to page-3
+        setupWindow({ url: 'http://localhost/page-3' });
+        expect(() => {
+          altertable['_checkForChanges']();
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/page-3',
+              [PROPERTY_REFERER]: 'http://localhost/page-2',
+            }),
+          }),
+        });
+      });
+
       it('properly cleans up auto-capture listeners', () => {
         const addEventListenerSpy = vi.spyOn(global.window, 'addEventListener');
         const removeEventListenerSpy = vi.spyOn(
@@ -323,13 +364,23 @@ describe('Altertable', () => {
         });
       });
 
-      it('throws when called before initialization', () => {
+      it('queues when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
         expect(() => {
           uninitializedAltertable.track('test-event', { foo: 'bar' });
-        }).toThrow(
-          '[Altertable] The client must be initialized with init() before tracking events.'
-        );
+        }).not.toThrow();
+        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+          type: 'command',
+          method: 'track',
+          args: ['test-event', { foo: 'bar' }],
+          runtimeContext: {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            url: expect.any(String),
+            referrer: expect.toBeOneOf([expect.any(String), null]),
+            viewport: expect.any(String),
+          },
+        });
       });
 
       it('always includes current URL in track events', () => {
@@ -379,6 +430,7 @@ describe('Altertable', () => {
             event: 'eventName',
             properties: expect.objectContaining({
               foo: 'bar',
+              [PROPERTY_URL]: null,
             }),
           }),
         });
@@ -404,13 +456,23 @@ describe('Altertable', () => {
         });
       });
 
-      it('throws when called before initialization', () => {
+      it('queues when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
         expect(() => {
           uninitializedAltertable.page('http://localhost/test');
-        }).toThrow(
-          '[Altertable] The client must be initialized with init() before tracking page views.'
-        );
+        }).not.toThrow();
+        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+          type: 'command',
+          method: 'page',
+          args: ['http://localhost/test'],
+          runtimeContext: {
+            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+            url: expect.any(String),
+            referrer: expect.toBeOneOf([expect.any(String), null]),
+            viewport: expect.any(String),
+          },
+        });
       });
     });
   });
@@ -684,13 +746,19 @@ describe('Altertable', () => {
         );
       });
 
-      it('throws when called before initialization', () => {
+      it('queues when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
         expect(() => {
-          uninitializedAltertable.identify('user123');
-        }).toThrow(
-          '[Altertable] The client must be initialized with init() before identifying users.'
-        );
+          uninitializedAltertable.identify('user123', {
+            email: 'test@example.com',
+          });
+        }).not.toThrow();
+        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+          type: 'command',
+          method: 'identify',
+          args: ['user123', { email: 'test@example.com' }],
+        });
       });
 
       it('logs identify events when debug mode is enabled', () => {
@@ -1138,13 +1206,13 @@ describe('Altertable', () => {
         expect(newDeviceId).toMatch(REGEXP_DEVICE_ID);
       });
 
-      it('throws when called before initialization', () => {
+      it('clears pre-init queue when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
-        expect(() => {
-          uninitializedAltertable.reset();
-        }).toThrow(
-          '[Altertable] The client must be initialized with init() before resetting.'
-        );
+        uninitializedAltertable.track('queued-event', { foo: 'bar' });
+        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+
+        uninitializedAltertable.reset();
+        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
       });
     });
   });
@@ -1372,7 +1440,7 @@ describe('Altertable', () => {
           altertable.track('test-event-2', { baz: 'qux' });
         }).not.toRequestApi('/track');
 
-        expect(altertable['_eventQueue'].getSize()).toBe(2);
+        expect(altertable['_queue'].getSize()).toBe(2);
       });
 
       it('queues events when consent is dismissed', () => {
@@ -1386,7 +1454,7 @@ describe('Altertable', () => {
           altertable.track('test-event', { foo: 'bar' });
         }).not.toRequestApi('/track');
 
-        expect(altertable['_eventQueue'].getSize()).toBe(1);
+        expect(altertable['_queue'].getSize()).toBe(1);
       });
 
       it('does not collect or send events when consent is denied', () => {
@@ -1400,7 +1468,7 @@ describe('Altertable', () => {
           altertable.track('test-event', { foo: 'bar' });
         }).not.toRequestApi('/track');
 
-        expect(altertable['_eventQueue'].getSize()).toBe(0);
+        expect(altertable['_queue'].getSize()).toBe(0);
       });
     });
 
@@ -1415,13 +1483,13 @@ describe('Altertable', () => {
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(2);
+        expect(altertable['_queue'].getSize()).toBe(2);
 
         expect(() => {
           altertable.configure({ trackingConsent: 'granted' });
         }).toRequestApi('/track', { callCount: 2 });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(0);
+        expect(altertable['_queue'].getSize()).toBe(0);
       });
 
       it('flushes queued events when consent changes from dismissed to granted', () => {
@@ -1434,13 +1502,13 @@ describe('Altertable', () => {
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(2);
+        expect(altertable['_queue'].getSize()).toBe(2);
 
         expect(() => {
           altertable.configure({ trackingConsent: 'granted' });
         }).toRequestApi('/track', { callCount: 2 });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(0);
+        expect(altertable['_queue'].getSize()).toBe(0);
       });
 
       it('clears queued events when consent changes to denied', () => {
@@ -1453,11 +1521,11 @@ describe('Altertable', () => {
         altertable.track('test-event-1', { foo: 'bar' });
         altertable.track('test-event-2', { baz: 'qux' });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(2);
+        expect(altertable['_queue'].getSize()).toBe(2);
 
         altertable.configure({ trackingConsent: 'denied' });
 
-        expect(altertable['_eventQueue'].getSize()).toBe(0);
+        expect(altertable['_queue'].getSize()).toBe(0);
       });
 
       it('does not flush events when consent changes from granted to pending', () => {
@@ -1506,7 +1574,7 @@ describe('Altertable', () => {
           altertable.page('http://localhost/test-page');
         }).not.toRequestApi('/track');
 
-        expect(altertable['_eventQueue'].getSize()).toBe(1);
+        expect(altertable['_queue'].getSize()).toBe(1);
 
         expect(() => {
           altertable.configure({ trackingConsent: 'granted' });
@@ -1561,7 +1629,7 @@ describe('Altertable', () => {
           });
         }).not.toRequestApi('/track');
 
-        expect(altertable['_eventQueue'].getSize()).toBe(1);
+        expect(altertable['_queue'].getSize()).toBe(1);
 
         expect(() => {
           altertable.configure({ trackingConsent: 'granted' });
@@ -1614,18 +1682,18 @@ describe('Altertable', () => {
       // 2. Track events (should queue)
       altertable.track('event-1', { step: 'initial' });
       altertable.track('event-2', { step: 'browsing' });
-      expect(altertable['_eventQueue'].getSize()).toBe(2);
+      expect(altertable['_queue'].getSize()).toBe(2);
 
       // 3. Identify user (should queue)
       altertable.identify('user123', { email: 'user@example.com' });
-      expect(altertable['_eventQueue'].getSize()).toBe(3);
+      expect(altertable['_queue'].getSize()).toBe(3);
 
       // 4. Grant consent (should flush queue)
       expect(() => {
         altertable.configure({ trackingConsent: 'granted' });
       }).toRequestApi('/track', { callCount: 3 });
 
-      expect(altertable['_eventQueue'].getSize()).toBe(0);
+      expect(altertable['_queue'].getSize()).toBe(0);
 
       // 5. Track more events (should send immediately)
       expect(() => {
@@ -1955,7 +2023,6 @@ describe('Altertable', () => {
     it('shows helpful warning for environment-not-found error', () => {
       setupAltertable({ environment: 'staging' });
 
-      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
       const originalSend = altertable['_requester'].send;
@@ -1965,11 +2032,10 @@ describe('Altertable', () => {
         });
       });
 
-      altertable.track('test-event', { foo: 'bar' });
-
-      expect(warnDevSpy).toHaveBeenCalledTimes(1);
-      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
-        `"Environment "staging" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=staging before tracking events."`
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toWarnDev(
+        '[Altertable] Environment "staging" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=staging before tracking events.'
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
@@ -1979,7 +2045,6 @@ describe('Altertable', () => {
     it('shows helpful warning for environment-not-found error with default environment', () => {
       setupAltertable(); // Uses default 'production' environment
 
-      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
       const originalSend = altertable['_requester'].send;
@@ -1989,11 +2054,10 @@ describe('Altertable', () => {
         });
       });
 
-      altertable.track('test-event', { foo: 'bar' });
-
-      expect(warnDevSpy).toHaveBeenCalledTimes(1);
-      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
-        `"Environment "production" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=production before tracking events."`
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).toWarnDev(
+        '[Altertable] Environment "production" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=production before tracking events.'
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
@@ -2003,7 +2067,6 @@ describe('Altertable', () => {
     it('uses generic error handling for other ApiErrors', () => {
       setupAltertable();
 
-      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
       const originalSend = altertable['_requester'].send;
@@ -2013,9 +2076,9 @@ describe('Altertable', () => {
         });
       });
 
-      altertable.track('test-event', { foo: 'bar' });
-
-      expect(warnDevSpy).not.toHaveBeenCalled();
+      expect(() => {
+        altertable.track('test-event', { foo: 'bar' });
+      }).not.toWarnDev();
       expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
         error: expect.any(ApiError),
         eventType: 'track',
@@ -2030,7 +2093,6 @@ describe('Altertable', () => {
     it('handles environment-not-found error for identify events', () => {
       setupAltertable({ environment: 'development' });
 
-      const warnDevSpy = vi.spyOn(altertable['_logger'], 'warnDev');
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
       const originalSend = altertable['_requester'].send;
@@ -2040,11 +2102,10 @@ describe('Altertable', () => {
         });
       });
 
-      altertable.identify('user123', { email: 'user@example.com' });
-
-      expect(warnDevSpy).toHaveBeenCalledTimes(1);
-      expect(warnDevSpy.mock.calls[0][0]).toMatchInlineSnapshot(
-        `"Environment "development" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=development before tracking events."`
+      expect(() => {
+        altertable.identify('user123', { email: 'user@example.com' });
+      }).toWarnDev(
+        '[Altertable] Environment "development" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=development before tracking events.'
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
@@ -2118,6 +2179,557 @@ describe('Altertable', () => {
       );
 
       altertable['_requester'].send = originalSend;
+    });
+  });
+
+  describe('pre-init queue', () => {
+    it('alias() queues when called before init()', () => {
+      const uninitializedAltertable = new Altertable();
+      expect(() => {
+        uninitializedAltertable.alias('user456');
+      }).not.toThrow();
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+        type: 'command',
+        method: 'alias',
+        args: ['user456'],
+      });
+    });
+
+    it('updateTraits() queues when called before init()', () => {
+      const uninitializedAltertable = new Altertable();
+      expect(() => {
+        uninitializedAltertable.updateTraits({ plan: 'premium' });
+      }).not.toThrow();
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+        type: 'command',
+        method: 'updateTraits',
+        args: [{ plan: 'premium' }],
+      });
+    });
+
+    it('init() flushes queued identify()', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user123', {
+        email: 'test@example.com',
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toRequestApi('/identify', {
+        payload: expect.objectContaining({
+          distinct_id: 'user123',
+          traits: { email: 'test@example.com' },
+        }),
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() flushes queued track()', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toRequestApi('/track', {
+        payload: expect.objectContaining({
+          event: 'test-event',
+          properties: expect.objectContaining({
+            foo: 'bar',
+          }),
+        }),
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() processes queue in order', () => {
+      const uninitializedAltertable = new Altertable();
+
+      uninitializedAltertable.identify('user123', {
+        email: 'test@example.com',
+      });
+      uninitializedAltertable.track('event-1', { step: 1 });
+      uninitializedAltertable.track('event-2', { step: 2 });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(3);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toRequestApi('/identify');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('queued identify sets distinct_id for subsequent track', async () => {
+      const uninitializedAltertable = new Altertable();
+
+      uninitializedAltertable.identify('user123');
+      uninitializedAltertable.track('post-identify-event', { foo: 'bar' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+
+      // Verify the track event used the identified user
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      expect(beaconMock).toHaveBeenCalledTimes(2);
+
+      // First call is identify
+      const firstCall = beaconMock.mock.calls[0];
+      expect(firstCall[0]).toContain('/identify');
+
+      // Second call is track with the identified user
+      const secondCall = beaconMock.mock.calls[1];
+      expect(secondCall[0]).toContain('/track');
+
+      // Parse the track payload from Blob
+      const trackBlob = secondCall[1] as Blob;
+      const trackPayload = JSON.parse(await trackBlob.text());
+      expect(trackPayload.distinct_id).toBe('user123');
+      expect(trackPayload.event).toBe('post-identify-event');
+    });
+
+    it('multiple inits do not replay queue twice', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+
+      // Second init should not replay anything
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).not.toRequestApi('/track');
+    });
+
+    it('configure() still throws before init()', () => {
+      const uninitializedAltertable = new Altertable();
+      expect(() => {
+        uninitializedAltertable.configure({ debug: true });
+      }).toThrow(
+        '[Altertable] The client must be initialized with init() before configuring.'
+      );
+    });
+
+    it('reset() clears queue before init()', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user123');
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      uninitializedAltertable.reset();
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() clears queue when consent is denied', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user123');
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'denied',
+          persistence: 'memory',
+        });
+      }).not.toRequestApi('/track');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('reset() clears consent-pending queue after init()', () => {
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'pending',
+        persistence: 'memory',
+      });
+
+      altertable.track('event-before-reset', { foo: 'bar' });
+      altertable.identify('user123');
+
+      expect(altertable['_queue'].peek()).toHaveLength(2);
+
+      altertable.reset();
+
+      expect(altertable['_queue'].peek()).toHaveLength(0);
+
+      // After granting consent, no queued events should be sent
+      expect(() => {
+        altertable.configure({ trackingConsent: 'granted' });
+      }).not.toRequestApi('/track');
+    });
+
+    it('validation errors still throw before init', () => {
+      const uninitializedAltertable = new Altertable();
+
+      expect(() => {
+        uninitializedAltertable.identify('');
+      }).toThrow(
+        '[Altertable] User ID cannot be empty or contain only whitespace.'
+      );
+
+      expect(() => {
+        uninitializedAltertable.identify('anonymous_id');
+      }).toThrow(
+        '[Altertable] User ID "anonymous_id" is a reserved identifier and cannot be used.'
+      );
+
+      expect(() => {
+        uninitializedAltertable.alias('');
+      }).toThrow(
+        '[Altertable] User ID cannot be empty or contain only whitespace.'
+      );
+
+      // Queue should be empty since all calls threw
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() flushes queued page()', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.page('http://localhost/queued-page');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toRequestApi('/track', {
+        payload: expect.objectContaining({
+          event: EVENT_PAGEVIEW,
+          properties: expect.objectContaining({
+            [PROPERTY_URL]: 'http://localhost/queued-page',
+          }),
+        }),
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() flushes queued alias()', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.alias('new-user-id');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toRequestApi('/alias', {
+        payload: expect.objectContaining({
+          new_user_id: 'new-user-id',
+        }),
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('init() flushes queued updateTraits() after identify()', async () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user123');
+      uninitializedAltertable.updateTraits({ plan: 'premium' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+      });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      expect(beaconMock).toHaveBeenCalledTimes(2);
+
+      // Both calls should be to /identify
+      const firstCall = beaconMock.mock.calls[0];
+      expect(firstCall[0]).toContain('/identify');
+
+      const secondCall = beaconMock.mock.calls[1];
+      expect(secondCall[0]).toContain('/identify');
+
+      // Second call should have the updated traits
+      const secondBlob = secondCall[1] as Blob;
+      const secondPayload = JSON.parse(await secondBlob.text());
+      expect(secondPayload.traits).toEqual({ plan: 'premium' });
+    });
+
+    it('getTrackingConsent() returns pending before init()', () => {
+      const uninitializedAltertable = new Altertable();
+      expect(uninitializedAltertable.getTrackingConsent()).toBe('pending');
+    });
+
+    it('continues processing queue when a command fails', () => {
+      const uninitializedAltertable = new Altertable();
+
+      // Queue: updateTraits (will fail - no identify yet), then track
+      uninitializedAltertable.updateTraits({ plan: 'premium' }); // Will fail
+      uninitializedAltertable.track('should-still-process', { foo: 'bar' });
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      // Should not throw, and should process track even though updateTraits fails
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+        });
+      }).toWarnDev(
+        '[Altertable] Failed to process queued updateTraits() command:\n[Altertable] User must be identified with identify() before updating traits.'
+      );
+
+      // Track should still have been processed
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      expect(beaconMock).toHaveBeenCalledTimes(1);
+      expect(beaconMock.mock.calls[0][0]).toContain('/track');
+    });
+
+    it('logs debug message when flushing queue with debug enabled', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+      uninitializedAltertable.track('another-event', { baz: 'qux' });
+
+      const logSpy = vi.spyOn(uninitializedAltertable['_logger'], 'log');
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+        debug: true,
+      });
+
+      expect(logSpy).toHaveBeenCalledWith('Processing 2 queued items.');
+    });
+
+    it('does not log debug message when queue is empty', () => {
+      const uninitializedAltertable = new Altertable();
+
+      const logSpy = vi.spyOn(uninitializedAltertable['_logger'], 'log');
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+        debug: true,
+      });
+
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('queued item')
+      );
+    });
+
+    it('captures timestamp at call time for queued track events', async () => {
+      vi.useFakeTimers();
+      const callTime = new Date('2025-01-07T10:00:00.000Z');
+      vi.setSystemTime(callTime);
+
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.track('test-event', { foo: 'bar' });
+
+      // Advance time by 5 seconds before init
+      vi.advanceTimersByTime(5000);
+
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+      });
+
+      expect(beaconMock).toHaveBeenCalledTimes(1);
+      const blob = beaconMock.mock.calls[0][1] as Blob;
+      const payload = JSON.parse(await blob.text());
+
+      // Timestamp should be from call time, not init time
+      expect(payload.timestamp).toBe('2025-01-07T10:00:00.000Z');
+
+      vi.useRealTimers();
+    });
+
+    it('drops oldest command when queue reaches size limit', () => {
+      const uninitializedAltertable = new Altertable();
+
+      // Fill the queue to the limit (1000)
+      expect(() => {
+        for (let i = 0; i < 1000; i++) {
+          uninitializedAltertable.track(`event-${i}`, {});
+        }
+      }).not.toWarnDev();
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+
+      // Next command drops the oldest (event-0)
+      expect(() => {
+        uninitializedAltertable.track('new-event', {});
+      }).toWarnDev(
+        '[Altertable] Queue is full (1000 items). Dropping track call.'
+      );
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+    });
+
+    it('drops oldest command when adding identify to full queue', () => {
+      const uninitializedAltertable = new Altertable();
+
+      // Fill the queue
+      for (let i = 0; i < 1000; i++) {
+        uninitializedAltertable.track(`event-${i}`, {});
+      }
+
+      // Adding identify drops the oldest (event-0)
+      expect(() => {
+        uninitializedAltertable.identify('user123');
+      }).toWarnDev(
+        '[Altertable] Queue is full (1000 items). Dropping track call.'
+      );
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+    });
+
+    it('pre-init commands stay queued when init is called with pending consent', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.track('queued-event', { foo: 'bar' });
+      uninitializedAltertable.identify('user123');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      // Init with pending consent should NOT flush the queue
+      expect(() => {
+        uninitializedAltertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+          persistence: 'memory',
+        });
+      }).not.toRequestApi('/track');
+
+      // Commands should still be queued
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+
+      // Granting consent should flush the queue
+      expect(() => {
+        uninitializedAltertable.configure({ trackingConsent: 'granted' });
+      }).toRequestApi('/track');
+
+      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+    });
+
+    it('preserves original session_id when consent is granted after session expiration', async () => {
+      vi.useFakeTimers();
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'pending',
+        persistence: 'memory',
+      });
+
+      // Track an event (will be queued since consent is pending)
+      altertable.track('queued-event', { foo: 'bar' });
+
+      // Verify event is queued as a payload (not a command)
+      expect(altertable['_queue'].peek()).toHaveLength(1);
+      const queuedItem = altertable['_queue'].peek()[0];
+      expect(queuedItem.type).toBe('event');
+
+      // Capture the session_id from the queued payload (call-time session)
+      let callTimeSessionId: string | undefined;
+      if (queuedItem.type === 'event') {
+        callTimeSessionId = (queuedItem.payload as { session_id: string })
+          .session_id;
+      }
+      expect(callTimeSessionId).toBeDefined();
+
+      // Advance past session expiration (35 min > 30 min expiration)
+      vi.advanceTimersByTime(35 * 60 * 1000);
+
+      // Grant consent - this flushes the queue
+      altertable.configure({ trackingConsent: 'granted' });
+
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      expect(beaconMock).toHaveBeenCalledTimes(1);
+
+      // Track a NEW event after consent - this should trigger session renewal
+      altertable.track('new-event', { baz: 'qux' });
+      expect(beaconMock).toHaveBeenCalledTimes(2);
+
+      // Parse both payloads
+      const queuedBlob = beaconMock.mock.calls[0][1] as Blob;
+      const queuedPayload = JSON.parse(await queuedBlob.text());
+
+      const newBlob = beaconMock.mock.calls[1][1] as Blob;
+      const newPayload = JSON.parse(await newBlob.text());
+
+      // Queued event should have the ORIGINAL session_id from call time
+      expect(queuedPayload.session_id).toBe(callTimeSessionId);
+      expect(queuedPayload.event).toBe('queued-event');
+
+      // New event should have a DIFFERENT session_id (session was renewed)
+      expect(newPayload.event).toBe('new-event');
+      expect(newPayload.session_id).not.toBe(callTimeSessionId);
+
+      vi.useRealTimers();
     });
   });
 });

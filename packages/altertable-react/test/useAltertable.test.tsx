@@ -130,3 +130,75 @@ describe('useAltertable()', () => {
     });
   });
 });
+
+describe('pre-init behavior', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  test('calling identify before init works', async () => {
+    // Fresh imports to get uninitialized altertable singleton
+    const { altertable: freshAltertable } = await import(
+      '@altertable/altertable-js'
+    );
+    const {
+      AltertableProvider: FreshAltertableProvider,
+      useAltertable: useFreshAltertable,
+    } = await import('../src');
+
+    const beaconMock = vi.fn(() => true);
+    const originalSendBeacon = navigator.sendBeacon;
+    navigator.sendBeacon = beaconMock;
+
+    function App() {
+      const { identify, track } = useFreshAltertable();
+
+      useEffect(() => {
+        identify('user123', { email: 'test@example.com' });
+      }, [identify]);
+
+      return (
+        <button
+          data-testid="track-btn"
+          onClick={() => {
+            track('Button Clicked');
+          }}
+        >
+          Click
+        </button>
+      );
+    }
+
+    // Calling identify before init should not throw
+    expect(() => {
+      render(
+        <FreshAltertableProvider client={freshAltertable}>
+          <App />
+        </FreshAltertableProvider>
+      );
+    }).not.toThrow();
+
+    expect(beaconMock).toHaveBeenCalledTimes(0);
+
+    // Initialize the client - this should flush the queued identify
+    freshAltertable.init('TEST_API_KEY', { autoCapture: false });
+
+    // Verify identify was sent to API (queued call flushed on init)
+    expect(beaconMock).toHaveBeenCalledTimes(1);
+    expect(beaconMock).toHaveBeenCalledWith(
+      expect.stringContaining('/identify'),
+      expect.any(Blob)
+    );
+
+    // Subsequent calls work normally
+    fireEvent.click(screen.getByTestId('track-btn'));
+    expect(beaconMock).toHaveBeenCalledTimes(2);
+    expect(beaconMock).toHaveBeenCalledWith(
+      expect.stringContaining('/track'),
+      expect.any(Blob)
+    );
+
+    navigator.sendBeacon = originalSendBeacon;
+  });
+});

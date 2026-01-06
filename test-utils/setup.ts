@@ -31,6 +31,9 @@ class TestBlob extends Blob {
   get content() {
     return this._content;
   }
+  text(): Promise<string> {
+    return Promise.resolve(this._content);
+  }
 }
 (global as any).Blob = TestBlob;
 

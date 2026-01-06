@@ -2,7 +2,7 @@ import {
   AUTO_CAPTURE_INTERVAL_MS,
   EVENT_PAGEVIEW,
   keyBuilder,
-  MAX_EVENT_QUEUE_SIZE,
+  MAX_QUEUE_SIZE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
@@ -14,12 +14,13 @@ import {
   TrackingConsentType,
 } from './constants';
 import { isAltertableError, isApiError, isNetworkError } from './lib/error';
-import { EventQueue } from './lib/eventQueue';
 import { invariant } from './lib/invariant';
 import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
+import { Queue } from './lib/queue';
 import { Requester } from './lib/requester';
+import { captureRuntimeContext, RuntimeContext } from './lib/runtimeContext';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
@@ -97,7 +98,7 @@ const DEFAULT_CONFIG: AltertableConfig = {
 export class Altertable {
   private _cleanupAutoCapture: (() => void) | undefined;
   private _config: AltertableConfig;
-  private _eventQueue: EventQueue<EventPayload>;
+  private _queue: Queue<QueueItem>;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
@@ -110,7 +111,18 @@ export class Altertable {
   constructor() {
     this._lastUrl = null;
     this._referrer = null;
-    this._eventQueue = new EventQueue(MAX_EVENT_QUEUE_SIZE);
+    this._queue = new Queue<QueueItem>({
+      capacity: MAX_QUEUE_SIZE,
+      onDropOldest: droppedItem => {
+        const method =
+          droppedItem.type === 'command'
+            ? droppedItem.method
+            : droppedItem.eventType;
+        this._logger.warnDev(
+          `Queue is full (${MAX_QUEUE_SIZE} items). Dropping ${method} call.`
+        );
+      },
+    });
   }
 
   /**
@@ -159,6 +171,13 @@ export class Altertable {
 
     if (this._config.debug) {
       this._logger.logHeader();
+    }
+
+    const trackingConsent = this._sessionManager.getTrackingConsent();
+    if (trackingConsent === TrackingConsent.GRANTED) {
+      this._flushQueue();
+    } else if (trackingConsent === TrackingConsent.DENIED) {
+      this._queue.clear();
     }
 
     this._handleAutoCaptureChange(this._config.autoCapture);
@@ -215,14 +234,9 @@ export class Altertable {
         currentTrackingConsent !== TrackingConsent.GRANTED &&
         updates.trackingConsent === TrackingConsent.GRANTED
       ) {
-        const queuedEvents = this._eventQueue.flush();
-        if (queuedEvents.length > 0) {
-          queuedEvents.forEach(event => {
-            this._processEvent(event.eventType, event.payload, event.context);
-          });
-        }
+        this._flushQueue();
       } else if (updates.trackingConsent === TrackingConsent.DENIED) {
-        this._eventQueue.clear();
+        this._queue.clear();
       }
     }
 
@@ -278,29 +292,33 @@ export class Altertable {
    * });
    * ```
    */
-  identify(userId: string, traits: UserTraits = {}) {
-    invariant(
-      this._isInitialized,
-      'The client must be initialized with init() before identifying users.'
-    );
-
-    invariant(
-      !this._sessionManager.isIdentified() ||
-        userId === this._sessionManager.getDistinctId(),
-      `User (${userId}) is already identified as a different user (${this._sessionManager.getDistinctId()}). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.`
-    );
-
+  identify(userId: DistinctId, traits: UserTraits = {}) {
     try {
       validateUserId(userId);
     } catch (error) {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
+    if (!this._isInitialized) {
+      this._queue.enqueue({
+        type: 'command',
+        method: 'identify',
+        args: [userId, { ...traits }],
+      });
+      return;
+    }
+
+    this._identify(userId, { ...traits });
+  }
+
+  private _identify(userId: DistinctId, traits: UserTraits = {}) {
+    invariant(
+      !this._sessionManager.isIdentified() ||
+        userId === this._sessionManager.getDistinctId(),
+      `User (${userId}) is already identified as a different user (${this._sessionManager.getDistinctId()}). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.`
+    );
+
     if (userId !== this._sessionManager.getDistinctId()) {
-      /**
-       * Calling {@link SessionManager#identify} persists the new user ID to
-       * storage, which we get back from the context to construct the payload.
-       */
       this._sessionManager.identify(userId);
     }
 
@@ -312,7 +330,7 @@ export class Altertable {
       traits,
       anonymous_id: context.anonymous_id,
     };
-    this._processEvent('identify', payload, context);
+    this._processEvent('identify', payload);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
@@ -331,17 +349,25 @@ export class Altertable {
    * ```
    */
   alias(newUserId: DistinctId) {
-    invariant(
-      this._isInitialized,
-      'The client must be initialized with init() before aliasing users.'
-    );
-
     try {
       validateUserId(newUserId);
     } catch (error) {
       throw new Error(`[Altertable] ${error.message}`);
     }
 
+    if (!this._isInitialized) {
+      this._queue.enqueue({
+        type: 'command',
+        method: 'alias',
+        args: [newUserId],
+      });
+      return;
+    }
+
+    this._alias(newUserId);
+  }
+
+  private _alias(newUserId: DistinctId) {
     const context = this._getContext();
 
     const payload: AliasPayload = {
@@ -352,7 +378,7 @@ export class Altertable {
       new_user_id: newUserId,
     };
 
-    this._processEvent('alias', payload, context);
+    this._processEvent('alias', payload);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
@@ -373,6 +399,19 @@ export class Altertable {
    * ```
    */
   updateTraits(traits: UserTraits) {
+    if (!this._isInitialized) {
+      this._queue.enqueue({
+        type: 'command',
+        method: 'updateTraits',
+        args: [{ ...traits }],
+      });
+      return;
+    }
+
+    this._updateTraits({ ...traits });
+  }
+
+  private _updateTraits(traits: UserTraits) {
     const context = this._getContext();
 
     invariant(
@@ -388,7 +427,7 @@ export class Altertable {
       anonymous_id: context.anonymous_id,
       session_id: context.session_id,
     };
-    this._processEvent('identify', payload, context);
+    this._processEvent('identify', payload);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
@@ -416,10 +455,12 @@ export class Altertable {
     /** Whether to reset device ID (default: false) */
     resetDeviceId?: boolean;
   } = {}) {
-    invariant(
-      this._isInitialized,
-      'The client must be initialized with init() before resetting.'
-    );
+    // Clear queued commands to prevent cross-identity/session mixing
+    this._queue.clear();
+
+    if (!this._isInitialized) {
+      return;
+    }
 
     this._sessionManager.reset({
       resetDeviceId,
@@ -452,20 +493,36 @@ export class Altertable {
    * - Server-side tracking where auto-capture isn't available
    */
   page(url: string) {
-    invariant(
-      this._isInitialized,
-      'The client must be initialized with init() before tracking page views.'
-    );
+    if (!this._isInitialized) {
+      this._queue.enqueue({
+        type: 'command',
+        method: 'page',
+        runtimeContext: captureRuntimeContext(),
+        args: [url],
+      });
+      return;
+    }
 
+    this._page(url);
+  }
+
+  private _page(url: string, runtimeContext?: RuntimeContext) {
     const parsedUrl = parseUrl(url);
     const baseUrl = parsedUrl ? parsedUrl.baseUrl : url;
 
-    this.track(EVENT_PAGEVIEW, {
-      [PROPERTY_URL]: baseUrl,
-      [PROPERTY_VIEWPORT]: getViewport(),
-      [PROPERTY_REFERER]: this._referrer,
-      ...parsedUrl?.searchParams,
-    });
+    const viewport = runtimeContext?.viewport ?? getViewport();
+    const referrer = runtimeContext?.referrer ?? this._referrer;
+
+    this._track(
+      EVENT_PAGEVIEW,
+      {
+        [PROPERTY_URL]: baseUrl,
+        [PROPERTY_VIEWPORT]: viewport,
+        [PROPERTY_REFERER]: referrer,
+        ...parsedUrl?.searchParams,
+      },
+      runtimeContext
+    );
   }
 
   /**
@@ -484,18 +541,39 @@ export class Altertable {
    * ```
    */
   track(event: string, properties: EventProperties = {}) {
-    invariant(
-      this._isInitialized,
-      'The client must be initialized with init() before tracking events.'
-    );
+    if (!this._isInitialized) {
+      this._queue.enqueue({
+        type: 'command',
+        method: 'track',
+        runtimeContext: captureRuntimeContext(),
+        args: [event, { ...properties }],
+      });
+      return;
+    }
 
+    this._track(event, { ...properties });
+  }
+
+  private _track(
+    event: string,
+    properties: EventProperties,
+    runtimeContext: RuntimeContext = captureRuntimeContext()
+  ) {
     this._sessionManager.renewSessionIfNeeded();
-    const timestamp = new Date().toISOString();
-    this._sessionManager.updateLastEventAt(timestamp);
+    this._sessionManager.updateLastEventAt(runtimeContext.timestamp);
 
     const context = this._getContext();
+
+    // Strip undefined $url to prevent it from overriding computed URL
+    const { [PROPERTY_URL]: userUrl, ...restProperties } = properties;
+    const hasUrl = userUrl !== undefined;
+    const urlForEvent = hasUrl ? null : runtimeContext.url;
+
+    const parsedUrl = urlForEvent ? parseUrl(urlForEvent) : null;
+    const baseUrl = parsedUrl ? parsedUrl.baseUrl : urlForEvent;
+
     const payload: TrackPayload = {
-      timestamp,
+      timestamp: runtimeContext.timestamp,
       event,
       environment: context.environment,
       device_id: context.device_id,
@@ -506,23 +584,14 @@ export class Altertable {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
         [PROPERTY_RELEASE]: this._config.release,
-        ...(properties[PROPERTY_URL] === undefined &&
-          (() => {
-            const currentUrl = safelyRunOnBrowser<string | null>(
-              ({ window }) => window.location.href || null,
-              () => null
-            );
-            const parsedUrl = parseUrl(currentUrl);
-            const baseUrl = parsedUrl ? parsedUrl.baseUrl : currentUrl;
-            return { [PROPERTY_URL]: baseUrl };
-          })()),
+        [PROPERTY_URL]: hasUrl ? userUrl : baseUrl,
         // The above properties might be overridden by user-provided fields
         // and the React library
-        ...properties,
+        ...restProperties,
       },
     };
 
-    this._processEvent('track', payload, context);
+    this._processEvent('track', payload);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
@@ -545,16 +614,75 @@ export class Altertable {
    * ```
    */
   getTrackingConsent(): TrackingConsentType {
+    if (!this._isInitialized) {
+      return TrackingConsent.PENDING;
+    }
     return this._sessionManager.getTrackingConsent();
+  }
+
+  private _flushQueue() {
+    const items = this._queue.flush();
+
+    if (items.length === 0) {
+      return;
+    }
+
+    if (this._config.debug) {
+      this._logger.log(
+        `Processing ${items.length} queued ${items.length === 1 ? 'item' : 'items'}.`
+      );
+    }
+
+    for (const item of items) {
+      this._executeQueueItem(item);
+    }
+  }
+
+  private _executeQueueItem(item: QueueItem) {
+    if (item.type === 'event') {
+      // Send pre-built payload directly (preserves original session context)
+      this._sendEvent(item.eventType, item.payload);
+      return;
+    }
+    // Execute command (pre-init path)
+    this._executeCommand(item);
+  }
+
+  private _executeCommand(cmd: QueuedCommand) {
+    try {
+      switch (cmd.method) {
+        case 'identify':
+          this._identify(...cmd.args);
+          break;
+        case 'track':
+          this._track(...cmd.args, cmd.runtimeContext);
+          break;
+        case 'page':
+          this._page(...cmd.args, cmd.runtimeContext);
+          break;
+        case 'alias':
+          this._alias(...cmd.args);
+          break;
+        case 'updateTraits':
+          this._updateTraits(...cmd.args);
+          break;
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._logger.warnDev(
+        `Failed to process queued ${cmd.method}() command:\n${errorMessage}`
+      );
+    }
   }
 
   private _checkForChanges() {
     safelyRunOnBrowser(({ window }) => {
       const currentUrl = window.location.href;
       if (currentUrl !== this._lastUrl) {
-        this.page(currentUrl);
         this._referrer = this._lastUrl;
         this._lastUrl = currentUrl;
+        this.page(currentUrl);
       }
     });
   }
@@ -569,51 +697,95 @@ export class Altertable {
     };
   }
 
-  private async _processEvent<TPayload extends EventPayload>(
+  private _processEvent<TPayload extends EventPayload>(
     eventType: EventType,
-    payload: TPayload,
-    context: AltertableContext
+    payload: TPayload
   ) {
     const trackingConsent = this._sessionManager.getTrackingConsent();
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        try {
-          await this._requester.send(`/${eventType}`, payload);
-        } catch (error) {
-          if (isAltertableError(error)) {
-            this._config.onError?.(error);
-          }
-
-          if (
-            isApiError(error) &&
-            error.errorCode === 'environment-not-found'
-          ) {
-            this._logger.warnDev(
-              `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
-            );
-          } else if (isNetworkError(error)) {
-            this._logger.error('Network error while sending event', {
-              error: error.message,
-              cause: error.cause,
-              eventType,
-            });
-          } else {
-            this._logger.error('Failed to send event', {
-              error,
-              eventType,
-              payload,
-            });
-          }
-        }
+        this._sendEvent(eventType, payload);
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
-        this._eventQueue.enqueue(eventType, payload, context);
+        this._queue.enqueue({
+          type: 'event',
+          eventType,
+          payload,
+        });
         break;
       case TrackingConsent.DENIED:
         // Do nothing (don't collect or send data)
         break;
     }
   }
+
+  private async _sendEvent<TPayload extends EventPayload>(
+    eventType: EventType,
+    payload: TPayload
+  ) {
+    try {
+      await this._requester.send(`/${eventType}`, payload);
+    } catch (error) {
+      if (isAltertableError(error)) {
+        this._config.onError?.(error);
+      }
+
+      if (isApiError(error) && error.errorCode === 'environment-not-found') {
+        this._logger.warnDev(
+          `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
+        );
+      } else if (isNetworkError(error)) {
+        this._logger.error('Network error while sending event', {
+          error: error.message,
+          cause: error.cause,
+          eventType,
+        });
+      } else {
+        this._logger.error('Failed to send event', {
+          error,
+          eventType,
+          payload,
+        });
+      }
+    }
+  }
 }
+
+type QueuedCommand =
+  | {
+      type: 'command';
+      method: 'identify';
+      args: Parameters<Altertable['identify']>;
+    }
+  | {
+      type: 'command';
+      method: 'track';
+      args: Parameters<Altertable['track']>;
+      runtimeContext: RuntimeContext;
+    }
+  | {
+      type: 'command';
+      method: 'page';
+      args: Parameters<Altertable['page']>;
+      runtimeContext: RuntimeContext;
+    }
+  | {
+      type: 'command';
+      method: 'alias';
+      args: Parameters<Altertable['alias']>;
+    }
+  | {
+      type: 'command';
+      method: 'updateTraits';
+      args: Parameters<Altertable['updateTraits']>;
+    };
+
+type QueuedEvent = {
+  type: 'event';
+  eventType: EventType;
+  payload: EventPayload;
+};
+
+type QueueItem = QueuedCommand | QueuedEvent;
