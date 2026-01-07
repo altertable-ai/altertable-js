@@ -369,8 +369,8 @@ describe('Altertable', () => {
         expect(() => {
           uninitializedAltertable.track('test-event', { foo: 'bar' });
         }).not.toThrow();
-        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
-        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
           type: 'command',
           method: 'track',
           args: ['test-event', { foo: 'bar' }],
@@ -461,8 +461,8 @@ describe('Altertable', () => {
         expect(() => {
           uninitializedAltertable.page('http://localhost/test');
         }).not.toThrow();
-        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
-        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
           type: 'command',
           method: 'page',
           args: ['http://localhost/test'],
@@ -753,8 +753,8 @@ describe('Altertable', () => {
             email: 'test@example.com',
           });
         }).not.toThrow();
-        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
-        expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
           type: 'command',
           method: 'identify',
           args: ['user123', { email: 'test@example.com' }],
@@ -1209,10 +1209,10 @@ describe('Altertable', () => {
       it('clears pre-init queue when called before initialization', () => {
         const uninitializedAltertable = new Altertable();
         uninitializedAltertable.track('queued-event', { foo: 'bar' });
-        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
 
         uninitializedAltertable.reset();
-        expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
       });
     });
   });
@@ -2188,8 +2188,8 @@ describe('Altertable', () => {
       expect(() => {
         uninitializedAltertable.alias('user456');
       }).not.toThrow();
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
-      expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
         type: 'command',
         method: 'alias',
         args: ['user456'],
@@ -2201,8 +2201,8 @@ describe('Altertable', () => {
       expect(() => {
         uninitializedAltertable.updateTraits({ plan: 'premium' });
       }).not.toThrow();
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
-      expect(uninitializedAltertable['_queue'].peek()[0]).toEqual({
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
         type: 'command',
         method: 'updateTraits',
         args: [{ plan: 'premium' }],
@@ -2215,7 +2215,7 @@ describe('Altertable', () => {
         email: 'test@example.com',
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2231,14 +2231,14 @@ describe('Altertable', () => {
         }),
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() flushes queued track()', () => {
       const uninitializedAltertable = new Altertable();
       uninitializedAltertable.track('test-event', { foo: 'bar' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2256,7 +2256,7 @@ describe('Altertable', () => {
         }),
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() processes queue in order', () => {
@@ -2268,7 +2268,7 @@ describe('Altertable', () => {
       uninitializedAltertable.track('event-1', { step: 1 });
       uninitializedAltertable.track('event-2', { step: 2 });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(3);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(3);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2279,7 +2279,7 @@ describe('Altertable', () => {
         });
       }).toRequestApi('/identify');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('queued identify sets distinct_id for subsequent track', async () => {
@@ -2288,7 +2288,7 @@ describe('Altertable', () => {
       uninitializedAltertable.identify('user123');
       uninitializedAltertable.track('post-identify-event', { foo: 'bar' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
@@ -2297,7 +2297,7 @@ describe('Altertable', () => {
         persistence: 'memory',
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
 
       // Verify the track event used the identified user
       const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
@@ -2329,7 +2329,7 @@ describe('Altertable', () => {
         persistence: 'memory',
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
 
       // Second init should not replay anything
       expect(() => {
@@ -2356,11 +2356,11 @@ describe('Altertable', () => {
       uninitializedAltertable.identify('user123');
       uninitializedAltertable.track('test-event', { foo: 'bar' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       uninitializedAltertable.reset();
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() clears queue when consent is denied', () => {
@@ -2368,7 +2368,7 @@ describe('Altertable', () => {
       uninitializedAltertable.identify('user123');
       uninitializedAltertable.track('test-event', { foo: 'bar' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2379,7 +2379,7 @@ describe('Altertable', () => {
         });
       }).not.toRequestApi('/track');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('reset() clears consent-pending queue after init()', () => {
@@ -2393,11 +2393,11 @@ describe('Altertable', () => {
       altertable.track('event-before-reset', { foo: 'bar' });
       altertable.identify('user123');
 
-      expect(altertable['_queue'].peek()).toHaveLength(2);
+      expect(altertable['_queue'].getAll()).toHaveLength(2);
 
       altertable.reset();
 
-      expect(altertable['_queue'].peek()).toHaveLength(0);
+      expect(altertable['_queue'].getAll()).toHaveLength(0);
 
       // After granting consent, no queued events should be sent
       expect(() => {
@@ -2427,14 +2427,14 @@ describe('Altertable', () => {
       );
 
       // Queue should be empty since all calls threw
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() flushes queued page()', () => {
       const uninitializedAltertable = new Altertable();
       uninitializedAltertable.page('http://localhost/queued-page');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2452,14 +2452,14 @@ describe('Altertable', () => {
         }),
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() flushes queued alias()', () => {
       const uninitializedAltertable = new Altertable();
       uninitializedAltertable.alias('new-user-id');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
 
       expect(() => {
         uninitializedAltertable.init(apiKey, {
@@ -2474,7 +2474,7 @@ describe('Altertable', () => {
         }),
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('init() flushes queued updateTraits() after identify()', async () => {
@@ -2482,7 +2482,7 @@ describe('Altertable', () => {
       uninitializedAltertable.identify('user123');
       uninitializedAltertable.updateTraits({ plan: 'premium' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
@@ -2491,7 +2491,7 @@ describe('Altertable', () => {
         persistence: 'memory',
       });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
 
       const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
       expect(beaconMock).toHaveBeenCalledTimes(2);
@@ -2521,7 +2521,7 @@ describe('Altertable', () => {
       uninitializedAltertable.updateTraits({ plan: 'premium' }); // Will fail
       uninitializedAltertable.track('should-still-process', { foo: 'bar' });
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       // Should not throw, and should process track even though updateTraits fails
       expect(() => {
@@ -2617,7 +2617,7 @@ describe('Altertable', () => {
         }
       }).not.toWarnDev();
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1000);
 
       // Next command drops the oldest (event-0)
       expect(() => {
@@ -2626,7 +2626,7 @@ describe('Altertable', () => {
         '[Altertable] Queue is full (1000 items). Dropping track call.'
       );
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1000);
     });
 
     it('drops oldest command when adding identify to full queue', () => {
@@ -2644,7 +2644,7 @@ describe('Altertable', () => {
         '[Altertable] Queue is full (1000 items). Dropping track call.'
       );
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(1000);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1000);
     });
 
     it('pre-init commands stay queued when init is called with pending consent', () => {
@@ -2652,7 +2652,7 @@ describe('Altertable', () => {
       uninitializedAltertable.track('queued-event', { foo: 'bar' });
       uninitializedAltertable.identify('user123');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       // Init with pending consent should NOT flush the queue
       expect(() => {
@@ -2665,14 +2665,14 @@ describe('Altertable', () => {
       }).not.toRequestApi('/track');
 
       // Commands should still be queued
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(2);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
       // Granting consent should flush the queue
       expect(() => {
         uninitializedAltertable.configure({ trackingConsent: 'granted' });
       }).toRequestApi('/track');
 
-      expect(uninitializedAltertable['_queue'].peek()).toHaveLength(0);
+      expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
     it('preserves original session_id when consent is granted after session expiration', async () => {
@@ -2689,8 +2689,8 @@ describe('Altertable', () => {
       altertable.track('queued-event', { foo: 'bar' });
 
       // Verify event is queued as a payload (not a command)
-      expect(altertable['_queue'].peek()).toHaveLength(1);
-      const queuedItem = altertable['_queue'].peek()[0];
+      expect(altertable['_queue'].getAll()).toHaveLength(1);
+      const queuedItem = altertable['_queue'].getAll()[0];
       expect(queuedItem.type).toBe('event');
 
       // Capture the session_id from the queued payload (call-time session)

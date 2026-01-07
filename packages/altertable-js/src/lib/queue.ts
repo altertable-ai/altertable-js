@@ -33,12 +33,13 @@ export class Queue<TItem> {
     this._items = [];
   }
 
+  /** @internal */
   getSize(): number {
     return this._items.length;
   }
 
   /** @internal */
-  peek(): readonly TItem[] {
+  getAll(): readonly TItem[] {
     return this._items;
   }
 }
