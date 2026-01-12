@@ -317,7 +317,7 @@ export class Altertable {
       userId !== this._sessionManager.getDistinctId()
     ) {
       this._logger.warnDev(
-        `User "${userId}" is already identified as "${this._sessionManager.getDistinctId()}". This usually indicates a development issue, as it would merge two separate identities.\n\n` +
+        `User "${userId}" is already identified as "${this._sessionManager.getDistinctId()}".\n\n` +
           `The session has been automatically reset. Use alias() to link the new ID to the existing one if intentional.`
       );
       this.reset();

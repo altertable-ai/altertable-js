@@ -740,7 +740,7 @@ describe('Altertable', () => {
         expect(() => {
           altertable.identify('user124', { email: 'user2@example.com' });
         }).toWarnDev(
-          '[Altertable] User "user124" is already identified as "user123". This usually indicates a development issue, as it would merge two separate identities.\n\nThe session has been automatically reset. Use alias() to link the new ID to the existing one if intentional.'
+          '[Altertable] User "user124" is already identified as "user123".\n\nThe session has been automatically reset. Use alias() to link the new ID to the existing one if intentional.'
         );
 
         // Should now be the new user after auto-reset
