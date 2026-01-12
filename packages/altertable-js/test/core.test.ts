@@ -732,17 +732,22 @@ describe('Altertable', () => {
         );
       });
 
-      it('throws error when calling identify on an already identified user', () => {
+      it('warns and resets when calling identify on an already identified user', () => {
         setupAltertable();
         altertable.identify('user123', { email: 'user@example.com' });
+        const originalSessionId = altertable['_sessionManager'].getSessionId();
+
         expect(() => {
-          altertable.identify('user124', { email: 'user@example.com' });
-        }).toThrowError(
-          expect.objectContaining({
-            message: expect.stringContaining(
-              '[Altertable] User (user124) is already identified as a different user (user123). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.'
-            ),
-          })
+          altertable.identify('user124', { email: 'user2@example.com' });
+        }).toWarnDev(
+          '[Altertable] User "user124" is already identified as "user123".\n\nThe session has been automatically reset. Use alias() to link the new ID to the existing one if intentional.'
+        );
+
+        // Should now be the new user after auto-reset
+        expect(altertable['_sessionManager'].getDistinctId()).toBe('user124');
+        // Session ID should be reset
+        expect(altertable['_sessionManager'].getSessionId()).not.toBe(
+          originalSessionId
         );
       });
 
@@ -873,11 +878,12 @@ describe('Altertable', () => {
         });
       });
 
-      it('throws when called without identifying user', () => {
+      it('warns and skips when called without identifying user', () => {
         setupAltertable();
+
         expect(() => {
           altertable.updateTraits({ email: 'user@example.com' });
-        }).toThrow(
+        }).toWarnDev(
           '[Altertable] User must be identified with identify() before updating traits.'
         );
       });
@@ -2514,16 +2520,16 @@ describe('Altertable', () => {
       expect(uninitializedAltertable.getTrackingConsent()).toBe('pending');
     });
 
-    it('continues processing queue when a command fails', () => {
+    it('continues processing queue when a command warns', () => {
       const uninitializedAltertable = new Altertable();
 
-      // Queue: updateTraits (will fail - no identify yet), then track
-      uninitializedAltertable.updateTraits({ plan: 'premium' }); // Will fail
+      // Queue: updateTraits (will warn - no identify yet), then track
+      uninitializedAltertable.updateTraits({ plan: 'premium' }); // Will warn and skip
       uninitializedAltertable.track('should-still-process', { foo: 'bar' });
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(2);
 
-      // Should not throw, and should process track even though updateTraits fails
+      // updateTraits will warn (not throw) and track should still process
       expect(() => {
         uninitializedAltertable.init(apiKey, {
           baseUrl: 'http://localhost',
@@ -2532,7 +2538,7 @@ describe('Altertable', () => {
           persistence: 'memory',
         });
       }).toWarnDev(
-        '[Altertable] Failed to process queued updateTraits() command:\n[Altertable] User must be identified with identify() before updating traits.'
+        '[Altertable] User must be identified with identify() before updating traits.'
       );
 
       // Track should still have been processed

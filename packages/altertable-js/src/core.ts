@@ -312,11 +312,16 @@ export class Altertable {
   }
 
   private _identify(userId: DistinctId, traits: UserTraits = {}) {
-    invariant(
-      !this._sessionManager.isIdentified() ||
-        userId === this._sessionManager.getDistinctId(),
-      `User (${userId}) is already identified as a different user (${this._sessionManager.getDistinctId()}). This usually indicates a development issue, as it would merge two separate identities. Call reset() before identifying a new user, or use alias() to link the new ID to the existing one.`
-    );
+    if (
+      this._sessionManager.isIdentified() &&
+      userId !== this._sessionManager.getDistinctId()
+    ) {
+      this._logger.warnDev(
+        `User "${userId}" is already identified as "${this._sessionManager.getDistinctId()}".\n\n` +
+          `The session has been automatically reset. Use alias() to link the new ID to the existing one if intentional.`
+      );
+      this.reset();
+    }
 
     if (userId !== this._sessionManager.getDistinctId()) {
       this._sessionManager.identify(userId);
@@ -414,10 +419,12 @@ export class Altertable {
   private _updateTraits(traits: UserTraits) {
     const context = this._getContext();
 
-    invariant(
-      context.anonymous_id !== null,
-      'User must be identified with identify() before updating traits.'
-    );
+    if (context.anonymous_id === null) {
+      this._logger.warnDev(
+        'User must be identified with identify() before updating traits.'
+      );
+      return;
+    }
 
     const payload = {
       environment: context.environment,
