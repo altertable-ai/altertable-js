@@ -1,7 +1,7 @@
 {
   "name": "@altertable/altertable-js",
   "description": "JavaScript SDK to capture and send events to Altertable.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "license": "MIT",
   "homepage": "https://github.com/altertable-ai/altertable-js",
   "repository": "altertable-ai/altertable-js",
