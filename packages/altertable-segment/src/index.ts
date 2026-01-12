@@ -52,7 +52,10 @@ function getNestedValue(obj: any, path: string): any {
 /**
  * Parse and transform Segment context to Altertable properties
  */
-function parseContext(context?: SegmentContext): Record<string, any> {
+function parseContext(
+  context?: SegmentContext,
+  channel?: string
+): Record<string, any> {
   if (!context) {
     return {};
   }
@@ -87,6 +90,11 @@ function parseContext(context?: SegmentContext): Record<string, any> {
       result[altertableProp] = value;
     }
   });
+
+  // When channel is "server", we explicitly set $ip to 0 to tell the backend to not use the request IP
+  if (channel === 'server' && !('$ip' in result)) {
+    result['$ip'] = 0;
+  }
 
   // Special handling for screen size
   const screenWidth = context.screen?.width;
@@ -157,7 +165,7 @@ function buildTrackPayload(
   settings: FunctionSettings
 ): Record<string, any> {
   const environment = settings.environment || DEFAULT_ENVIRONMENT;
-  const contextProps = parseContext(event.context);
+  const contextProps = parseContext(event.context, event.channel);
 
   const payload: Record<string, any> = {
     environment,
@@ -184,7 +192,7 @@ function buildIdentifyPayload(
   settings: FunctionSettings
 ): Record<string, any> {
   const environment = settings.environment || DEFAULT_ENVIRONMENT;
-  const contextProps = parseContext(event.context);
+  const contextProps = parseContext(event.context, event.channel);
 
   const distinctId = event.userId || event.anonymousId;
   const anonymousId =

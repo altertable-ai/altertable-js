@@ -50,6 +50,7 @@ export interface SegmentContext {
 export interface SegmentEventBase {
   messageId: string;
   timestamp: string;
+  channel?: string;
   anonymousId?: string;
   userId?: string;
   context?: SegmentContext;
