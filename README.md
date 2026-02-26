@@ -1,5 +1,9 @@
 # Altertable JavaScript SDK
 
+[![Test](https://github.com/altertable-ai/altertable-js/workflows/Test/badge.svg)](https://github.com/altertable-ai/altertable-js/actions/workflows/test.yml)
+[![Release](https://github.com/altertable-ai/altertable-js/workflows/Release/badge.svg)](https://github.com/altertable-ai/altertable-js/actions/workflows/release.yml)
+[![License](https://img.shields.io/github/license/altertable-ai/altertable-js)](https://github.com/altertable-ai/altertable-js/blob/main/LICENSE)
+
 A modern, type-safe analytics SDK for capturing and sending events to Altertable. Built with TypeScript, featuring React integration and comprehensive developer tooling.
 
 ## Packages
