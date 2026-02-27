@@ -107,7 +107,7 @@ cd packages/altertable-js && bun run test
 
 ## License
 
-[MIT](./packages/altertable-js/LICENSE)
+[MIT](./LICENSE)
 
 ## Links
 
