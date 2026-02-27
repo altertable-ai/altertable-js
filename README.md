@@ -1,5 +1,7 @@
 # Altertable JavaScript SDK
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A modern, type-safe analytics SDK for capturing and sending events to Altertable. Built with TypeScript, featuring React integration and comprehensive developer tooling.
 
 ## Packages
