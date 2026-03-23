@@ -316,6 +316,58 @@ describe('Altertable Segment Destination', () => {
         'Failed with 429: Rate Limit Exceeded'
       );
     });
+
+    it('should set $ip to 0 when channel is "server" and no IP in context', async () => {
+      const event: SegmentTrackEvent = {
+        type: 'track',
+        event: 'Server Event',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        userId: 'user-123',
+        channel: 'server',
+        properties: {},
+        context: {},
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onTrack(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.properties.$ip).toBe(0);
+    });
+
+    it('should keep $ip from context when channel is "server" but IP is already set', async () => {
+      const event: SegmentTrackEvent = {
+        type: 'track',
+        event: 'Server Event',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        userId: 'user-123',
+        channel: 'server',
+        properties: {},
+        context: {
+          ip: '192.168.1.1',
+        },
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onTrack(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.properties.$ip).toBe('192.168.1.1');
+    });
   });
 
   describe('onIdentify', () => {
@@ -441,6 +493,60 @@ describe('Altertable Segment Destination', () => {
       expect(body.anonymous_id).toBeUndefined();
       expect(body.traits.email).toBe('user@example.com');
       expect(body.traits.name).toBe('John Doe');
+    });
+
+    it('should set $ip to 0 in traits when channel is "server" and no IP in context', async () => {
+      const event: SegmentIdentifyEvent = {
+        type: 'identify',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        userId: 'user-123',
+        channel: 'server',
+        traits: {
+          email: 'user@example.com',
+        },
+        context: {},
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onIdentify(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.traits.$ip).toBe(0);
+    });
+
+    it('should keep $ip from context in traits when channel is "server" but IP is already set', async () => {
+      const event: SegmentIdentifyEvent = {
+        type: 'identify',
+        messageId: 'msg-123',
+        timestamp: '2025-01-15T10:00:00.000Z',
+        userId: 'user-123',
+        channel: 'server',
+        traits: {
+          email: 'user@example.com',
+        },
+        context: {
+          ip: '192.168.1.1',
+        },
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await onIdentify(event, defaultSettings);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+
+      expect(body.traits.$ip).toBe('192.168.1.1');
     });
   });
 
