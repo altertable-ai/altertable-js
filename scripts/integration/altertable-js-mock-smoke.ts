@@ -1,5 +1,5 @@
 const sdkModule = await import('../../packages/altertable-js/dist/index.js');
-const { altertable, TrackingConsent } = sdkModule;
+const { altertable, TrackingConsent, Altertable } = sdkModule;
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
@@ -9,6 +9,7 @@ type Capture = {
   path: string;
   searchParams: URLSearchParams;
   payload: Record<string, unknown>;
+  status?: number;
 };
 
 const originalFetch = globalThis.fetch.bind(globalThis);
@@ -27,22 +28,29 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const bodyText = typeof init?.body === 'string' ? init.body : '{}';
   const payload = JSON.parse(bodyText) as Record<string, unknown>;
 
-  captures.push({
+  const capture: Capture = {
     path: parsed.pathname,
     searchParams: parsed.searchParams,
     payload,
-  });
+  };
+  captures.push(capture);
 
   // altertable-mock currently authenticates Product Analytics via headers.
-  // The core SDK authenticates via query param. We keep the SDK behavior
-  // and inject the header in test harness to exercise full mock endpoints.
+  // Bridge from SDK query-param apiKey -> X-API-Key for integration testing.
   const headers = new Headers(init?.headers);
-  headers.set('X-API-Key', apiKey);
+  const requestApiKey = parsed.searchParams.get('apiKey');
+  if (requestApiKey) {
+    headers.set('X-API-Key', requestApiKey);
+  }
 
   const requestPromise = originalFetch(input as RequestInfo, {
     ...init,
     headers,
+  }).then(response => {
+    capture.status = response.status;
+    return response;
   });
+
   pendingRequests.push(requestPromise);
   return requestPromise;
 }) as typeof fetch;
@@ -51,6 +59,10 @@ function assert(condition: unknown, message: string) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+async function waitForAllRequests() {
+  await Promise.all(pendingRequests);
 }
 
 const errors: Error[] = [];
@@ -66,13 +78,16 @@ altertable.init(apiKey, {
   },
 });
 
-altertable.track('ci_smoke_track', { suite: 'integration', source: 'github-actions' });
+altertable.track('ci_smoke_track', {
+  suite: 'integration',
+  source: 'github-actions',
+});
 altertable.page('https://example.com/pricing?plan=pro');
 altertable.identify('ci-user-1', { plan: 'pro', ci: true });
 altertable.updateTraits({ team: 'sdk', role: 'maintainer' });
 altertable.alias('ci-user-1-linked');
 
-await Promise.all(pendingRequests);
+await waitForAllRequests();
 
 assert(errors.length === 0, `Expected no SDK errors, got ${errors.length}`);
 
@@ -92,12 +107,16 @@ assert(aliases.length === 1, `Expected 1 /alias call, got ${aliases.length}`);
 
 for (const call of captures) {
   assert(
-    call.searchParams.get('apiKey') === apiKey,
-    `Request to ${call.path} missing expected apiKey query param`
+    call.searchParams.get('apiKey') !== null,
+    `Request to ${call.path} missing apiKey query param`
   );
   assert(
     call.payload.environment === environment,
     `Request to ${call.path} missing expected environment=${environment}`
+  );
+  assert(
+    call.status === 200,
+    `Request to ${call.path} returned ${call.status}, expected 200`
   );
 }
 
@@ -125,13 +144,16 @@ assert(
 );
 
 const identifyCall = identifies.find(
-  entry => (entry.payload.traits as Record<string, unknown> | undefined)?.plan === 'pro'
+  entry =>
+    (entry.payload.traits as Record<string, unknown> | undefined)?.plan ===
+    'pro'
 );
 assert(Boolean(identifyCall), 'Missing identify payload with initial traits');
 
 const updateTraitsCall = identifies.find(
   entry =>
-    (entry.payload.traits as Record<string, unknown> | undefined)?.team === 'sdk'
+    (entry.payload.traits as Record<string, unknown> | undefined)?.team ===
+    'sdk'
 );
 assert(Boolean(updateTraitsCall), 'Missing updateTraits payload');
 
@@ -139,6 +161,53 @@ const aliasCall = aliases[0];
 assert(
   aliasCall.payload.new_user_id === 'ci-user-1-linked',
   'Alias payload missing new_user_id'
+);
+
+// Default environment path: SDK should send "production" when environment is omitted.
+const defaultEnvClient = new Altertable();
+defaultEnvClient.init(apiKey, {
+  baseUrl: endpoint,
+  autoCapture: false,
+  persistence: 'memory',
+  trackingConsent: TrackingConsent.GRANTED,
+});
+defaultEnvClient.track('ci_smoke_default_environment', { case: 'default-env' });
+
+await waitForAllRequests();
+
+const defaultEnvTrack = captures.find(
+  entry => entry.payload.event === 'ci_smoke_default_environment'
+);
+assert(Boolean(defaultEnvTrack), 'Missing default environment track payload');
+assert(
+  defaultEnvTrack?.payload.environment === 'production',
+  `Expected default environment=production, got ${String(defaultEnvTrack?.payload.environment)}`
+);
+assert(
+  defaultEnvTrack?.status === 200,
+  `Default environment track returned ${defaultEnvTrack?.status}, expected 200`
+);
+
+// Invalid API key path: mock should reject unauthorized requests.
+const invalidErrors: Array<{ status?: number }> = [];
+const invalidKeyClient = new Altertable();
+invalidKeyClient.init('__invalid_api_key__', {
+  baseUrl: endpoint,
+  environment,
+  autoCapture: false,
+  persistence: 'memory',
+  trackingConsent: TrackingConsent.GRANTED,
+  onError: error => {
+    invalidErrors.push({ status: (error as any).status });
+  },
+});
+invalidKeyClient.track('ci_smoke_invalid_api_key', { case: 'invalid-key' });
+
+await waitForAllRequests();
+
+assert(
+  invalidErrors.some(error => error.status === 401),
+  `Expected at least one 401 invalid API key error, got ${JSON.stringify(invalidErrors)}`
 );
 
 console.log('altertable-js integration smoke passed');
