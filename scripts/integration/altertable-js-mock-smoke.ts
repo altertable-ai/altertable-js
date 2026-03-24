@@ -33,7 +33,16 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     payload,
   });
 
-  const requestPromise = originalFetch(input as RequestInfo, init);
+  // altertable-mock currently authenticates Product Analytics via headers.
+  // The core SDK authenticates via query param. We keep the SDK behavior
+  // and inject the header in test harness to exercise full mock endpoints.
+  const headers = new Headers(init?.headers);
+  headers.set('X-API-Key', apiKey);
+
+  const requestPromise = originalFetch(input as RequestInfo, {
+    ...init,
+    headers,
+  });
   pendingRequests.push(requestPromise);
   return requestPromise;
 }) as typeof fetch;
