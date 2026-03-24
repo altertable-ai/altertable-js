@@ -25,10 +25,10 @@ describe('createBatcher', () => {
     vi.useRealTimers();
   });
 
-  it('flushes when combined buffer size reaches flushAt', async () => {
+  it('flushes when combined buffer size reaches flushEventThreshold', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 3,
+      flushEventThreshold: 3,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -59,7 +59,7 @@ describe('createBatcher', () => {
   it('timer-based flush fires after flushIntervalMs', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 100,
+      flushEventThreshold: 100,
       flushIntervalMs: 5_000,
       maxBatchSize: 50,
       send,
@@ -73,10 +73,10 @@ describe('createBatcher', () => {
     batcher.stop();
   });
 
-  it('chunks payloads when more than flushAt of one type', async () => {
+  it('chunks payloads when more than flushEventThreshold of one type', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 2,
+      flushEventThreshold: 2,
       flushIntervalMs: 60_000,
       maxBatchSize: 2,
       send,
@@ -107,7 +107,7 @@ describe('createBatcher', () => {
   it('routes mixed types to separate send calls', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 2,
+      flushEventThreshold: 2,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -136,7 +136,7 @@ describe('createBatcher', () => {
       .mockResolvedValue(undefined);
 
     const batcher = createBatcher({
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: 60_000,
       maxBatchSize: 1,
       send,
@@ -165,7 +165,7 @@ describe('createBatcher', () => {
     );
 
     const batcher = createBatcher({
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: 60_000,
       maxBatchSize: 1,
       send,
@@ -182,7 +182,7 @@ describe('createBatcher', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('flush() awaits in-flight dispatch started by flushAt before resolving', async () => {
+  it('flush() awaits in-flight dispatch started by flushEventThreshold before resolving', async () => {
     let resolveFirstSend: () => void;
     const send = vi.fn().mockImplementation(() => {
       if (send.mock.calls.length === 1) {
@@ -194,7 +194,7 @@ describe('createBatcher', () => {
     });
 
     const batcher = createBatcher({
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: 60_000,
       maxBatchSize: 1,
       send,
@@ -219,7 +219,7 @@ describe('createBatcher', () => {
   it('flush() returns a promise that settles after sends complete', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 20,
+      flushEventThreshold: 20,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -239,7 +239,7 @@ describe('createBatcher', () => {
     );
 
     const batcher = createBatcher({
-      flushAt: 100,
+      flushEventThreshold: 100,
       flushIntervalMs: 5_000,
       maxBatchSize: 50,
       send,
@@ -262,7 +262,7 @@ describe('createBatcher', () => {
   it('preserves timestamps when events wait in the buffer', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 10,
+      flushEventThreshold: 10,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -286,7 +286,7 @@ describe('createBatcher', () => {
   it('chunks by maxBatchSize when a flush holds more than maxBatchSize items', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 10,
+      flushEventThreshold: 10,
       flushIntervalMs: 60_000,
       maxBatchSize: 3,
       send,
@@ -304,10 +304,10 @@ describe('createBatcher', () => {
     expect(trackSends[2][1]).toHaveLength(1);
   });
 
-  it('flushAt triggers flush while chunk size follows maxBatchSize', async () => {
+  it('flushEventThreshold triggers flush while chunk size follows maxBatchSize', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 4,
+      flushEventThreshold: 4,
       flushIntervalMs: 60_000,
       maxBatchSize: 2,
       send,
@@ -340,10 +340,10 @@ describe('createBatcher', () => {
     );
   });
 
-  it('flushes when updateConfig lowers flushAt to at or below buffered count', async () => {
+  it('flushes when updateConfig lowers flushEventThreshold to at or below buffered count', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 100,
+      flushEventThreshold: 100,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -354,7 +354,7 @@ describe('createBatcher', () => {
     batcher.add('track', createTrackPayload('c'));
     expect(send).not.toHaveBeenCalled();
 
-    batcher.updateConfig({ flushAt: 3 });
+    batcher.updateConfig({ flushEventThreshold: 3 });
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     expect(send).toHaveBeenCalledWith(
       'track',
@@ -366,10 +366,10 @@ describe('createBatcher', () => {
     );
   });
 
-  it('does not flush when updateConfig raises flushAt above buffered count', async () => {
+  it('does not flush when updateConfig raises flushEventThreshold above buffered count', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 5,
+      flushEventThreshold: 5,
       flushIntervalMs: 60_000,
       maxBatchSize: 50,
       send,
@@ -380,14 +380,14 @@ describe('createBatcher', () => {
     batcher.add('track', createTrackPayload('c'));
     expect(send).not.toHaveBeenCalled();
 
-    batcher.updateConfig({ flushAt: 10 });
+    batcher.updateConfig({ flushEventThreshold: 10 });
     expect(send).not.toHaveBeenCalled();
   });
 
   it('updateConfig replaces interval when flushIntervalMs changes while started', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const batcher = createBatcher({
-      flushAt: 100,
+      flushEventThreshold: 100,
       flushIntervalMs: 10_000,
       maxBatchSize: 50,
       send,

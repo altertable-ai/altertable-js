@@ -7,7 +7,7 @@ export type BatcherSendFn = (
 ) => Promise<void>;
 
 export type BatcherConfig = {
-  flushAt: number;
+  flushEventThreshold: number;
   flushIntervalMs: number;
   /** Maximum payloads per HTTP request per endpoint (chunk size). */
   maxBatchSize: number;
@@ -15,7 +15,7 @@ export type BatcherConfig = {
 };
 
 export type BatcherConfigurableKeys =
-  | 'flushAt'
+  | 'flushEventThreshold'
   | 'flushIntervalMs'
   | 'maxBatchSize';
 
@@ -66,10 +66,10 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
 
 /**
  * Buffers outbound analytics payloads per endpoint type, flushes when the
- * combined queue reaches `flushAt`, on an interval, or when `flush()` is called.
+ * combined queue reaches `flushEventThreshold`, on an interval, or when `flush()` is called.
  * Each send uses chunks of at most `maxBatchSize` payloads per endpoint.
  *
- * When `flushAt` is reached inside `add()`, dispatch runs synchronously until
+ * When `flushEventThreshold` is reached inside `add()`, dispatch runs synchronously until
  * each HTTP request is started (so callers/tests can observe `fetch` in the
  * same turn).
  */
@@ -81,7 +81,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let bufferGeneration = 0;
   /** HTTP work started by the periodic timer — excluded from {@link flush} drain. */
   const inFlightTimer = new Set<Promise<void>>();
-  /** All other sends (flushAt threshold, manual flush, updateConfig). */
+  /** All other sends (flushEventThreshold, manual flush, updateConfig). */
   const inFlightOther = new Set<Promise<void>>();
 
   function prependToBuffer(eventType: EventType, items: EventPayload[]): void {
@@ -163,7 +163,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       const list = buffers.get(eventType) ?? [];
       list.push(payload);
       buffers.set(eventType, list);
-      if (totalBufferedCount(buffers) >= config.flushAt) {
+      if (totalBufferedCount(buffers) >= config.flushEventThreshold) {
         void dispatchFlushFromBuffer(false);
       }
     },
@@ -218,12 +218,13 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     updateConfig(
       updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>
     ): void {
-      const nextFlushAt = updates.flushAt ?? config.flushAt;
+      const nextFlushEventThreshold =
+        updates.flushEventThreshold ?? config.flushEventThreshold;
       const nextInterval = updates.flushIntervalMs ?? config.flushIntervalMs;
       const nextMaxBatch = updates.maxBatchSize ?? config.maxBatchSize;
       config = {
         ...config,
-        flushAt: Math.max(1, nextFlushAt),
+        flushEventThreshold: Math.max(1, nextFlushEventThreshold),
         flushIntervalMs: Math.max(1, nextInterval),
         maxBatchSize: Math.max(1, nextMaxBatch),
       };
@@ -235,8 +236,8 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
         }, config.flushIntervalMs);
       }
       if (
-        updates.flushAt !== undefined &&
-        totalBufferedCount(buffers) >= config.flushAt
+        updates.flushEventThreshold !== undefined &&
+        totalBufferedCount(buffers) >= config.flushEventThreshold
       ) {
         void dispatchFlushFromBuffer(false);
       }

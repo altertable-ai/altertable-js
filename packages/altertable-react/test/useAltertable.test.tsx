@@ -195,7 +195,7 @@ describe('pre-init behavior', () => {
     freshAltertable.init('TEST_API_KEY', {
       autoCapture: false,
       // One event per batch so a single track produces a network call in this test.
-      flushAt: 1,
+      flushEventThreshold: 1,
     });
 
     await waitFor(() => {

@@ -78,7 +78,7 @@ describe('Altertable', () => {
       trackingConsent: 'granted',
       persistence: 'memory',
       // Immediate flush keeps most tests synchronous; batching is covered in dedicated tests.
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: 86_400_000,
       ...overrides,
     });
@@ -138,7 +138,7 @@ describe('Altertable', () => {
             baseUrl: 'http://localhost',
             autoCapture: true,
             trackingConsent: 'granted',
-            flushAt: 1,
+            flushEventThreshold: 1,
             flushIntervalMs: 86_400_000,
           });
         }).toRequestApi('/track', {
@@ -169,7 +169,7 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           autoCapture: false,
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -201,7 +201,7 @@ describe('Altertable', () => {
           autoCapture: false,
           release: '04ed05b',
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -224,7 +224,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
         const stopSpy = vi.spyOn(client['_batcher'], 'stop');
@@ -250,7 +250,7 @@ describe('Altertable', () => {
             baseUrl: 'http://localhost',
             autoCapture: false,
             trackingConsent: 'granted',
-            flushAt: 1,
+            flushEventThreshold: 1,
             flushIntervalMs: 86_400_000,
           });
         }).not.toRequestApi('/track');
@@ -263,7 +263,7 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -289,7 +289,7 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -306,7 +306,7 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -351,7 +351,7 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -407,7 +407,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'pending',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -423,7 +423,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1205,7 +1205,7 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1253,7 +1253,7 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1548,7 +1548,7 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1677,7 +1677,7 @@ describe('Altertable', () => {
 
         setupAltertable({
           trackingConsent: 'granted',
-          flushAt: 20,
+          flushEventThreshold: 20,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1703,7 +1703,7 @@ describe('Altertable', () => {
 
         setupAltertable({
           trackingConsent: 'granted',
-          flushAt: 20,
+          flushEventThreshold: 20,
           flushIntervalMs: 86_400_000,
         });
 
@@ -1715,7 +1715,7 @@ describe('Altertable', () => {
 
         altertable.configure({
           trackingConsent: 'granted',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
         altertable.track('after-regrant', { case: 'resume' });
@@ -1874,7 +1874,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'pending',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -1911,8 +1911,11 @@ describe('Altertable', () => {
         expect(body.length).toBe(1);
       }
 
-      // 5. Track more events (should send immediately with flushAt default)
-      altertable.configure({ flushAt: 1, flushIntervalMs: 86_400_000 });
+      // 5. Track more events (should send immediately with flushEventThreshold default)
+      altertable.configure({
+        flushEventThreshold: 1,
+        flushIntervalMs: 86_400_000,
+      });
       expect(() => {
         altertable.track('event-3', { step: 'converted' });
       }).toRequestApi('/track');
@@ -1935,7 +1938,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -1968,7 +1971,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -1997,7 +2000,7 @@ describe('Altertable', () => {
         autoCapture: false,
         debug: true,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2008,7 +2011,7 @@ describe('Altertable', () => {
         autoCapture: false,
         debug: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2021,7 +2024,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2029,7 +2032,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2059,7 +2062,7 @@ describe('Altertable', () => {
         autoCapture: false,
         persistence: 'localStorage',
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2077,7 +2080,7 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2104,7 +2107,7 @@ describe('Altertable', () => {
             baseUrl: 'http://localhost',
             autoCapture: false,
             trackingConsent: 'granted',
-            flushAt: 1,
+            flushEventThreshold: 1,
             flushIntervalMs: 86_400_000,
           });
         }).not.toThrow();
@@ -2127,7 +2130,7 @@ describe('Altertable', () => {
             baseUrl: 'http://localhost',
             autoCapture: false,
             trackingConsent: 'granted',
-            flushAt: 1,
+            flushEventThreshold: 1,
             flushIntervalMs: 86_400_000,
           });
         }).not.toThrow();
@@ -2468,7 +2471,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/identify', {
@@ -2486,7 +2489,10 @@ describe('Altertable', () => {
       uninitializedAltertable.identify('user123', {
         email: 'test@example.com',
       });
-      const warnDevSpy = vi.spyOn(uninitializedAltertable['_logger'], 'warnDev');
+      const warnDevSpy = vi.spyOn(
+        uninitializedAltertable['_logger'],
+        'warnDev'
+      );
       vi.spyOn(uninitializedAltertable as any, '_identify').mockImplementation(
         () => {
           throw new Error('identify failed');
@@ -2498,7 +2504,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2519,7 +2525,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/track', {
@@ -2551,7 +2557,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/identify');
@@ -2572,7 +2578,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2597,7 +2603,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2610,7 +2616,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).not.toRequestApi('/track');
@@ -2666,7 +2672,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'denied',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2685,7 +2691,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'pending',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2741,7 +2747,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/track', {
@@ -2768,7 +2774,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/alias', {
@@ -2792,7 +2798,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2828,7 +2834,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).toWarnDev(
@@ -2853,7 +2859,7 @@ describe('Altertable', () => {
         trackingConsent: 'granted',
         persistence: 'memory',
         debug: true,
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2871,7 +2877,7 @@ describe('Altertable', () => {
         trackingConsent: 'granted',
         persistence: 'memory',
         debug: true,
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2888,15 +2894,15 @@ describe('Altertable', () => {
       const uninitializedAltertable = new Altertable();
       uninitializedAltertable.track('test-event', { foo: 'bar' });
 
-      // Advance time by 5 seconds before init
-      vi.advanceTimersByTime(5000);
+      // Arbitrary delay before init (not tied to flushIntervalMs); proves timestamp is from track().
+      vi.advanceTimersByTime(5_000);
 
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -2964,7 +2970,7 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'pending',
           persistence: 'memory',
-          flushAt: 1,
+          flushEventThreshold: 1,
           flushIntervalMs: 86_400_000,
         });
       }).not.toRequestApi('/track');
@@ -2988,7 +2994,7 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'pending',
         persistence: 'memory',
-        flushAt: 1,
+        flushEventThreshold: 1,
         flushIntervalMs: 86_400_000,
       });
 
@@ -3038,23 +3044,23 @@ describe('Altertable', () => {
 
   describe('batching and flush()', () => {
     it('exposes flush() that returns a promise', async () => {
-      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('a', {});
       await altertable.flush();
       const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
       expect(mockFetch).toHaveBeenCalled();
     });
 
-    it('respects custom flushAt by batching until threshold', async () => {
-      setupAltertable({ flushAt: 3, flushIntervalMs: 86_400_000 });
+    it('respects custom flushEventThreshold by batching until threshold', async () => {
+      setupAltertable({ flushEventThreshold: 3, flushIntervalMs: 86_400_000 });
       altertable.track('e1', {});
       altertable.track('e2', {});
       expect(global.fetch).not.toHaveBeenCalled();
       altertable.track('e3', {});
       await vi.waitFor(() =>
-        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
-          1
-        )
+        expect(
+          (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length
+        ).toBe(1)
       );
       const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
         .calls[0];
@@ -3063,18 +3069,18 @@ describe('Altertable', () => {
       expect(body.length).toBe(3);
     });
 
-    it('flushes when configure lowers flushAt to at or below buffered count', async () => {
-      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+    it('flushes when configure lowers flushEventThreshold to at or below buffered count', async () => {
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('lower-a', {});
       altertable.track('lower-b', {});
       altertable.track('lower-c', {});
       expect(global.fetch).not.toHaveBeenCalled();
 
-      altertable.configure({ flushAt: 3 });
+      altertable.configure({ flushEventThreshold: 3 });
       await vi.waitFor(() =>
-        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
-          1
-        )
+        expect(
+          (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length
+        ).toBe(1)
       );
       const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
         .calls[0];
@@ -3084,7 +3090,7 @@ describe('Altertable', () => {
     });
 
     it('flushUnload runs on visibilitychange when hidden', () => {
-      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('unload-test', {});
       const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
       beaconMock.mockClear();
@@ -3099,7 +3105,7 @@ describe('Altertable', () => {
     });
 
     it('does not flushUnload on visibilitychange when document stays visible', () => {
-      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('unload-test', {});
       const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
       beaconMock.mockClear();
@@ -3114,7 +3120,7 @@ describe('Altertable', () => {
     });
 
     it('flushUnload runs on pagehide', () => {
-      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('unload-test', {});
       const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
       beaconMock.mockClear();

@@ -6,7 +6,7 @@ import type {
 } from '../../packages/altertable-js/src/types';
 
 export const ONE_DAY_MS = 86_400_000;
-export const BURST_FLUSH_AT = 20;
+export const BURST_FLUSH_EVENT_THRESHOLD = 20;
 export const BURST_FLUSH_INTERVAL_MS = 30_000;
 
 export type CapturedRequest = {

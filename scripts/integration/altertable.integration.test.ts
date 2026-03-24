@@ -6,7 +6,7 @@ import {
 } from '../../packages/altertable-js/dist/index.js';
 import {
   aliasEventsOnPath,
-  BURST_FLUSH_AT,
+  BURST_FLUSH_EVENT_THRESHOLD,
   BURST_FLUSH_INTERVAL_MS,
   createFetchInterceptor,
   identifyEventsOnPath,
@@ -44,7 +44,7 @@ describe('altertable-js integration (altertable-mock)', () => {
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
-      flushAt: BURST_FLUSH_AT,
+      flushEventThreshold: BURST_FLUSH_EVENT_THRESHOLD,
       flushIntervalMs: BURST_FLUSH_INTERVAL_MS,
       onError: error => {
         sdkErrors.push(error);
@@ -130,7 +130,7 @@ describe('altertable-js integration (altertable-mock)', () => {
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
-      flushAt: BURST_FLUSH_AT,
+      flushEventThreshold: BURST_FLUSH_EVENT_THRESHOLD,
       flushIntervalMs: BURST_FLUSH_INTERVAL_MS,
       onError: error => {
         sdkErrors.push(error);
@@ -169,7 +169,7 @@ describe('altertable-js integration (altertable-mock)', () => {
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: ONE_DAY_MS,
       onError: error => {
         sdkErrors.push(error);
@@ -205,7 +205,7 @@ describe('altertable-js integration (altertable-mock)', () => {
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
-      flushAt: 1,
+      flushEventThreshold: 1,
       flushIntervalMs: ONE_DAY_MS,
       onError: error => {
         sdkErrors.push(error);
