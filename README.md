@@ -68,7 +68,6 @@ bun run test
 | `lint:fix`     | Fix ESLint issues across all packages                        |
 | `test`         | Run tests across all packages                                |
 | `test:watch`   | Run tests in watch mode across all packages                  |
-| `bump`         | Bump versions across all packages                            |
 
 ## Testing
 
@@ -87,11 +86,12 @@ cd packages/altertable-js && bun run test
 
 ## Releasing
 
-1. Bump versions across all packages: `bun run bump`
-2. Open a PR with the changes
-3. Merge the PR
-4. Push the tag to the repository
-5. Run the [Release workflow](https://github.com/altertable-ai/altertable-js/actions/workflows/release.yml) in GitHub Actions
+Releases are automated with [release-please](https://github.com/googleapis/release-please):
+
+1. Merge conventional commits into `main` (`fix:` for patch, `feat:` for minor, `feat!:` for major)
+2. release-please opens/updates a release PR with version and changelog updates
+3. Merge the release PR
+4. The `release-please.yml` workflow publishes released packages to npm automatically
 
 ## Documentation
 
