@@ -45,11 +45,11 @@ jobs:
         run: bun publish --access public
         working-directory: packages/altertable-js
         env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @altertable/altertable-react
         if: ${{ steps.release.outputs['packages/altertable-react--release_created'] == 'true' }}
         run: bun publish --access public
         working-directory: packages/altertable-react
         env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

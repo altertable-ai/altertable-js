@@ -17,7 +17,6 @@
     "test": "lerna run test",
     "test:watch": "lerna run test:watch --parallel",
     "coverage": "lerna run coverage --parallel",
-    "bump": "bun run scripts/release/bump-versions.ts",
     "bundlesize": "bundlesize"
   },
   "devDependencies": {
