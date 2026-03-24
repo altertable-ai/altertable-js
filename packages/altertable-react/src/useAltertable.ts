@@ -89,6 +89,7 @@ export function useAltertable<T extends FunnelMapping>() {
     () => ({
       alias: altertable.alias.bind(altertable),
       configure: altertable.configure.bind(altertable),
+      flush: altertable.flush.bind(altertable),
       getTrackingConsent: altertable.getTrackingConsent.bind(altertable),
       identify: altertable.identify.bind(altertable),
       page: altertable.page.bind(altertable),

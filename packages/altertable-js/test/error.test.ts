@@ -8,6 +8,7 @@ import {
   isAltertableError,
   isApiError,
   isNetworkError,
+  isRetryableHttpDeliveryError,
   NetworkError,
 } from '../src/lib/error';
 
@@ -158,6 +159,37 @@ describe('Type Guards', () => {
       expect(isNetworkError('error')).toBe(false);
       expect(isNetworkError(null)).toBe(false);
       expect(isNetworkError(undefined)).toBe(false);
+    });
+  });
+
+  describe('isRetryableHttpDeliveryError', () => {
+    it('returns true for NetworkError', () => {
+      expect(isRetryableHttpDeliveryError(new NetworkError('offline'))).toBe(
+        true
+      );
+    });
+
+    it('returns true for ApiError with status >= 500', () => {
+      expect(isRetryableHttpDeliveryError(new ApiError(503, 'Unavailable'))).toBe(
+        true
+      );
+    });
+
+    it('returns true for ApiError 429 rate limit', () => {
+      expect(isRetryableHttpDeliveryError(new ApiError(429, 'Too Many'))).toBe(
+        true
+      );
+    });
+
+    it('returns false for other ApiError 4xx', () => {
+      expect(isRetryableHttpDeliveryError(new ApiError(404, 'Not Found'))).toBe(
+        false
+      );
+    });
+
+    it('returns false for unrelated values', () => {
+      expect(isRetryableHttpDeliveryError(new Error('generic'))).toBe(false);
+      expect(isRetryableHttpDeliveryError(undefined)).toBe(false);
     });
   });
 

@@ -14,6 +14,20 @@ export const SESSION_EXPIRATION_TIME_MS = 30 * MINUTE_IN_MS;
 export const MAX_QUEUE_SIZE = 1_000;
 export const REQUEST_TIMEOUT_MS = 5_000;
 
+/** Default number of events (across all types) before the batcher flushes. */
+export const DEFAULT_FLUSH_AT = 20;
+/** Default periodic batch flush interval. */
+export const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
+/** Default maximum payloads per HTTP request body (per endpoint). */
+export const DEFAULT_MAX_BATCH_SIZE = 20;
+/** Base delay (ms) for exponential backoff between HTTP retries. */
+export const RETRY_BASE_DELAY_MS = 1_000;
+/**
+ * Total HTTP attempts per request (initial try + retries).
+ * Retries use delays RETRY_BASE_DELAY_MS * 2^0, * 2^1, * 2^2 between attempts.
+ */
+export const HTTP_REQUEST_MAX_ATTEMPTS = 4;
+
 export const EVENT_PAGEVIEW = '$pageview';
 
 export const PROPERTY_LIB = '$lib';

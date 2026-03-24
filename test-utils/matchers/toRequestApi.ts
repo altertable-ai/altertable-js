@@ -181,8 +181,13 @@ function validateFetchCall(
   // Check payload if provided
   if (options?.payload) {
     try {
-      const actualPayload = JSON.parse(fetchOptions.body);
-      validationErrors.push(...validatePayload(actualPayload, options.payload));
+      let actualPayload: unknown = JSON.parse(fetchOptions.body);
+      if (Array.isArray(actualPayload) && actualPayload.length === 1) {
+        actualPayload = actualPayload[0];
+      }
+      validationErrors.push(
+        ...validatePayload(actualPayload, options.payload)
+      );
     } catch (error) {
       validationErrors.push(
         `Failed to parse payload: ${JSON.stringify(error, null, 2)}`

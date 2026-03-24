@@ -64,12 +64,22 @@ describe('Altertable', () => {
   const apiKey = 'test-api-key';
   const viewPort = '1024x768';
 
+  function getFetchCallBodyParsed(callIndex: number) {
+    const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchOptions = mockFetch.mock.calls[callIndex][1];
+    const parsed = JSON.parse(fetchOptions.body as string);
+    return Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;
+  }
+
   function setupAltertable(overrides: Partial<AltertableConfig> = {}) {
     return altertable.init(apiKey, {
       baseUrl: 'http://localhost',
       autoCapture: false,
       trackingConsent: 'granted',
       persistence: 'memory',
+      // Immediate flush keeps most tests synchronous; batching is covered in dedicated tests.
+      flushAt: 1,
+      flushIntervalMs: 86_400_000,
       ...overrides,
     });
   }
@@ -82,7 +92,7 @@ describe('Altertable', () => {
       return `test-uuid-${idCounter}-${Date.now()}` as `${string}-${string}-${string}-${string}-${string}`;
     });
 
-    // Mock createLogger, but keep warn and warnDev to be caught with .toWarnDev()
+    // Mock createLogger noise; keep warn / warnDev real so .toWarnDev() can assert on console.warn
     const realLoggerFactory = (
       await vi.importActual<typeof import('../src/lib/logger')>(
         '../src/lib/logger'
@@ -94,7 +104,6 @@ describe('Altertable', () => {
         ...logger,
         log: vi.fn(),
         error: vi.fn(),
-        warn: vi.fn(),
         logHeader: vi.fn(),
         logEvent: vi.fn(),
       };
@@ -129,6 +138,8 @@ describe('Altertable', () => {
             baseUrl: 'http://localhost',
             autoCapture: true,
             trackingConsent: 'granted',
+            flushAt: 1,
+            flushIntervalMs: 86_400_000,
           });
         }).toRequestApi('/track', {
           apiKey,
@@ -158,6 +169,8 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           autoCapture: false,
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         expect(() => {
@@ -188,6 +201,8 @@ describe('Altertable', () => {
           autoCapture: false,
           release: '04ed05b',
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         expect(() => {
@@ -202,12 +217,41 @@ describe('Altertable', () => {
         });
       });
 
+      it('returns a cleanup that stops the batcher and removes lifecycle listeners', () => {
+        const client = new Altertable();
+        const cleanup = client.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
+        });
+        const stopSpy = vi.spyOn(client['_batcher'], 'stop');
+        const removeDocumentSpy = vi.spyOn(document, 'removeEventListener');
+        const removeWindowSpy = vi.spyOn(window, 'removeEventListener');
+
+        cleanup();
+
+        expect(stopSpy).toHaveBeenCalledTimes(1);
+        expect(removeDocumentSpy).toHaveBeenCalledWith(
+          'visibilitychange',
+          expect.any(Function)
+        );
+        expect(removeWindowSpy).toHaveBeenCalledWith(
+          'pagehide',
+          expect.any(Function)
+        );
+      });
+
       it('does not send page event when auto-capture disabled', () => {
         expect(() => {
           altertable.init(apiKey, {
             baseUrl: 'http://localhost',
             autoCapture: false,
             trackingConsent: 'granted',
+            flushAt: 1,
+            flushIntervalMs: 86_400_000,
           });
         }).not.toRequestApi('/track');
       });
@@ -219,6 +263,8 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         // Simulate URL change and trigger page event directly
@@ -243,6 +289,8 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         setupWindow({ url: 'http://localhost/changed-page' });
@@ -258,6 +306,8 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         // Navigate to page-2
@@ -301,6 +351,8 @@ describe('Altertable', () => {
           baseUrl: 'http://localhost',
           autoCapture: true,
           trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         expect(addEventListenerSpy).toHaveBeenCalledWith(
@@ -343,6 +395,52 @@ describe('Altertable', () => {
         expect(() => {
           altertable.init(undefined as any, { baseUrl: 'http://localhost' });
         }).toThrow('[Altertable] Missing API key');
+      });
+    });
+
+    describe('re-initialization', () => {
+      it('clears command queue on re-init so queued items do not replay under new API key', () => {
+        const otherApiKey = 'other-api-key';
+
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'pending',
+          persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
+        });
+
+        altertable.track('stale-event', { stale: true });
+        altertable.track('stale-event-2', { stale: true });
+        expect(altertable['_queue'].getSize()).toBe(2);
+
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.init(otherApiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          trackingConsent: 'granted',
+          persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
+        });
+
+        expect(altertable['_queue'].getSize()).toBe(0);
+
+        const bodies = mockFetch.mock.calls.map(call =>
+          String(call[1]?.body ?? '')
+        );
+        expect(bodies.some(body => body.includes('stale-event'))).toBe(false);
+
+        altertable.track('fresh-after-reinit', { fresh: true });
+        expect(mockFetch).toHaveBeenCalled();
+        const lastCall = mockFetch.mock.calls.at(-1)!;
+        expect(String(lastCall[1].body)).toContain('fresh-after-reinit');
+        expect(String(lastCall[0])).toContain(
+          `apiKey=${encodeURIComponent(otherApiKey)}`
+        );
       });
     });
   });
@@ -638,8 +736,6 @@ describe('Altertable', () => {
     });
 
     it('warns when storage fallback occurs', () => {
-      const warnSpy = vi.spyOn(altertable['_logger'], 'warn');
-
       vi.spyOn(storageModule, 'selectStorage').mockImplementation(
         (_type, { onFallback }) => {
           onFallback('localStorage not supported, falling back to memory.');
@@ -647,14 +743,14 @@ describe('Altertable', () => {
         }
       );
 
-      altertable.init(apiKey, {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        persistence: 'localStorage',
-      });
-
-      expect(warnSpy).toHaveBeenCalledWith(
-        'localStorage not supported, falling back to memory.'
+      expect(() => {
+        altertable.init(apiKey, {
+          baseUrl: 'http://localhost',
+          autoCapture: false,
+          persistence: 'localStorage',
+        });
+      }).toWarnDev(
+        '[Altertable] localStorage not supported, falling back to memory.'
       );
     });
   });
@@ -944,23 +1040,39 @@ describe('Altertable', () => {
   describe('alias() method', () => {
     it('aliases user to a new ID', () => {
       setupAltertable();
-      // Spy on the requester.send method to check /alias is called
-      const requesterSendSpy = vi.spyOn(altertable['_requester'], 'send');
+      const requesterSendBatchSpy = vi.spyOn(
+        altertable['_requester'],
+        'sendBatch'
+      );
 
       altertable.alias('user456');
 
-      expect(requesterSendSpy).toHaveBeenCalledWith(
+      expect(requesterSendBatchSpy).toHaveBeenCalledWith(
         '/alias',
-        expect.objectContaining({
-          environment: expect.any(String),
-          device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-          new_user_id: 'user456',
-          distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
-          anonymous_id: null,
-        })
+        expect.arrayContaining([
+          expect.objectContaining({
+            environment: expect.any(String),
+            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+            new_user_id: 'user456',
+            distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
+            anonymous_id: null,
+          }),
+        ])
       );
 
-      requesterSendSpy.mockRestore();
+      requesterSendBatchSpy.mockRestore();
+    });
+
+    it('logs alias when debug is enabled', () => {
+      setupAltertable({ debug: true });
+      const logAliasSpy = vi
+        .spyOn(altertable['_logger'], 'logAlias')
+        .mockImplementation(() => {});
+
+      altertable.alias('user456');
+
+      expect(logAliasSpy).toHaveBeenCalledTimes(1);
+      logAliasSpy.mockRestore();
     });
 
     it('throws error for reserved new user ID', () => {
@@ -1093,6 +1205,8 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         const initialSessionId = altertable['_sessionManager'].getSessionId();
@@ -1139,6 +1253,8 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         const initialSessionId = altertable['_sessionManager'].getSessionId();
@@ -1376,6 +1492,24 @@ describe('Altertable', () => {
         ]);
       });
 
+      it('wires logger.warn as selectStorage onFallback when configure changes persistence', () => {
+        setupAltertable({ persistence: 'memory' });
+        const storageMock = createStorageMock();
+
+        vi.spyOn(storageModule, 'selectStorage').mockImplementation(
+          (_type, { onFallback }) => {
+            onFallback('persistence fallback during configure');
+            return storageMock;
+          }
+        );
+
+        expect(() => {
+          altertable.configure({ persistence: 'localStorage' });
+        }).toWarnDev('[Altertable] persistence fallback during configure');
+
+        expect(storageMock.migrate).toHaveBeenCalled();
+      });
+
       it('preserves data during migration', () => {
         const initialStorageMock = createStorageMock();
         const newStorageMock = createStorageMock();
@@ -1414,6 +1548,8 @@ describe('Altertable', () => {
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
           autoCapture: false,
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
 
         expect(altertable.getTrackingConsent()).toBe('granted');
@@ -1532,6 +1668,63 @@ describe('Altertable', () => {
         altertable.configure({ trackingConsent: 'denied' });
 
         expect(altertable['_queue'].getSize()).toBe(0);
+      });
+
+      it('drops batcher buffer when consent changes from granted to denied', async () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({
+          trackingConsent: 'granted',
+          flushAt: 20,
+          flushIntervalMs: 86_400_000,
+        });
+
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.track('buffered-before-deny', { case: 'batch' });
+        expect(mockFetch).not.toHaveBeenCalled();
+
+        altertable.configure({ trackingConsent: 'denied' });
+        await altertable.flush();
+        expect(mockFetch).not.toHaveBeenCalled();
+
+        altertable.track('after-deny', { case: 'noop' });
+        await altertable.flush();
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it('sends events again after consent denied then granted', async () => {
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+          createStorageMock()
+        );
+
+        setupAltertable({
+          trackingConsent: 'granted',
+          flushAt: 20,
+          flushIntervalMs: 86_400_000,
+        });
+
+        altertable.track('before-deny', {});
+        altertable.configure({ trackingConsent: 'denied' });
+
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.configure({
+          trackingConsent: 'granted',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
+        });
+        altertable.track('after-regrant', { case: 'resume' });
+
+        await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+        const [, options] = mockFetch.mock.calls[0];
+        const body = JSON.parse(options.body as string);
+        const rows = Array.isArray(body) ? body : [body];
+        expect(rows.some(row => row.event === 'after-regrant')).toBe(true);
       });
 
       it('does not flush events when consent changes from granted to pending', () => {
@@ -1681,6 +1874,8 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'pending',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(altertable.getTrackingConsent()).toBe('pending');
@@ -1694,14 +1889,30 @@ describe('Altertable', () => {
       altertable.identify('user123', { email: 'user@example.com' });
       expect(altertable['_queue'].getSize()).toBe(3);
 
-      // 4. Grant consent (should flush queue)
+      // 4. Grant consent (should flush queue: 2 track + 1 identify)
       expect(() => {
         altertable.configure({ trackingConsent: 'granted' });
-      }).toRequestApi('/track', { callCount: 3 });
+      }).not.toThrow();
 
       expect(altertable['_queue'].getSize()).toBe(0);
 
-      // 5. Track more events (should send immediately)
+      const mockFetchAfterConsent = global.fetch as ReturnType<typeof vi.fn>;
+      const trackCalls = mockFetchAfterConsent.mock.calls.filter(call =>
+        String(call[0]).includes('/track')
+      );
+      const identifyCalls = mockFetchAfterConsent.mock.calls.filter(call =>
+        String(call[0]).includes('/identify')
+      );
+      expect(identifyCalls.length).toBe(1);
+      expect(trackCalls.length).toBe(2);
+      for (const call of trackCalls) {
+        const body = JSON.parse(call[1].body as string);
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBe(1);
+      }
+
+      // 5. Track more events (should send immediately with flushAt default)
+      altertable.configure({ flushAt: 1, flushIntervalMs: 86_400_000 });
       expect(() => {
         altertable.track('event-3', { step: 'converted' });
       }).toRequestApi('/track');
@@ -1724,6 +1935,8 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       const initialSessionId = altertable['_sessionManager'].getSessionId();
@@ -1755,6 +1968,8 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       const configureSpy = vi.spyOn(altertable, 'configure');
@@ -1782,6 +1997,8 @@ describe('Altertable', () => {
         autoCapture: false,
         debug: true,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
@@ -1791,6 +2008,8 @@ describe('Altertable', () => {
         autoCapture: false,
         debug: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       altertable.track('test-event', { foo: 'bar' });
@@ -1802,12 +2021,16 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       altertable.init('api-key-2', {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(() => {
@@ -1836,6 +2059,8 @@ describe('Altertable', () => {
         autoCapture: false,
         persistence: 'localStorage',
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(selectStorageSpy).toHaveBeenCalledWith('localStorage', {
@@ -1852,6 +2077,8 @@ describe('Altertable', () => {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(() => {
@@ -1869,40 +2096,48 @@ describe('Altertable', () => {
 
     it('should work in SSR environments', () => {
       const originalWindow = global.window;
-      delete (global as any).window;
+      try {
+        delete (global as any).window;
 
-      expect(() => {
-        altertable.init(apiKey, {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        });
-      }).not.toThrow();
+        expect(() => {
+          altertable.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: false,
+            trackingConsent: 'granted',
+            flushAt: 1,
+            flushIntervalMs: 86_400_000,
+          });
+        }).not.toThrow();
 
-      expect(() => {
-        altertable.track('test-event', { foo: 'bar' });
-      }).toRequestApi('/track');
-
-      global.window = originalWindow;
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track');
+      } finally {
+        global.window = originalWindow;
+      }
     });
 
     it('should handle missing navigator gracefully', () => {
       const originalNavigator = global.navigator;
-      delete (global as any).navigator;
+      try {
+        delete (global as any).navigator;
 
-      expect(() => {
-        altertable.init(apiKey, {
-          baseUrl: 'http://localhost',
-          autoCapture: false,
-          trackingConsent: 'granted',
-        });
-      }).not.toThrow();
+        expect(() => {
+          altertable.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: false,
+            trackingConsent: 'granted',
+            flushAt: 1,
+            flushIntervalMs: 86_400_000,
+          });
+        }).not.toThrow();
 
-      expect(() => {
-        altertable.track('test-event', { foo: 'bar' });
-      }).toRequestApi('/track');
-
-      global.navigator = originalNavigator;
+        expect(() => {
+          altertable.track('test-event', { foo: 'bar' });
+        }).toRequestApi('/track');
+      } finally {
+        global.navigator = originalNavigator;
+      }
     });
   });
 
@@ -1945,7 +2180,7 @@ describe('Altertable', () => {
   });
 
   describe('network method selection', () => {
-    it('uses beacon when available', () => {
+    it('uses fetch with keepalive for batched sends when beacon is available', () => {
       setupBeaconAvailable();
 
       setupAltertable();
@@ -1953,7 +2188,7 @@ describe('Altertable', () => {
       expect(() => {
         altertable.track('test-event', { foo: 'bar' });
       }).toRequestApi('/track', {
-        method: 'beacon',
+        method: 'fetch',
         payload: expect.objectContaining({
           event: 'test-event',
           properties: expect.objectContaining({
@@ -1963,7 +2198,7 @@ describe('Altertable', () => {
       });
     });
 
-    it('falls back to fetch when beacon is unavailable', () => {
+    it('uses fetch when beacon is unavailable', () => {
       setupBeaconUnavailable();
 
       setupAltertable();
@@ -1988,8 +2223,8 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw new Error('Network error');
       });
 
@@ -1998,12 +2233,14 @@ describe('Altertable', () => {
       expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
         error: expect.any(Error),
         eventType: 'track',
-        payload: expect.objectContaining({
-          event: 'test-event',
-        }),
+        payload: expect.arrayContaining([
+          expect.objectContaining({
+            event: 'test-event',
+          }),
+        ]),
       });
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('continues to function after network failures', () => {
@@ -2011,8 +2248,8 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw new Error('Network error');
       });
 
@@ -2023,7 +2260,7 @@ describe('Altertable', () => {
 
       expect(errorSpy).toHaveBeenCalledTimes(2);
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('shows helpful warning for environment-not-found error', () => {
@@ -2031,8 +2268,8 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw new ApiError(400, 'Bad Request', 'environment-not-found', {
           error_code: 'environment-not-found',
         });
@@ -2045,7 +2282,7 @@ describe('Altertable', () => {
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('shows helpful warning for environment-not-found error with default environment', () => {
@@ -2053,8 +2290,8 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw new ApiError(400, 'Bad Request', 'environment-not-found', {
           error_code: 'environment-not-found',
         });
@@ -2067,18 +2304,18 @@ describe('Altertable', () => {
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
-    it('uses generic error handling for other ApiErrors', () => {
+    it('uses generic error handling for non-retryable ApiErrors', () => {
       setupAltertable();
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
-        throw new ApiError(429, 'Too Many Requests', 'rate-limit-exceeded', {
-          error_code: 'rate-limit-exceeded',
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
+        throw new ApiError(422, 'Unprocessable Entity', 'invalid-payload', {
+          error_code: 'invalid-payload',
         });
       });
 
@@ -2088,12 +2325,14 @@ describe('Altertable', () => {
       expect(errorSpy).toHaveBeenCalledWith('Failed to send event', {
         error: expect.any(ApiError),
         eventType: 'track',
-        payload: expect.objectContaining({
-          event: 'test-event',
-        }),
+        payload: expect.arrayContaining([
+          expect.objectContaining({
+            event: 'test-event',
+          }),
+        ]),
       });
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('handles environment-not-found error for identify events', () => {
@@ -2101,8 +2340,8 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      const originalSendBatch = altertable['_requester'].sendBatch;
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw new ApiError(400, 'Bad Request', 'environment-not-found', {
           error_code: 'environment-not-found',
         });
@@ -2115,21 +2354,21 @@ describe('Altertable', () => {
       );
       expect(errorSpy).not.toHaveBeenCalled();
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('calls onError handler when provided', () => {
       const onErrorSpy = vi.fn();
       setupAltertable({ onError: onErrorSpy });
 
-      const originalSend = altertable['_requester'].send;
+      const originalSendBatch = altertable['_requester'].sendBatch;
       const testError = new ApiError(
         500,
         'Internal Server Error',
         undefined,
         undefined
       );
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw testError;
       });
 
@@ -2138,16 +2377,16 @@ describe('Altertable', () => {
       expect(onErrorSpy).toHaveBeenCalledTimes(1);
       expect(onErrorSpy).toHaveBeenCalledWith(testError);
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('calls onError handler for NetworkError', () => {
       const onErrorSpy = vi.fn();
       setupAltertable({ onError: onErrorSpy });
 
-      const originalSend = altertable['_requester'].send;
+      const originalSendBatch = altertable['_requester'].sendBatch;
       const testError = new NetworkError('Network connection failed');
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw testError;
       });
 
@@ -2156,7 +2395,7 @@ describe('Altertable', () => {
       expect(onErrorSpy).toHaveBeenCalledTimes(1);
       expect(onErrorSpy).toHaveBeenCalledWith(testError);
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
 
     it('handles NetworkError with specific error message', () => {
@@ -2164,12 +2403,12 @@ describe('Altertable', () => {
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
-      const originalSend = altertable['_requester'].send;
+      const originalSendBatch = altertable['_requester'].sendBatch;
       const testError = new NetworkError(
         'Connection timeout',
         new Error('Timeout')
       );
-      altertable['_requester'].send = vi.fn().mockImplementation(() => {
+      altertable['_requester'].sendBatch = vi.fn().mockImplementation(() => {
         throw testError;
       });
 
@@ -2184,7 +2423,7 @@ describe('Altertable', () => {
         }
       );
 
-      altertable['_requester'].send = originalSend;
+      altertable['_requester'].sendBatch = originalSendBatch;
     });
   });
 
@@ -2229,6 +2468,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/identify', {
         payload: expect.objectContaining({
@@ -2238,6 +2479,32 @@ describe('Altertable', () => {
       });
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
+    });
+
+    it('logs warnDev when a queued command throws during init replay', () => {
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user123', {
+        email: 'test@example.com',
+      });
+      const warnDevSpy = vi.spyOn(uninitializedAltertable['_logger'], 'warnDev');
+      vi.spyOn(uninitializedAltertable as any, '_identify').mockImplementation(
+        () => {
+          throw new Error('identify failed');
+        }
+      );
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
+      });
+
+      expect(warnDevSpy).toHaveBeenCalledWith(
+        'Failed to process queued identify() command:\nidentify failed'
+      );
     });
 
     it('init() flushes queued track()', () => {
@@ -2252,6 +2519,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/track', {
         payload: expect.objectContaining({
@@ -2282,6 +2551,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/identify');
 
@@ -2301,25 +2572,18 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
 
-      // Verify the track event used the identified user
-      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
-      expect(beaconMock).toHaveBeenCalledTimes(2);
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls[0][0]).toContain('/identify');
+      expect(mockFetch.mock.calls[1][0]).toContain('/track');
 
-      // First call is identify
-      const firstCall = beaconMock.mock.calls[0];
-      expect(firstCall[0]).toContain('/identify');
-
-      // Second call is track with the identified user
-      const secondCall = beaconMock.mock.calls[1];
-      expect(secondCall[0]).toContain('/track');
-
-      // Parse the track payload from Blob
-      const trackBlob = secondCall[1] as Blob;
-      const trackPayload = JSON.parse(await trackBlob.text());
+      const trackPayload = getFetchCallBodyParsed(1);
       expect(trackPayload.distinct_id).toBe('user123');
       expect(trackPayload.event).toBe('post-identify-event');
     });
@@ -2333,6 +2597,8 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
@@ -2344,6 +2610,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).not.toRequestApi('/track');
     });
@@ -2388,12 +2656,37 @@ describe('Altertable', () => {
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
     });
 
+    it('resumes sending after init denied then configure granted', async () => {
+      vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+        createStorageMock()
+      );
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'denied',
+        persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
+      });
+
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockClear();
+
+      altertable.configure({ trackingConsent: 'granted' });
+      altertable.track('post-denied-init', {});
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    });
+
     it('reset() clears consent-pending queue after init()', () => {
       altertable.init(apiKey, {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'pending',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       altertable.track('event-before-reset', { foo: 'bar' });
@@ -2448,6 +2741,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/track', {
         payload: expect.objectContaining({
@@ -2473,6 +2768,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toRequestApi('/alias', {
         payload: expect.objectContaining({
@@ -2495,23 +2792,18 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(0);
 
-      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
-      expect(beaconMock).toHaveBeenCalledTimes(2);
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls[0][0]).toContain('/identify');
+      expect(mockFetch.mock.calls[1][0]).toContain('/identify');
 
-      // Both calls should be to /identify
-      const firstCall = beaconMock.mock.calls[0];
-      expect(firstCall[0]).toContain('/identify');
-
-      const secondCall = beaconMock.mock.calls[1];
-      expect(secondCall[0]).toContain('/identify');
-
-      // Second call should have the updated traits
-      const secondBlob = secondCall[1] as Blob;
-      const secondPayload = JSON.parse(await secondBlob.text());
+      const secondPayload = getFetchCallBodyParsed(1);
       expect(secondPayload.traits).toEqual({ plan: 'premium' });
     });
 
@@ -2536,15 +2828,16 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'granted',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).toWarnDev(
         '[Altertable] User must be identified with identify() before updating traits.'
       );
 
-      // Track should still have been processed
-      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
-      expect(beaconMock).toHaveBeenCalledTimes(1);
-      expect(beaconMock.mock.calls[0][0]).toContain('/track');
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch.mock.calls[0][0]).toContain('/track');
     });
 
     it('logs debug message when flushing queue with debug enabled', () => {
@@ -2560,6 +2853,8 @@ describe('Altertable', () => {
         trackingConsent: 'granted',
         persistence: 'memory',
         debug: true,
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(logSpy).toHaveBeenCalledWith('Processing 2 queued items.');
@@ -2576,6 +2871,8 @@ describe('Altertable', () => {
         trackingConsent: 'granted',
         persistence: 'memory',
         debug: true,
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       expect(logSpy).not.toHaveBeenCalledWith(
@@ -2594,18 +2891,18 @@ describe('Altertable', () => {
       // Advance time by 5 seconds before init
       vi.advanceTimersByTime(5000);
 
-      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
-
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
         autoCapture: false,
         trackingConsent: 'granted',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
-      expect(beaconMock).toHaveBeenCalledTimes(1);
-      const blob = beaconMock.mock.calls[0][1] as Blob;
-      const payload = JSON.parse(await blob.text());
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const payload = getFetchCallBodyParsed(0);
 
       // Timestamp should be from call time, not init time
       expect(payload.timestamp).toBe('2025-01-07T10:00:00.000Z');
@@ -2667,6 +2964,8 @@ describe('Altertable', () => {
           autoCapture: false,
           trackingConsent: 'pending',
           persistence: 'memory',
+          flushAt: 1,
+          flushIntervalMs: 86_400_000,
         });
       }).not.toRequestApi('/track');
 
@@ -2689,6 +2988,8 @@ describe('Altertable', () => {
         autoCapture: false,
         trackingConsent: 'pending',
         persistence: 'memory',
+        flushAt: 1,
+        flushIntervalMs: 86_400_000,
       });
 
       // Track an event (will be queued since consent is pending)
@@ -2713,19 +3014,15 @@ describe('Altertable', () => {
       // Grant consent - this flushes the queue
       altertable.configure({ trackingConsent: 'granted' });
 
-      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
-      expect(beaconMock).toHaveBeenCalledTimes(1);
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalledTimes(1);
 
       // Track a NEW event after consent - this should trigger session renewal
       altertable.track('new-event', { baz: 'qux' });
-      expect(beaconMock).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
-      // Parse both payloads
-      const queuedBlob = beaconMock.mock.calls[0][1] as Blob;
-      const queuedPayload = JSON.parse(await queuedBlob.text());
-
-      const newBlob = beaconMock.mock.calls[1][1] as Blob;
-      const newPayload = JSON.parse(await newBlob.text());
+      const queuedPayload = getFetchCallBodyParsed(0);
+      const newPayload = getFetchCallBodyParsed(1);
 
       // Queued event should have the ORIGINAL session_id from call time
       expect(queuedPayload.session_id).toBe(callTimeSessionId);
@@ -2736,6 +3033,95 @@ describe('Altertable', () => {
       expect(newPayload.session_id).not.toBe(callTimeSessionId);
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('batching and flush()', () => {
+    it('exposes flush() that returns a promise', async () => {
+      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('a', {});
+      await altertable.flush();
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it('respects custom flushAt by batching until threshold', async () => {
+      setupAltertable({ flushAt: 3, flushIntervalMs: 86_400_000 });
+      altertable.track('e1', {});
+      altertable.track('e2', {});
+      expect(global.fetch).not.toHaveBeenCalled();
+      altertable.track('e3', {});
+      await vi.waitFor(() =>
+        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+          1
+        )
+      );
+      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0];
+      const body = JSON.parse(options.body as string);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBe(3);
+    });
+
+    it('flushes when configure lowers flushAt to at or below buffered count', async () => {
+      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('lower-a', {});
+      altertable.track('lower-b', {});
+      altertable.track('lower-c', {});
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      altertable.configure({ flushAt: 3 });
+      await vi.waitFor(() =>
+        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+          1
+        )
+      );
+      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0];
+      const body = JSON.parse(options.body as string);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBe(3);
+    });
+
+    it('flushUnload runs on visibilitychange when hidden', () => {
+      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('unload-test', {});
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      beaconMock.mockClear();
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(beaconMock).toHaveBeenCalled();
+    });
+
+    it('does not flushUnload on visibilitychange when document stays visible', () => {
+      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('unload-test', {});
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      beaconMock.mockClear();
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(beaconMock).not.toHaveBeenCalled();
+    });
+
+    it('flushUnload runs on pagehide', () => {
+      setupAltertable({ flushAt: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('unload-test', {});
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      beaconMock.mockClear();
+
+      window.dispatchEvent(new Event('pagehide'));
+
+      expect(beaconMock).toHaveBeenCalled();
     });
   });
 });

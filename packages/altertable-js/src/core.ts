@@ -1,5 +1,8 @@
 import {
   AUTO_CAPTURE_INTERVAL_MS,
+  DEFAULT_FLUSH_AT,
+  DEFAULT_FLUSH_INTERVAL_MS,
+  DEFAULT_MAX_BATCH_SIZE,
   EVENT_PAGEVIEW,
   keyBuilder,
   MAX_QUEUE_SIZE,
@@ -13,7 +16,13 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from './constants';
-import { isAltertableError, isApiError, isNetworkError } from './lib/error';
+import { type BatcherApi, createBatcher } from './lib/batcher';
+import {
+  isAltertableError,
+  isApiError,
+  isNetworkError,
+  isRetryableHttpDeliveryError,
+} from './lib/error';
 import { invariant } from './lib/invariant';
 import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
@@ -83,21 +92,80 @@ export interface AltertableConfig {
    * Optional error handler for intercepting SDK errors.
    */
   onError?: (error: Error) => void;
+  /**
+   * Flush when the combined number of queued events (all types) reaches this count.
+   * @default 20
+   */
+  flushAt?: number;
+  /**
+   * Periodic batch flush interval in milliseconds.
+   * @default 5000
+   */
+  flushIntervalMs?: number;
+  /**
+   * Maximum payloads per HTTP request body (per endpoint: /track, /identify, /alias).
+   * @default 20
+   */
+  maxBatchSize?: number;
 }
 
-const DEFAULT_CONFIG: AltertableConfig = {
+type ResolvedAltertableConfigKeys =
+  | 'baseUrl'
+  | 'environment'
+  | 'autoCapture'
+  | 'debug'
+  | 'persistence'
+  | 'trackingConsent'
+  | 'flushAt'
+  | 'flushIntervalMs'
+  | 'maxBatchSize';
+
+/** Configuration after defaults are applied (including explicit `undefined` overrides). */
+type ResolvedAltertableConfig = Omit<
+  AltertableConfig,
+  ResolvedAltertableConfigKeys
+> &
+  Required<Pick<AltertableConfig, ResolvedAltertableConfigKeys>>;
+
+const DEFAULT_CONFIG: ResolvedAltertableConfig = {
   autoCapture: true,
   baseUrl: 'https://api.altertable.ai',
   debug: false,
   environment: 'production',
+  flushAt: DEFAULT_FLUSH_AT,
+  flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
+  maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
   persistence: 'localStorage+cookie',
   release: undefined,
   trackingConsent: TrackingConsent.GRANTED,
 };
 
+function resolveAltertableConfig(
+  partial: AltertableConfig
+): ResolvedAltertableConfig {
+  const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...partial };
+  return {
+    ...merged,
+    baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
+    environment: merged.environment ?? DEFAULT_CONFIG.environment,
+    autoCapture: merged.autoCapture ?? DEFAULT_CONFIG.autoCapture,
+    debug: merged.debug ?? DEFAULT_CONFIG.debug,
+    persistence: merged.persistence ?? DEFAULT_CONFIG.persistence,
+    trackingConsent: merged.trackingConsent ?? DEFAULT_CONFIG.trackingConsent,
+    flushAt: Math.max(1, merged.flushAt ?? DEFAULT_FLUSH_AT),
+    flushIntervalMs: Math.max(
+      1,
+      merged.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS
+    ),
+    maxBatchSize: Math.max(1, merged.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE),
+  };
+}
+
 export class Altertable {
+  private _batcher: BatcherApi | undefined;
   private _cleanupAutoCapture: (() => void) | undefined;
-  private _config: AltertableConfig;
+  private _cleanupLifecycleFlush: (() => void) | undefined;
+  private _config: ResolvedAltertableConfig;
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
   private _lastUrl: string | null;
@@ -138,10 +206,23 @@ export class Altertable {
    *   environment: 'development',
    * });
    * ```
+   *
+   * Calling `init` again (e.g. new API key) stops the batcher, clears the in-memory
+   * outbound buffer, and drops the command/event queue so nothing replays under the
+   * new API key or environment. Await `flush()` first if you need those events
+   * delivered before re-initializing.
    */
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
-    this._config = { ...DEFAULT_CONFIG, ...config };
+    this._cleanupLifecycleFlush?.();
+    this._cleanupAutoCapture?.();
+    this._batcher?.stop();
+    this._batcher?.clear();
+    if (this._isInitialized) {
+      this._queue.clear();
+    }
+
+    this._config = resolveAltertableConfig(config);
     this._storageKey = keyBuilder(apiKey, this._config.environment);
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
@@ -159,6 +240,27 @@ export class Altertable {
       apiKey,
       requestTimeout: REQUEST_TIMEOUT_MS,
     });
+    // Non-retryable failures are logged in _handleSendError and not rethrown, so the
+    // batcher does not requeue those chunks. Retryable failures rethrow so batcher.ts
+    // can prepend the chunk back onto the buffer.
+    this._batcher = createBatcher({
+      flushAt: this._config.flushAt,
+      flushIntervalMs: this._config.flushIntervalMs,
+      maxBatchSize: this._config.maxBatchSize,
+      send: async (eventType, payloads) => {
+        try {
+          await this._requester.sendBatch(`/${eventType}`, payloads);
+        } catch (error) {
+          this._handleSendError(eventType, error, payloads);
+          if (isRetryableHttpDeliveryError(error)) {
+            throw error;
+          }
+        }
+      },
+    });
+    this._batcher.start();
+    this._cleanupLifecycleFlush = this._setupLifecycleFlush();
+
     this._sessionManager = new SessionManager({
       storage: this._storage,
       storageKey: this._storageKey,
@@ -178,12 +280,16 @@ export class Altertable {
       this._flushQueue();
     } else if (trackingConsent === TrackingConsent.DENIED) {
       this._queue.clear();
+      this._batcher.clear();
+      this._batcher.stop();
     }
 
     this._handleAutoCaptureChange(this._config.autoCapture);
 
     return () => {
       this._cleanupAutoCapture?.();
+      this._cleanupLifecycleFlush?.();
+      this._batcher.stop();
     };
   }
 
@@ -235,12 +341,27 @@ export class Altertable {
         updates.trackingConsent === TrackingConsent.GRANTED
       ) {
         this._flushQueue();
+        this._batcher.start();
       } else if (updates.trackingConsent === TrackingConsent.DENIED) {
         this._queue.clear();
+        this._batcher.clear();
+        this._batcher.stop();
       }
     }
 
-    this._config = { ...this._config, ...updates };
+    this._config = resolveAltertableConfig({ ...this._config, ...updates });
+
+    if (
+      updates.flushAt !== undefined ||
+      updates.flushIntervalMs !== undefined ||
+      updates.maxBatchSize !== undefined
+    ) {
+      this._batcher.updateConfig({
+        flushAt: this._config.flushAt,
+        flushIntervalMs: this._config.flushIntervalMs,
+        maxBatchSize: this._config.maxBatchSize,
+      });
+    }
   }
 
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
@@ -464,6 +585,7 @@ export class Altertable {
   } = {}) {
     // Clear queued commands to prevent cross-identity/session mixing
     this._queue.clear();
+    this._batcher?.clear();
 
     if (!this._isInitialized) {
       return;
@@ -627,6 +749,26 @@ export class Altertable {
     return this._sessionManager.getTrackingConsent();
   }
 
+  /**
+   * Flushes all buffered events to the API. Resolves when every HTTP request **started by this
+   * flush** has finished. Overlapping flushes (for example a manual `flush()` while the interval
+   * timer also flushes) are independent: each call only waits on its own requests, not on sends
+   * from other concurrent flushes.
+   *
+   * @example
+   * ```javascript
+   * await altertable.flush();
+   * ```
+   */
+  flush(): Promise<void> {
+    invariant(
+      this._isInitialized,
+      'The client must be initialized with init() before calling flush().'
+    );
+    invariant(this._batcher, 'Batcher is not available.');
+    return this._batcher.flush();
+  }
+
   private _flushQueue() {
     const items = this._queue.flush();
 
@@ -643,12 +785,18 @@ export class Altertable {
     for (const item of items) {
       this._executeQueueItem(item);
     }
+
+    // Replay pushes into the batcher; flush immediately so consent/pre-init
+    // delivery is not delayed until flushAt or the interval timer.
+    if (items.length > 0) {
+      void this._batcher.flush();
+    }
   }
 
   private _executeQueueItem(item: QueueItem) {
     if (item.type === 'event') {
       // Send pre-built payload directly (preserves original session context)
-      this._sendEvent(item.eventType, item.payload);
+      this._batcher.add(item.eventType, item.payload);
       return;
     }
     // Execute command (pre-init path)
@@ -694,6 +842,46 @@ export class Altertable {
     });
   }
 
+  private _setupLifecycleFlush(): () => void {
+    return safelyRunOnBrowser(
+      ({ window }) => {
+        const flushUnload = () => {
+          this._batcher.flushUnload((eventType, payloads) => {
+            this._requester.sendUnload(`/${eventType}`, payloads);
+          });
+        };
+
+        const onVisibilityChange = () => {
+          if (window.document.visibilityState !== 'hidden') {
+            return;
+          }
+          flushUnload();
+        };
+
+        const onPageHide = () => {
+          flushUnload();
+        };
+
+        window.document.addEventListener(
+          'visibilitychange',
+          onVisibilityChange
+        );
+        window.addEventListener('pagehide', onPageHide);
+
+        return () => {
+          window.document.removeEventListener(
+            'visibilitychange',
+            onVisibilityChange
+          );
+          window.removeEventListener('pagehide', onPageHide);
+        };
+      },
+      () => () => {
+        // No-op cleanup when not in a browser environment.
+      }
+    );
+  }
+
   private _getContext(): AltertableContext {
     return {
       environment: this._config.environment,
@@ -712,7 +900,7 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._sendEvent(eventType, payload);
+        this._batcher.add(eventType, payload);
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
@@ -728,34 +916,31 @@ export class Altertable {
     }
   }
 
-  private async _sendEvent<TPayload extends EventPayload>(
+  private _handleSendError(
     eventType: EventType,
-    payload: TPayload
+    error: unknown,
+    payloads: EventPayload[]
   ) {
-    try {
-      await this._requester.send(`/${eventType}`, payload);
-    } catch (error) {
-      if (isAltertableError(error)) {
-        this._config.onError?.(error);
-      }
+    if (isAltertableError(error)) {
+      this._config.onError?.(error);
+    }
 
-      if (isApiError(error) && error.errorCode === 'environment-not-found') {
-        this._logger.warnDev(
-          `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
-        );
-      } else if (isNetworkError(error)) {
-        this._logger.error('Network error while sending event', {
-          error: error.message,
-          cause: error.cause,
-          eventType,
-        });
-      } else {
-        this._logger.error('Failed to send event', {
-          error,
-          eventType,
-          payload,
-        });
-      }
+    if (isApiError(error) && error.errorCode === 'environment-not-found') {
+      this._logger.warnDev(
+        `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
+      );
+    } else if (isNetworkError(error)) {
+      this._logger.error('Network error while sending event', {
+        error: error.message,
+        cause: error.cause,
+        eventType,
+      });
+    } else {
+      this._logger.error('Failed to send event', {
+        error,
+        eventType,
+        payload: payloads,
+      });
     }
   }
 }
