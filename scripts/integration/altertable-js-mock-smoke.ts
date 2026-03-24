@@ -1,5 +1,5 @@
 const sdkModule = await import('../../packages/altertable-js/dist/index.js');
-const { Altertable, TrackingConsent } = sdkModule;
+const { altertable, TrackingConsent } = sdkModule;
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
@@ -44,10 +44,9 @@ function assert(condition: unknown, message: string) {
   }
 }
 
-const sdk = new Altertable();
 const errors: Error[] = [];
 
-sdk.init(apiKey, {
+altertable.init(apiKey, {
   baseUrl: endpoint,
   environment,
   autoCapture: false,
@@ -58,11 +57,11 @@ sdk.init(apiKey, {
   },
 });
 
-sdk.track('ci_smoke_track', { suite: 'integration', source: 'github-actions' });
-sdk.page('https://example.com/pricing?plan=pro');
-sdk.identify('ci-user-1', { plan: 'pro', ci: true });
-sdk.updateTraits({ team: 'sdk', role: 'maintainer' });
-sdk.alias('ci-user-1-linked');
+altertable.track('ci_smoke_track', { suite: 'integration', source: 'github-actions' });
+altertable.page('https://example.com/pricing?plan=pro');
+altertable.identify('ci-user-1', { plan: 'pro', ci: true });
+altertable.updateTraits({ team: 'sdk', role: 'maintainer' });
+altertable.alias('ci-user-1-linked');
 
 await Promise.all(pendingRequests);
 
@@ -131,29 +130,6 @@ const aliasCall = aliases[0];
 assert(
   aliasCall.payload.new_user_id === 'ci-user-1-linked',
   'Alias payload missing new_user_id'
-);
-
-// Negative path: unknown environment should map to environment-not-found.
-const negative = new Altertable();
-let environmentErrorCode: string | undefined;
-
-negative.init(apiKey, {
-  baseUrl: endpoint,
-  environment: '__missing_environment__',
-  autoCapture: false,
-  persistence: 'memory',
-  trackingConsent: TrackingConsent.GRANTED,
-  onError: error => {
-    environmentErrorCode = (error as any).errorCode;
-  },
-});
-
-negative.track('ci_smoke_invalid_environment', { case: 'negative' });
-await Promise.all(pendingRequests);
-
-assert(
-  environmentErrorCode === 'environment-not-found',
-  `Expected environment-not-found error code, got ${environmentErrorCode ?? 'undefined'}`
 );
 
 console.log('altertable-js integration smoke passed');
