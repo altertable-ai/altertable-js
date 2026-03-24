@@ -274,7 +274,7 @@ Configuration options for the Altertable SDK.
 | `trackingConsent` | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
 | `onError`         | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                        |
 | `flushAt`         | `number`                                      | `20`                          | Flush when combined buffered events reach this count    |
-| `flushIntervalMs` | `number`                                      | `5000`                        | Periodic batch flush interval (ms)                     |
+| `flushIntervalMs` | `number`                                      | `150`                         | Periodic batch flush interval (ms)                     |
 | `maxBatchSize`    | `number`                                      | `20`                          | Max payloads per HTTP request (per `/track`, `/identify`, `/alias`) |
 
 ### `EventProperties`

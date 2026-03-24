@@ -14,10 +14,10 @@ export const SESSION_EXPIRATION_TIME_MS = 30 * MINUTE_IN_MS;
 export const MAX_QUEUE_SIZE = 1_000;
 export const REQUEST_TIMEOUT_MS = 5_000;
 
-/** Default number of events (across all types) before the batcher flushes. */
-export const DEFAULT_FLUSH_AT = 20;
+/** Default combined buffered event count (all types) before the batcher flushes. */
+export const DEFAULT_FLUSH_EVENT_THRESHOLD = 20;
 /** Default periodic batch flush interval. */
-export const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
+export const DEFAULT_FLUSH_INTERVAL_MS = 150;
 /** Default maximum payloads per HTTP request body (per endpoint). */
 export const DEFAULT_MAX_BATCH_SIZE = 20;
 /** Base delay (ms) for exponential backoff between HTTP retries. */

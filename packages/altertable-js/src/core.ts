@@ -1,6 +1,6 @@
 import {
   AUTO_CAPTURE_INTERVAL_MS,
-  DEFAULT_FLUSH_AT,
+  DEFAULT_FLUSH_EVENT_THRESHOLD,
   DEFAULT_FLUSH_INTERVAL_MS,
   DEFAULT_MAX_BATCH_SIZE,
   EVENT_PAGEVIEW,
@@ -96,10 +96,10 @@ export interface AltertableConfig {
    * Flush when the combined number of queued events (all types) reaches this count.
    * @default 20
    */
-  flushAt?: number;
+  flushEventThreshold?: number;
   /**
    * Periodic batch flush interval in milliseconds.
-   * @default 5000
+   * @default 150
    */
   flushIntervalMs?: number;
   /**
@@ -116,7 +116,7 @@ type ResolvedAltertableConfigKeys =
   | 'debug'
   | 'persistence'
   | 'trackingConsent'
-  | 'flushAt'
+  | 'flushEventThreshold'
   | 'flushIntervalMs'
   | 'maxBatchSize';
 
@@ -132,7 +132,7 @@ const DEFAULT_CONFIG: ResolvedAltertableConfig = {
   baseUrl: 'https://api.altertable.ai',
   debug: false,
   environment: 'production',
-  flushAt: DEFAULT_FLUSH_AT,
+  flushEventThreshold: DEFAULT_FLUSH_EVENT_THRESHOLD,
   flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
   maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
   persistence: 'localStorage+cookie',
@@ -152,7 +152,10 @@ function resolveAltertableConfig(
     debug: merged.debug ?? DEFAULT_CONFIG.debug,
     persistence: merged.persistence ?? DEFAULT_CONFIG.persistence,
     trackingConsent: merged.trackingConsent ?? DEFAULT_CONFIG.trackingConsent,
-    flushAt: Math.max(1, merged.flushAt ?? DEFAULT_FLUSH_AT),
+    flushEventThreshold: Math.max(
+      1,
+      merged.flushEventThreshold ?? DEFAULT_FLUSH_EVENT_THRESHOLD
+    ),
     flushIntervalMs: Math.max(
       1,
       merged.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS
@@ -244,7 +247,7 @@ export class Altertable {
     // batcher does not requeue those chunks. Retryable failures rethrow so batcher.ts
     // can prepend the chunk back onto the buffer.
     this._batcher = createBatcher({
-      flushAt: this._config.flushAt,
+      flushEventThreshold: this._config.flushEventThreshold,
       flushIntervalMs: this._config.flushIntervalMs,
       maxBatchSize: this._config.maxBatchSize,
       send: async (eventType, payloads) => {
@@ -352,12 +355,12 @@ export class Altertable {
     this._config = resolveAltertableConfig({ ...this._config, ...updates });
 
     if (
-      updates.flushAt !== undefined ||
+      updates.flushEventThreshold !== undefined ||
       updates.flushIntervalMs !== undefined ||
       updates.maxBatchSize !== undefined
     ) {
       this._batcher.updateConfig({
-        flushAt: this._config.flushAt,
+        flushEventThreshold: this._config.flushEventThreshold,
         flushIntervalMs: this._config.flushIntervalMs,
         maxBatchSize: this._config.maxBatchSize,
       });
@@ -787,7 +790,7 @@ export class Altertable {
     }
 
     // Replay pushes into the batcher; flush immediately so consent/pre-init
-    // delivery is not delayed until flushAt or the interval timer.
+    // delivery is not delayed until flushEventThreshold or the interval timer.
     if (items.length > 0) {
       void this._batcher.flush();
     }
