@@ -1,5 +1,5 @@
 const sdkModule = await import('../../packages/altertable-js/dist/index.js');
-const { altertable, TrackingConsent, Altertable } = sdkModule;
+const { altertable, TrackingConsent } = sdkModule;
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
@@ -164,14 +164,13 @@ assert(
 );
 
 // Default environment path: SDK should send "production" when environment is omitted.
-const defaultEnvClient = new Altertable();
-defaultEnvClient.init(apiKey, {
+altertable.init(apiKey, {
   baseUrl: endpoint,
   autoCapture: false,
   persistence: 'memory',
   trackingConsent: TrackingConsent.GRANTED,
 });
-defaultEnvClient.track('ci_smoke_default_environment', { case: 'default-env' });
+altertable.track('ci_smoke_default_environment', { case: 'default-env' });
 
 await waitForAllRequests();
 
@@ -190,8 +189,7 @@ assert(
 
 // Invalid API key path: mock should reject unauthorized requests.
 const invalidErrors: Array<{ status?: number }> = [];
-const invalidKeyClient = new Altertable();
-invalidKeyClient.init('__invalid_api_key__', {
+altertable.init('__invalid_api_key__', {
   baseUrl: endpoint,
   environment,
   autoCapture: false,
@@ -201,7 +199,7 @@ invalidKeyClient.init('__invalid_api_key__', {
     invalidErrors.push({ status: (error as any).status });
   },
 });
-invalidKeyClient.track('ci_smoke_invalid_api_key', { case: 'invalid-key' });
+altertable.track('ci_smoke_invalid_api_key', { case: 'invalid-key' });
 
 await waitForAllRequests();
 
