@@ -62,3 +62,17 @@ export function isApiError(error: unknown): error is ApiError {
 export function isNetworkError(error: unknown): error is NetworkError {
   return error instanceof NetworkError;
 }
+
+/**
+ * Whether a failed delivery should be retried (HTTP client) or requeued (batcher).
+ * True for transport failures, 429 rate limits, and 5xx; false for other 4xx.
+ */
+export function isRetryableHttpDeliveryError(error: unknown): boolean {
+  if (isNetworkError(error)) {
+    return true;
+  }
+  if (isApiError(error)) {
+    return error.status === 429 || error.status >= 500;
+  }
+  return false;
+}

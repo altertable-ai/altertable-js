@@ -22,9 +22,12 @@ export function toWarnDev(
   let calledTimes = 0;
   let actualWarning = '';
 
-  console.warn = (message: string) => {
+  console.warn = (...args: unknown[]) => {
     calledTimes++;
-    actualWarning = message;
+    const stringParts = args.filter(
+      (argument): argument is string => typeof argument === 'string'
+    );
+    actualWarning = stringParts.join(' ');
   };
 
   callback();

@@ -77,6 +77,8 @@ altertable.init('YOUR_API_KEY', {
 });
 ```
 
+Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
+
 ### Event Tracking
 
 #### `altertable.track(event, properties?)`
@@ -270,6 +272,10 @@ Configuration options for the Altertable SDK.
 | `debug`           | `boolean`                                     | `false`                       | Whether to log events to the console                   |
 | `persistence`     | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for storing IDs               |
 | `trackingConsent` | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
+| `onError`         | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                        |
+| `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count    |
+| `flushIntervalMs` | `number`                                      | `150`                         | Periodic batch flush interval (ms)                     |
+| `maxBatchSize`    | `number`                                      | `20`                          | Max payloads per HTTP request (per `/track`, `/identify`, `/alias`) |
 
 ### `EventProperties`
 

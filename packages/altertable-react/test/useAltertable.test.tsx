@@ -1,5 +1,5 @@
 import { type Altertable, altertable } from '@altertable/altertable-js';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React, { useEffect } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -138,6 +138,20 @@ describe('pre-init behavior', () => {
   });
 
   test('calling identify before init works', async () => {
+    const fetchMock = vi.fn(
+      async (
+        _input: RequestInfo | URL,
+        _init?: RequestInit
+      ): Promise<Response> =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({}),
+        }) as Response
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
     // Fresh imports to get uninitialized altertable singleton
     const { altertable: freshAltertable } = await import(
       '@altertable/altertable-js'
@@ -146,10 +160,6 @@ describe('pre-init behavior', () => {
       AltertableProvider: FreshAltertableProvider,
       useAltertable: useFreshAltertable,
     } = await import('../src');
-
-    const beaconMock = vi.fn(() => true);
-    const originalSendBeacon = navigator.sendBeacon;
-    navigator.sendBeacon = beaconMock;
 
     function App() {
       const { identify, track } = useFreshAltertable();
@@ -179,26 +189,46 @@ describe('pre-init behavior', () => {
       );
     }).not.toThrow();
 
-    expect(beaconMock).toHaveBeenCalledTimes(0);
+    expect(fetchMock).toHaveBeenCalledTimes(0);
 
-    // Initialize the client - this should flush the queued identify
-    freshAltertable.init('TEST_API_KEY', { autoCapture: false });
+    // Initialize the client — queued identify is replayed and flushed via fetch (not beacon).
+    freshAltertable.init('TEST_API_KEY', {
+      autoCapture: false,
+      // One event per batch so a single track produces a network call in this test.
+      flushEventThreshold: 1,
+    });
 
-    // Verify identify was sent to API (queued call flushed on init)
-    expect(beaconMock).toHaveBeenCalledTimes(1);
-    expect(beaconMock).toHaveBeenCalledWith(
-      expect.stringContaining('/identify'),
-      expect.any(Blob)
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    expect(fetchMock.mock.calls[0][0]).toEqual(
+      expect.stringContaining('/identify')
+    );
+    const identifyBody = fetchMock.mock.calls[0][1]?.body as string;
+    expect(JSON.parse(identifyBody)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          distinct_id: 'user123',
+          traits: expect.objectContaining({ email: 'test@example.com' }),
+        }),
+      ])
     );
 
-    // Subsequent calls work normally
     fireEvent.click(screen.getByTestId('track-btn'));
-    expect(beaconMock).toHaveBeenCalledTimes(2);
-    expect(beaconMock).toHaveBeenCalledWith(
-      expect.stringContaining('/track'),
-      expect.any(Blob)
-    );
 
-    navigator.sendBeacon = originalSendBeacon;
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(fetchMock.mock.calls[1][0]).toEqual(
+      expect.stringContaining('/track')
+    );
+    const trackBody = fetchMock.mock.calls[1][1]?.body as string;
+    expect(JSON.parse(trackBody)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'Button Clicked',
+        }),
+      ])
+    );
   });
 });

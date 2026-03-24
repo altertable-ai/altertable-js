@@ -45,6 +45,7 @@ function createRequester(overrides: Partial<RequesterConfig> = {}) {
     baseUrl: 'https://api.altertable.ai',
     apiKey: 'test-api-key',
     requestTimeout: 5_000,
+    maxHttpAttempts: 1,
     ...overrides,
   };
   return new Requester(defaultConfig);
@@ -88,20 +89,24 @@ describe('Requester', () => {
         apiKey: 'test-api-key with spaces & special chars',
       });
 
-      await customRequester.send('/track', createTrackEventPayload());
+      await customRequester.sendBatch('/track', [
+        createTrackEventPayload(),
+      ]);
 
-      const [url] = mockSendBeacon.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0];
       expect(url).toBe(
         'https://api.altertable.ai/track?apiKey=test-api-key%20with%20spaces%20%26%20special%20chars'
       );
     });
 
     it('should construct correct URLs for different endpoints', async () => {
-      await requester.send('/identify', createIdentifyEventPayload());
-      await requester.send('/track', createTrackEventPayload());
+      await requester.sendBatch('/identify', [
+        createIdentifyEventPayload() as EventPayload,
+      ]);
+      await requester.sendBatch('/track', [createTrackEventPayload()]);
 
-      const identifyUrl = mockSendBeacon.mock.calls[0][0];
-      const trackUrl = mockSendBeacon.mock.calls[1][0];
+      const identifyUrl = mockFetch.mock.calls[0][0];
+      const trackUrl = mockFetch.mock.calls[1][0];
 
       expect(identifyUrl).toBe(
         'https://api.altertable.ai/identify?apiKey=test-api-key'
@@ -112,61 +117,99 @@ describe('Requester', () => {
     });
   });
 
-  describe('sendBeacon behavior', () => {
-    it('should use sendBeacon by default when available', async () => {
-      await requester.send('/track', createTrackEventPayload());
+  describe('sendBatch() fetch transport', () => {
+    it('should use fetch with keepalive for sendBatch (not sendBeacon)', async () => {
+      await requester.sendBatch('/track', [createTrackEventPayload()]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockSendBeacon).toHaveBeenCalledTimes(0);
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+      expect(options.keepalive).toBe(true);
+    });
+
+    it('should POST a JSON array body', async () => {
+      const first = createTrackEventPayload({ event: 'a' });
+      const second = createTrackEventPayload({ event: 'b' });
+
+      await requester.sendBatch('/track', [first, second]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, options] = mockFetch.mock.calls[0];
+      const parsed = JSON.parse(options.body);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed).toEqual([first, second]);
+    });
+
+    it('should serialize a single-event batch as a one-element JSON array', async () => {
+      const payload = createTrackEventPayload();
+
+      await requester.sendBatch('/track', [payload]);
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(JSON.parse(options.body)).toEqual([payload]);
+    });
+
+    it('should no-op on empty batch', async () => {
+      await requester.sendBatch('/track', []);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('clamps maxHttpAttempts below 1 to a single attempt', async () => {
+      const singleAttemptRequester = createRequester({ maxHttpAttempts: 0 });
+
+      await singleAttemptRequester.sendBatch('/track', [createTrackEventPayload()]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('sendUnload()', () => {
+    it('should no-op when payloads are empty', () => {
+      requester.sendUnload('/track', []);
+
+      expect(mockSendBeacon).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should use sendBeacon when available', () => {
+      const first = createTrackEventPayload({ event: 'a' });
+      const second = createTrackEventPayload({ event: 'b' });
+
+      requester.sendUnload('/track', [first, second]);
 
       expect(mockSendBeacon).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledTimes(0);
-
-      const [url, data] = mockSendBeacon.mock.calls[0];
+      const [url, blob] = mockSendBeacon.mock.calls[0];
       expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
-      expect(data).toBeInstanceOf(Blob);
-      expect(data.type).toBe('application/json');
+      expect(blob).toBeInstanceOf(Blob);
     });
 
-    it('should serialize payload as JSON blob', async () => {
+    it('should fall back to fetch keepalive when sendBeacon returns false', () => {
+      mockSendBeacon.mockReturnValue(false);
       const payload = createTrackEventPayload();
 
-      await requester.send('/track', payload);
+      requester.sendUnload('/track', [payload]);
 
-      const [, data] = mockSendBeacon.mock.calls[0];
-      const blobText = (data as any).content;
-      const parsedData = JSON.parse(blobText);
-
-      expect(parsedData).toEqual(payload);
-    });
-
-    it('should fallback to fetch when sendBeacon returns false', async () => {
-      mockSendBeacon.mockReturnValue(false);
-
-      await requester.send('/track', createTrackEventPayload());
-
-      expect(mockSendBeacon).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.keepalive).toBe(true);
+      expect(JSON.parse(options.body)).toEqual([payload]);
     });
 
-    it('should fallback to fetch when sendBeacon throws', async () => {
+    it('should fall back to fetch keepalive when sendBeacon throws', () => {
       mockSendBeacon.mockImplementation(() => {
-        throw new Error('sendBeacon error');
+        throw new Error('sendBeacon failed');
       });
+      const payload = createTrackEventPayload();
 
-      await requester.send('/track', createTrackEventPayload());
+      requester.sendUnload('/track', [payload]);
 
-      expect(mockSendBeacon).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle identify payloads with sendBeacon', async () => {
-      const identifyPayload = createIdentifyEventPayload();
-
-      await requester.send('/identify', identifyPayload);
-
-      const [, data] = mockSendBeacon.mock.calls[0];
-      const blobText = (data as any).content;
-      const parsedData = JSON.parse(blobText);
-
-      expect(parsedData).toEqual(identifyPayload);
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.keepalive).toBe(true);
+      expect(JSON.parse(options.body)).toEqual([payload]);
     });
   });
 
@@ -177,14 +220,25 @@ describe('Requester', () => {
     });
 
     it('should use fetch when sendBeacon is not available', async () => {
-      await requester.send('/track', createTrackEventPayload());
+      await requester.sendBatch('/track', [createTrackEventPayload()]);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockSendBeacon).toHaveBeenCalledTimes(0);
     });
 
+    it('sendUnload uses fetch keepalive when sendBeacon is not available', () => {
+      const payload = createTrackEventPayload();
+
+      requester.sendUnload('/track', [payload]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.keepalive).toBe(true);
+      expect(JSON.parse(options.body)).toEqual([payload]);
+    });
+
     it('should configure fetch with correct options', async () => {
-      await requester.send('/track', createTrackEventPayload());
+      await requester.sendBatch('/track', [createTrackEventPayload()]);
 
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
@@ -194,20 +248,20 @@ describe('Requester', () => {
       expect(options.signal).toBeInstanceOf(AbortSignal);
     });
 
-    it('should serialize payload as JSON string in fetch', async () => {
+    it('should serialize batch payload as JSON string in fetch', async () => {
       const payload = createTrackEventPayload();
 
-      await requester.send('/track', payload);
+      await requester.sendBatch('/track', [payload]);
 
       const [, options] = mockFetch.mock.calls[0];
-      expect(options.body).toBe(JSON.stringify(payload));
+      expect(options.body).toBe(JSON.stringify([payload]));
     });
 
     it('should handle fetch network errors', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow('Network error');
     });
 
@@ -216,22 +270,26 @@ describe('Requester', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        headers: new Headers(),
+        json: async () => ({}),
       });
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow('HTTP 500: Internal Server Error');
     });
 
-    it('should handle different HTTP error status codes', async () => {
+    it('should handle 429 HTTP error responses', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 429,
         statusText: 'Too Many Requests',
+        headers: new Headers(),
+        json: async () => ({}),
       });
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow('HTTP 429: Too Many Requests');
     });
 
@@ -240,17 +298,18 @@ describe('Requester', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        headers: new Headers(),
         json: async () => ({
           error_code: 'environment-not-found',
         }),
       });
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow(ApiError);
 
       try {
-        await requester.send('/track', createTrackEventPayload());
+        await requester.sendBatch('/track', [createTrackEventPayload()]);
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
         expect((error as ApiError).status).toBe(400);
@@ -267,13 +326,14 @@ describe('Requester', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        headers: new Headers(),
         json: async () => ({
           some_field: 'some_value',
         }),
       });
 
       try {
-        await requester.send('/track', createTrackEventPayload());
+        await requester.sendBatch('/track', [createTrackEventPayload()]);
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
         expect((error as ApiError).status).toBe(400);
@@ -290,13 +350,14 @@ describe('Requester', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        headers: new Headers(),
         json: async () => {
           throw new Error('Invalid JSON');
         },
       });
 
       try {
-        await requester.send('/track', createTrackEventPayload());
+        await requester.sendBatch('/track', [createTrackEventPayload()]);
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
         expect((error as ApiError).status).toBe(500);
@@ -312,19 +373,20 @@ describe('Requester', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
+        headers: new Headers(),
         json: async () => ({
           error_code: 'invalid-request',
         }),
       });
 
       try {
-        await requester.send('/track', payload);
+        await requester.sendBatch('/track', [payload]);
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
         expect((error as ApiError).requestContext).toBeDefined();
         expect((error as ApiError).requestContext?.url).toContain('/track');
         expect((error as ApiError).requestContext?.method).toBe('POST');
-        expect((error as ApiError).requestContext?.payload).toEqual(payload);
+        expect((error as ApiError).requestContext?.payload).toEqual([payload]);
       }
     });
 
@@ -332,11 +394,11 @@ describe('Requester', () => {
       mockFetch.mockRejectedValue(new Error('Network connection failed'));
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow(NetworkError);
 
       try {
-        await requester.send('/track', createTrackEventPayload());
+        await requester.sendBatch('/track', [createTrackEventPayload()]);
       } catch (error) {
         expect(error).toBeInstanceOf(NetworkError);
         expect((error as NetworkError).message).toBe(
@@ -350,11 +412,11 @@ describe('Requester', () => {
       mockFetch.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
 
       await expect(
-        requester.send('/track', createTrackEventPayload())
+        requester.sendBatch('/track', [createTrackEventPayload()])
       ).rejects.toThrow(NetworkError);
 
       try {
-        await requester.send('/track', createTrackEventPayload());
+        await requester.sendBatch('/track', [createTrackEventPayload()]);
       } catch (error) {
         expect(error).toBeInstanceOf(NetworkError);
         expect((error as NetworkError).cause).toBeInstanceOf(DOMException);
@@ -364,7 +426,6 @@ describe('Requester', () => {
     it('should respect timeout configuration', async () => {
       const customRequester = createRequester({ requestTimeout: 10_000 });
 
-      // Mock setTimeout and clearTimeout to track calls
       const mockSetTimeout = vi.fn(() => 12345);
       const mockClearTimeout = vi.fn();
       const originalSetTimeout = global.setTimeout;
@@ -372,17 +433,13 @@ describe('Requester', () => {
       global.setTimeout = mockSetTimeout as any;
       global.clearTimeout = mockClearTimeout as any;
 
-      // Mock fetch to never resolve (simulate slow request)
       mockFetch.mockImplementation(() => new Promise(() => {}));
 
-      // Start the request (it will hang due to the mock)
-      customRequester.send('/track', createTrackEventPayload());
+      customRequester.sendBatch('/track', [createTrackEventPayload()]);
 
-      // Verify setTimeout was called with the correct timeout
       expect(mockSetTimeout).toHaveBeenCalledTimes(1);
       expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10_000);
 
-      // Get the timeout callback and abort function
       const mockCalls = mockSetTimeout.mock.calls;
       const firstCall = mockCalls[0] as unknown as [() => void, number];
       const timeoutCallback = firstCall?.[0];
@@ -390,15 +447,12 @@ describe('Requester', () => {
       const [, options] = mockFetch.mock.calls[0];
       const abortSignal = options.signal as AbortSignal;
 
-      // Verify the signal is not aborted initially
       expect(abortSignal.aborted).toBe(false);
 
-      // Trigger the timeout
       if (timeoutCallback) {
         timeoutCallback();
       }
 
-      // Verify the signal is now aborted
       expect(abortSignal.aborted).toBe(true);
 
       global.setTimeout = originalSetTimeout;
@@ -415,19 +469,17 @@ describe('Requester', () => {
       global.setTimeout = mockSetTimeout as any;
       global.clearTimeout = mockClearTimeout as any;
 
-      // Mock fetch to resolve immediately
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         statusText: 'OK',
       });
 
-      await customRequester.send('/track', createTrackEventPayload());
+      await customRequester.sendBatch('/track', [createTrackEventPayload()]);
 
       expect(mockSetTimeout).toHaveBeenCalledTimes(1);
       expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10_000);
 
-      // Verify clearTimeout was called (timeout was cleared)
       expect(mockClearTimeout).toHaveBeenCalledTimes(1);
       expect(mockClearTimeout).toHaveBeenCalledWith(expect.any(Number));
 
@@ -437,10 +489,134 @@ describe('Requester', () => {
 
     it('should handle identify payloads with fetch', async () => {
       const identifyPayload = createIdentifyEventPayload();
-      await requester.send('/identify', identifyPayload);
+      await requester.sendBatch('/identify', [
+        identifyPayload as EventPayload,
+      ]);
 
       const [, options] = mockFetch.mock.calls[0];
-      expect(options.body).toBe(JSON.stringify(identifyPayload));
+      expect(options.body).toBe(JSON.stringify([identifyPayload]));
+    });
+  });
+
+  describe('retry with exponential backoff', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      setupBeaconUnavailable();
+      mockFetch = global.fetch as any;
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    it('retries 5xx responses before succeeding', async () => {
+      let attempts = 0;
+      mockFetch.mockImplementation(() => {
+        attempts++;
+        if (attempts < 3) {
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers(),
+            json: async () => ({}),
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200, statusText: 'OK' });
+      });
+
+      const retryRequester = createRequester({
+        maxHttpAttempts: 4,
+        retryBaseDelayMs: 1_000,
+      });
+
+      const sendPromise = retryRequester.sendBatch('/track', [
+        createTrackEventPayload(),
+      ]);
+      await vi.runAllTimersAsync();
+      await sendPromise;
+
+      expect(attempts).toBe(3);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('retries 429 responses before succeeding', async () => {
+      let attempts = 0;
+      mockFetch.mockImplementation(() => {
+        attempts++;
+        if (attempts < 3) {
+          return Promise.resolve({
+            ok: false,
+            status: 429,
+            statusText: 'Too Many Requests',
+            headers: new Headers(),
+            json: async () => ({}),
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200, statusText: 'OK' });
+      });
+
+      const retryRequester = createRequester({
+        maxHttpAttempts: 4,
+        retryBaseDelayMs: 1_000,
+      });
+
+      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+      const sendPromise = retryRequester.sendBatch('/track', [
+        createTrackEventPayload(),
+      ]);
+      await vi.runAllTimersAsync();
+      await sendPromise;
+
+      expect(attempts).toBe(3);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('rejects after max attempts on persistent 429', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers(),
+        json: async () => ({}),
+      });
+
+      const retryRequester = createRequester({
+        maxHttpAttempts: 2,
+        retryBaseDelayMs: 100,
+      });
+
+      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+      const sendPromise = retryRequester.sendBatch('/track', [
+        createTrackEventPayload(),
+      ]);
+      const rejectionAssertion = expect(sendPromise).rejects.toThrow(ApiError);
+      await vi.runAllTimersAsync();
+      await rejectionAssertion;
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry non-retryable 4xx ApiError', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: new Headers(),
+        json: async () => ({ error_code: 'bad' }),
+      });
+
+      const retryRequester = createRequester({
+        maxHttpAttempts: 4,
+        retryBaseDelayMs: 100,
+      });
+
+      await expect(
+        retryRequester.sendBatch('/track', [createTrackEventPayload()])
+      ).rejects.toThrow(ApiError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 });
