@@ -18,7 +18,7 @@
     "test:watch": "lerna run test:watch --parallel",
     "coverage": "lerna run coverage --parallel",
     "bundlesize": "bundlesize",
-    "test:integration": "bun run scripts/integration/altertable-mock-smoke.ts"
+    "test:integration": "bun run scripts/integration/altertable-js-mock-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",
