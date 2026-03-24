@@ -1,4 +1,4 @@
-import { Altertable, TrackingConsent } from '../../packages/altertable-js/dist/index.mjs';
+import { Altertable, TrackingConsent } from '../../packages/altertable-js/src/index';
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
