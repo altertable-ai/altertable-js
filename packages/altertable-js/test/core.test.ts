@@ -670,6 +670,7 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            timestamp: expect.any(String),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: {},
             distinct_id: userId,
@@ -688,6 +689,7 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            timestamp: expect.any(String),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits,
             distinct_id: userId,
@@ -817,6 +819,7 @@ describe('Altertable', () => {
         ).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            timestamp: expect.any(String),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: { email: 'user@example.com' },
             distinct_id: userId,
@@ -829,6 +832,7 @@ describe('Altertable', () => {
         ).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            timestamp: expect.any(String),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: { email: 'user@example.com' },
             distinct_id: userId,
@@ -869,6 +873,7 @@ describe('Altertable', () => {
         }).toRequestApi('/identify', {
           payload: {
             environment: 'production',
+            timestamp: expect.any(String),
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: newTraits,
             distinct_id: 'user123',

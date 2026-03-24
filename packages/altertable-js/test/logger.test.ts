@@ -322,6 +322,7 @@ describe('Logger', () => {
   describe('logIdentify', () => {
     const mockIdentifyPayload: IdentifyPayload = {
       environment: 'development',
+      timestamp: new Date().toISOString(),
       traits: {
         email: 'test@example.com',
         name: 'Test User',
@@ -468,6 +469,7 @@ describe('Logger', () => {
   describe('logAlias', () => {
     const mockAliasPayload: AliasPayload = {
       environment: 'development',
+      timestamp: new Date().toISOString(),
       new_user_id: 'user--456',
       device_id: 'device-123',
       distinct_id: 'user123',

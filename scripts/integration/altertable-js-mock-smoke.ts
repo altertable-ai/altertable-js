@@ -46,10 +46,15 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const requestPromise = originalFetch(input as RequestInfo, {
     ...init,
     headers,
-  }).then(response => {
-    capture.status = response.status;
-    return response;
-  });
+  })
+    .then(response => {
+      capture.status = response.status;
+      return response;
+    })
+    .catch(error => {
+      capture.status = -1;
+      throw error;
+    });
 
   pendingRequests.push(requestPromise);
   return requestPromise;
@@ -62,7 +67,13 @@ function assert(condition: unknown, message: string) {
 }
 
 async function waitForAllRequests() {
-  await Promise.all(pendingRequests);
+  let observed = -1;
+
+  while (observed !== pendingRequests.length) {
+    observed = pendingRequests.length;
+    await Promise.allSettled([...pendingRequests]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
 }
 
 const errors: Error[] = [];
