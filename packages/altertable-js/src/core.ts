@@ -83,6 +83,21 @@ export interface AltertableConfig {
    * Optional error handler for intercepting SDK errors.
    */
   onError?: (error: Error) => void;
+  /**
+   * Number of queued events that triggers a flush.
+   * @default 20
+   */
+  flushAt?: number;
+  /**
+   * Interval in milliseconds to flush queued events.
+   * @default 30000
+   */
+  flushIntervalMs?: number;
+  /**
+   * Max events per batch request.
+   * @default 50
+   */
+  maxBatchSize?: number;
 }
 
 const DEFAULT_CONFIG: AltertableConfig = {
@@ -93,10 +108,15 @@ const DEFAULT_CONFIG: AltertableConfig = {
   persistence: 'localStorage+cookie',
   release: undefined,
   trackingConsent: TrackingConsent.GRANTED,
+  flushAt: 20,
+  flushIntervalMs: 30000,
+  maxBatchSize: 50,
 };
 
 export class Altertable {
   private _cleanupAutoCapture: (() => void) | undefined;
+  private _cleanupBatchLifecycle: (() => void) | undefined;
+  private _batchIntervalId: ReturnType<typeof setInterval> | undefined;
   private _config: AltertableConfig;
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
@@ -181,9 +201,11 @@ export class Altertable {
     }
 
     this._handleAutoCaptureChange(this._config.autoCapture);
+    this._setupBatching();
 
     return () => {
       this._cleanupAutoCapture?.();
+      this._cleanupBatching();
     };
   }
 
@@ -241,6 +263,14 @@ export class Altertable {
     }
 
     this._config = { ...this._config, ...updates };
+
+    if (
+      updates.flushIntervalMs !== undefined ||
+      updates.flushAt !== undefined ||
+      updates.maxBatchSize !== undefined
+    ) {
+      this._setupBatching();
+    }
   }
 
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
@@ -269,6 +299,45 @@ export class Altertable {
     } else {
       this._cleanupAutoCapture = undefined;
     }
+  }
+
+  private _setupBatching() {
+    this._cleanupBatching();
+
+    this._batchIntervalId = setInterval(() => {
+      this._flushBatches();
+    }, this._config.flushIntervalMs);
+
+    const flushOnVisibilityChange = () => {
+      safelyRunOnBrowser(({ document }) => {
+        if (document.visibilityState === 'hidden') {
+          this._flushBatches();
+        }
+      });
+    };
+    const flushOnPageHide = () => this._flushBatches();
+
+    safelyRunOnBrowser(({ window, document }) => {
+      document.addEventListener('visibilitychange', flushOnVisibilityChange);
+      window.addEventListener('pagehide', flushOnPageHide);
+
+      this._cleanupBatchLifecycle = () => {
+        document.removeEventListener(
+          'visibilitychange',
+          flushOnVisibilityChange
+        );
+        window.removeEventListener('pagehide', flushOnPageHide);
+      };
+    });
+  }
+
+  private _cleanupBatching() {
+    if (this._batchIntervalId) {
+      clearInterval(this._batchIntervalId);
+      this._batchIntervalId = undefined;
+    }
+    this._cleanupBatchLifecycle?.();
+    this._cleanupBatchLifecycle = undefined;
   }
 
   /**
@@ -303,6 +372,7 @@ export class Altertable {
       this._queue.enqueue({
         type: 'command',
         method: 'identify',
+        runtimeContext: captureRuntimeContext(),
         args: [userId, { ...traits }],
       });
       return;
@@ -311,7 +381,11 @@ export class Altertable {
     this._identify(userId, { ...traits });
   }
 
-  private _identify(userId: DistinctId, traits: UserTraits = {}) {
+  private _identify(
+    userId: DistinctId,
+    traits: UserTraits = {},
+    runtimeContext: RuntimeContext = captureRuntimeContext()
+  ) {
     if (
       this._sessionManager.isIdentified() &&
       userId !== this._sessionManager.getDistinctId()
@@ -334,6 +408,7 @@ export class Altertable {
       distinct_id: context.distinct_id,
       traits,
       anonymous_id: context.anonymous_id,
+      timestamp: runtimeContext.timestamp,
     };
     this._processEvent('identify', payload);
 
@@ -364,6 +439,7 @@ export class Altertable {
       this._queue.enqueue({
         type: 'command',
         method: 'alias',
+        runtimeContext: captureRuntimeContext(),
         args: [newUserId],
       });
       return;
@@ -372,7 +448,10 @@ export class Altertable {
     this._alias(newUserId);
   }
 
-  private _alias(newUserId: DistinctId) {
+  private _alias(
+    newUserId: DistinctId,
+    runtimeContext: RuntimeContext = captureRuntimeContext()
+  ) {
     const context = this._getContext();
 
     const payload: AliasPayload = {
@@ -381,6 +460,7 @@ export class Altertable {
       anonymous_id: context.anonymous_id,
       distinct_id: context.distinct_id,
       new_user_id: newUserId,
+      timestamp: runtimeContext.timestamp,
     };
 
     this._processEvent('alias', payload);
@@ -408,6 +488,7 @@ export class Altertable {
       this._queue.enqueue({
         type: 'command',
         method: 'updateTraits',
+        runtimeContext: captureRuntimeContext(),
         args: [{ ...traits }],
       });
       return;
@@ -416,7 +497,10 @@ export class Altertable {
     this._updateTraits({ ...traits });
   }
 
-  private _updateTraits(traits: UserTraits) {
+  private _updateTraits(
+    traits: UserTraits,
+    runtimeContext: RuntimeContext = captureRuntimeContext()
+  ) {
     const context = this._getContext();
 
     if (context.anonymous_id === null) {
@@ -426,13 +510,13 @@ export class Altertable {
       return;
     }
 
-    const payload = {
+    const payload: IdentifyPayload = {
       environment: context.environment,
       device_id: context.device_id,
       distinct_id: context.distinct_id,
       traits,
       anonymous_id: context.anonymous_id,
-      session_id: context.session_id,
+      timestamp: runtimeContext.timestamp,
     };
     this._processEvent('identify', payload);
 
@@ -628,38 +712,41 @@ export class Altertable {
   }
 
   private _flushQueue() {
-    const items = this._queue.flush();
-
-    if (items.length === 0) {
-      return;
-    }
-
-    if (this._config.debug) {
-      this._logger.log(
-        `Processing ${items.length} queued ${items.length === 1 ? 'item' : 'items'}.`
-      );
-    }
-
-    for (const item of items) {
-      this._executeQueueItem(item);
-    }
+    this._flushBatches();
   }
 
-  private _executeQueueItem(item: QueueItem) {
-    if (item.type === 'event') {
-      // Send pre-built payload directly (preserves original session context)
-      this._sendEvent(item.eventType, item.payload);
+  private _flushBatches() {
+    if (!this._isInitialized) {
       return;
     }
-    // Execute command (pre-init path)
-    this._executeCommand(item);
+
+    if (this._sessionManager.getTrackingConsent() !== TrackingConsent.GRANTED) {
+      return;
+    }
+
+    const items = this._queue.flush();
+    if (items.length === 0) return;
+
+    const events: Array<{ eventType: EventType; payload: EventPayload }> = [];
+
+    for (const item of items) {
+      if (item.type === 'command') {
+        this._executeCommand(item);
+      } else {
+        events.push({ eventType: item.eventType, payload: item.payload });
+      }
+    }
+
+    if (events.length > 0) {
+      void this._sendEventBatches(events);
+    }
   }
 
   private _executeCommand(cmd: QueuedCommand) {
     try {
       switch (cmd.method) {
         case 'identify':
-          this._identify(...cmd.args);
+          this._identify(...cmd.args, cmd.runtimeContext);
           break;
         case 'track':
           this._track(...cmd.args, cmd.runtimeContext);
@@ -668,10 +755,10 @@ export class Altertable {
           this._page(...cmd.args, cmd.runtimeContext);
           break;
         case 'alias':
-          this._alias(...cmd.args);
+          this._alias(...cmd.args, cmd.runtimeContext);
           break;
         case 'updateTraits':
-          this._updateTraits(...cmd.args);
+          this._updateTraits(...cmd.args, cmd.runtimeContext);
           break;
       }
     } catch (error) {
@@ -712,7 +799,14 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._sendEvent(eventType, payload);
+        this._queue.enqueue({
+          type: 'event',
+          eventType,
+          payload,
+        });
+        if (this._queue.getSize() >= this._config.flushAt) {
+          this._flushBatches();
+        }
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:
@@ -735,28 +829,92 @@ export class Altertable {
     try {
       await this._requester.send(`/${eventType}`, payload);
     } catch (error) {
-      if (isAltertableError(error)) {
-        this._config.onError?.(error);
-      }
+      this._handleSendError(error, eventType, payload);
+    }
+  }
 
-      if (isApiError(error) && error.errorCode === 'environment-not-found') {
-        this._logger.warnDev(
-          `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
-        );
-      } else if (isNetworkError(error)) {
-        this._logger.error('Network error while sending event', {
-          error: error.message,
-          cause: error.cause,
-          eventType,
-        });
-      } else {
-        this._logger.error('Failed to send event', {
-          error,
-          eventType,
-          payload,
-        });
+  private async _sendEventBatches(
+    events: Array<{ eventType: EventType; payload: EventPayload }>
+  ) {
+    const grouped = new Map<EventType, EventPayload[]>();
+
+    for (const event of events) {
+      const current = grouped.get(event.eventType) || [];
+      current.push(event.payload);
+      grouped.set(event.eventType, current);
+    }
+
+    for (const [eventType, payloads] of grouped) {
+      const chunks = this._chunk(payloads, this._config.maxBatchSize);
+      for (const chunk of chunks) {
+        try {
+          if (chunk.length === 1) {
+            await this._requester.send(`/${eventType}`, chunk[0]);
+          } else {
+            await this._requester.sendBatch(`/${eventType}`, chunk);
+          }
+        } catch (error) {
+          this._handleSendError(error, eventType, chunk);
+          if (this._isTransientError(error)) {
+            for (const payload of chunk) {
+              this._queue.enqueue({ type: 'event', eventType, payload });
+            }
+          }
+        }
       }
     }
+  }
+
+  private _handleSendError(
+    error: unknown,
+    eventType: EventType,
+    payload: EventPayload | EventPayload[]
+  ) {
+    if (isAltertableError(error)) {
+      this._config.onError?.(error);
+    }
+
+    if (isApiError(error) && error.errorCode === 'environment-not-found') {
+      this._logger.warnDev(
+        `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
+      );
+    } else if (isNetworkError(error)) {
+      this._logger.error('Network error while sending event', {
+        error: error.message,
+        cause: error.cause,
+        eventType,
+      });
+    } else {
+      this._logger.error('Failed to send event', {
+        error,
+        eventType,
+        payload,
+      });
+    }
+  }
+
+  private _isTransientError(error: unknown): boolean {
+    if (isNetworkError(error)) {
+      return true;
+    }
+
+    if (isApiError(error)) {
+      return (
+        error.status === 408 ||
+        error.status === 429 ||
+        (error.status >= 500 && error.status < 600)
+      );
+    }
+
+    return false;
+  }
+
+  private _chunk<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+      chunks.push(items.slice(i, i + size));
+    }
+    return chunks;
   }
 }
 
@@ -765,6 +923,7 @@ type QueuedCommand =
       type: 'command';
       method: 'identify';
       args: Parameters<Altertable['identify']>;
+      runtimeContext: RuntimeContext;
     }
   | {
       type: 'command';
@@ -782,11 +941,13 @@ type QueuedCommand =
       type: 'command';
       method: 'alias';
       args: Parameters<Altertable['alias']>;
+      runtimeContext: RuntimeContext;
     }
   | {
       type: 'command';
       method: 'updateTraits';
       args: Parameters<Altertable['updateTraits']>;
+      runtimeContext: RuntimeContext;
     };
 
 type QueuedEvent = {

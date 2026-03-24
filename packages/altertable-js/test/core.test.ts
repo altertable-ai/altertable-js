@@ -2547,12 +2547,12 @@ describe('Altertable', () => {
       expect(beaconMock.mock.calls[0][0]).toContain('/track');
     });
 
-    it('logs debug message when flushing queue with debug enabled', () => {
+    it('flushes queued events on init with debug enabled', () => {
       const uninitializedAltertable = new Altertable();
       uninitializedAltertable.track('test-event', { foo: 'bar' });
       uninitializedAltertable.track('another-event', { baz: 'qux' });
 
-      const logSpy = vi.spyOn(uninitializedAltertable['_logger'], 'log');
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
 
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
@@ -2562,13 +2562,13 @@ describe('Altertable', () => {
         debug: true,
       });
 
-      expect(logSpy).toHaveBeenCalledWith('Processing 2 queued items.');
+      expect(beaconMock).toHaveBeenCalled();
     });
 
-    it('does not log debug message when queue is empty', () => {
+    it('does not send requests when queue is empty on init', () => {
       const uninitializedAltertable = new Altertable();
-
-      const logSpy = vi.spyOn(uninitializedAltertable['_logger'], 'log');
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
 
       uninitializedAltertable.init(apiKey, {
         baseUrl: 'http://localhost',
@@ -2578,9 +2578,8 @@ describe('Altertable', () => {
         debug: true,
       });
 
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('queued item')
-      );
+      expect(beaconMock).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('captures timestamp at call time for queued track events', async () => {
@@ -2736,6 +2735,115 @@ describe('Altertable', () => {
       expect(newPayload.session_id).not.toBe(callTimeSessionId);
 
       vi.useRealTimers();
+    });
+
+    it('flushes as a batch when flushAt threshold is reached', async () => {
+      setupBeaconAvailable();
+      setupAltertable({ flushAt: 2, autoCapture: false });
+
+      altertable.track('event-1');
+      altertable.track('event-2');
+
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, options] = fetchMock.mock.calls[0];
+      expect(url).toContain('/track');
+      const payloads = JSON.parse(options.body as string);
+      expect(Array.isArray(payloads)).toBe(true);
+      expect(payloads).toHaveLength(2);
+    });
+
+    it('groups mixed event types by endpoint when flushing', async () => {
+      setupBeaconAvailable();
+      setupAltertable({ flushAt: 3, autoCapture: false });
+
+      altertable.track('event-1');
+      altertable.identify('user-1', { plan: 'pro' });
+      altertable.alias('user-2');
+
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+
+      const calledUrls = [
+        ...fetchMock.mock.calls.map(call => call[0] as string),
+        ...beaconMock.mock.calls.map(call => call[0] as string),
+      ];
+
+      expect(calledUrls.some(url => url.includes('/track'))).toBe(true);
+      expect(calledUrls.some(url => url.includes('/identify'))).toBe(true);
+      expect(calledUrls.some(url => url.includes('/alias'))).toBe(true);
+    });
+
+    it('preserves call-time timestamp for queued identify and alias', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-07T10:00:00.000Z'));
+
+      const uninitializedAltertable = new Altertable();
+      uninitializedAltertable.identify('user-1', { role: 'admin' });
+      uninitializedAltertable.alias('user-2');
+
+      vi.advanceTimersByTime(10_000);
+
+      uninitializedAltertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'memory',
+      });
+
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      const identifyCall = beaconMock.mock.calls.find(([url]) =>
+        String(url).includes('/identify')
+      );
+      const aliasCall = beaconMock.mock.calls.find(([url]) =>
+        String(url).includes('/alias')
+      );
+
+      expect(identifyCall).toBeDefined();
+      expect(aliasCall).toBeDefined();
+
+      const identifyPayload = JSON.parse((identifyCall?.[1] as any).content);
+      const aliasPayload = JSON.parse((aliasCall?.[1] as any).content);
+
+      expect(identifyPayload.timestamp).toBe('2025-01-07T10:00:00.000Z');
+      expect(aliasPayload.timestamp).toBe('2025-01-07T10:00:00.000Z');
+
+      vi.useRealTimers();
+    });
+
+    it('requeues failed chunks only for transient errors', async () => {
+      setupBeaconAvailable();
+      setupAltertable({ flushAt: 2, autoCapture: false });
+
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+
+      altertable.track('event-1');
+      altertable.track('event-2');
+
+      expect(altertable['_queue'].getSize()).toBe(2);
+
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+      });
+      altertable['_flushBatches']();
+      await Promise.resolve();
+      expect(altertable['_queue'].getSize()).toBe(0);
+
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({}),
+      });
+
+      altertable.track('event-3');
+      altertable.track('event-4');
+      await Promise.resolve();
+
+      expect(altertable['_queue'].getSize()).toBe(0);
     });
   });
 });

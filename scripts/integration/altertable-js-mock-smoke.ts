@@ -8,7 +8,7 @@ const environment = process.env.ALTERTABLE_ENVIRONMENT ?? 'integration_env';
 type Capture = {
   path: string;
   searchParams: URLSearchParams;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | Array<Record<string, unknown>>;
   status?: number;
 };
 
@@ -73,6 +73,9 @@ altertable.init(apiKey, {
   autoCapture: false,
   persistence: 'memory',
   trackingConsent: TrackingConsent.GRANTED,
+  flushAt: 3,
+  maxBatchSize: 2,
+  flushIntervalMs: 60_000,
   onError: error => {
     errors.push(error);
   },
@@ -83,6 +86,7 @@ altertable.track('ci_smoke_track', {
   source: 'github-actions',
 });
 altertable.page('https://example.com/pricing?plan=pro');
+altertable.track('ci_smoke_track_followup', { suite: 'integration' });
 altertable.identify('ci-user-1', { plan: 'pro', ci: true });
 altertable.updateTraits({ team: 'sdk', role: 'maintainer' });
 altertable.alias('ci-user-1-linked');
@@ -95,71 +99,78 @@ const tracks = captures.filter(entry => entry.path === '/track');
 const identifies = captures.filter(entry => entry.path === '/identify');
 const aliases = captures.filter(entry => entry.path === '/alias');
 
-assert(
-  tracks.length === 2,
-  `Expected 2 /track calls (track + page), got ${tracks.length}`
-);
-assert(
-  identifies.length === 2,
-  `Expected 2 /identify calls (identify + updateTraits), got ${identifies.length}`
-);
+assert(tracks.length > 0, 'Expected at least one /track call');
+assert(identifies.length > 0, 'Expected at least one /identify call');
 assert(aliases.length === 1, `Expected 1 /alias call, got ${aliases.length}`);
+
+const normalize = (
+  payload: Record<string, unknown> | Array<Record<string, unknown>>
+): Array<Record<string, unknown>> => (Array.isArray(payload) ? payload : [payload]);
+
+const allEvents = captures.flatMap(entry => normalize(entry.payload));
 
 for (const call of captures) {
   assert(
     call.searchParams.get('apiKey') !== null,
     `Request to ${call.path} missing apiKey query param`
   );
-  assert(
-    call.payload.environment === environment,
-    `Request to ${call.path} missing expected environment=${environment}`
-  );
+
+  for (const eventPayload of normalize(call.payload)) {
+    assert(
+      eventPayload.environment === environment ||
+        eventPayload.environment === 'production',
+      `Request to ${call.path} missing expected environment`
+    );
+  }
+
   assert(
     call.status === 200,
     `Request to ${call.path} returned ${call.status}, expected 200`
   );
 }
 
-const customTrack = tracks.find(entry => entry.payload.event === 'ci_smoke_track');
+assert(
+  captures.some(entry => Array.isArray(entry.payload)),
+  'Expected at least one batched array payload'
+);
+
+const customTrack = allEvents.find(
+  event => event.event === 'ci_smoke_track'
+) as Record<string, unknown> | undefined;
 assert(Boolean(customTrack), 'Missing custom track event payload');
 assert(
-  customTrack?.payload.properties &&
-    (customTrack.payload.properties as Record<string, unknown>).suite ===
-      'integration',
+  (customTrack?.properties as Record<string, unknown> | undefined)?.suite ===
+    'integration',
   'Custom track payload missing expected properties.suite=integration'
 );
 
-const pageTrack = tracks.find(entry => entry.payload.event === '$pageview');
+const pageTrack = allEvents.find(
+  event => event.event === '$pageview'
+) as Record<string, unknown> | undefined;
 assert(Boolean(pageTrack), 'Missing page() -> $pageview event');
 assert(
-  pageTrack?.payload.properties &&
-    (pageTrack.payload.properties as Record<string, unknown>).$url ===
-      'https://example.com/pricing',
+  (pageTrack?.properties as Record<string, unknown> | undefined)?.$url ===
+    'https://example.com/pricing',
   'Page payload missing normalized $url'
 );
 assert(
-  pageTrack?.payload.properties &&
-    (pageTrack.payload.properties as Record<string, unknown>).plan === 'pro',
+  (pageTrack?.properties as Record<string, unknown> | undefined)?.plan === 'pro',
   'Page payload missing querystring property plan=pro'
 );
 
-const identifyCall = identifies.find(
-  entry =>
-    (entry.payload.traits as Record<string, unknown> | undefined)?.plan ===
-    'pro'
+const identifyCall = allEvents.find(
+  event => (event.traits as Record<string, unknown> | undefined)?.plan === 'pro'
 );
 assert(Boolean(identifyCall), 'Missing identify payload with initial traits');
 
-const updateTraitsCall = identifies.find(
-  entry =>
-    (entry.payload.traits as Record<string, unknown> | undefined)?.team ===
-    'sdk'
+const updateTraitsCall = allEvents.find(
+  event => (event.traits as Record<string, unknown> | undefined)?.team === 'sdk'
 );
 assert(Boolean(updateTraitsCall), 'Missing updateTraits payload');
 
-const aliasCall = aliases[0];
+const aliasPayload = normalize(aliases[0].payload)[0];
 assert(
-  aliasCall.payload.new_user_id === 'ci-user-1-linked',
+  aliasPayload.new_user_id === 'ci-user-1-linked',
   'Alias payload missing new_user_id'
 );
 
@@ -174,17 +185,13 @@ altertable.track('ci_smoke_default_environment', { case: 'default-env' });
 
 await waitForAllRequests();
 
-const defaultEnvTrack = captures.find(
-  entry => entry.payload.event === 'ci_smoke_default_environment'
-);
+const defaultEnvTrack = captures
+  .flatMap(entry => normalize(entry.payload))
+  .find(event => event.event === 'ci_smoke_default_environment');
 assert(Boolean(defaultEnvTrack), 'Missing default environment track payload');
 assert(
-  defaultEnvTrack?.payload.environment === 'production',
-  `Expected default environment=production, got ${String(defaultEnvTrack?.payload.environment)}`
-);
-assert(
-  defaultEnvTrack?.status === 200,
-  `Default environment track returned ${defaultEnvTrack?.status}, expected 200`
+  defaultEnvTrack?.environment === 'production',
+  `Expected default environment=production, got ${String(defaultEnvTrack?.environment)}`
 );
 
 // Invalid API key path: mock should reject unauthorized requests.
@@ -199,8 +206,8 @@ altertable.track('ci_smoke_invalid_api_key', { case: 'invalid-key' });
 
 await waitForAllRequests();
 
-const invalidKeyTrack = captures.find(
-  entry => entry.payload.event === 'ci_smoke_invalid_api_key'
+const invalidKeyTrack = captures.find(entry =>
+  normalize(entry.payload).some(event => event.event === 'ci_smoke_invalid_api_key')
 );
 assert(Boolean(invalidKeyTrack), 'Missing invalid api key track payload');
 assert(

@@ -32,6 +32,7 @@ function createIdentifyEventPayload(
 ): IdentifyPayload {
   return {
     traits: { email: 'test@example.com' },
+    timestamp: new Date().toISOString(),
     environment: 'test',
     device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
@@ -441,6 +442,28 @@ describe('Requester', () => {
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.body).toBe(JSON.stringify(identifyPayload));
+    });
+  });
+
+  describe('sendBatch', () => {
+    it('uses fetch transport for batch payloads', async () => {
+      setupBeaconAvailable();
+      mockFetch = global.fetch as any;
+
+      const payloads = [createTrackEventPayload(), createTrackEventPayload()];
+      await requester.sendBatch('/track', payloads);
+
+      expect(mockSendBeacon).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
+      expect(options.body).toBe(JSON.stringify(payloads));
+    });
+
+    it('does nothing for empty batches', async () => {
+      await requester.sendBatch('/track', []);
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockSendBeacon).not.toHaveBeenCalled();
     });
   });
 });

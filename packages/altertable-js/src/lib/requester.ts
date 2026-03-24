@@ -29,6 +29,12 @@ export class Requester<TPayload extends EventPayload> {
     return this._sendWithFetch(path, payload);
   }
 
+  async sendBatch(path: string, payloads: TPayload[]): Promise<void> {
+    if (payloads.length === 0) return;
+
+    return this._sendWithFetch(path, payloads);
+  }
+
   private async _sendWithBeacon(
     path: string,
     payload: TPayload
@@ -48,7 +54,10 @@ export class Requester<TPayload extends EventPayload> {
     }
   }
 
-  private async _sendWithFetch(path: string, payload: TPayload): Promise<void> {
+  private async _sendWithFetch(
+    path: string,
+    payload: TPayload | TPayload[]
+  ): Promise<void> {
     const url = this._constructUrl(path);
     const controller = new AbortController();
     const timeoutId = setTimeout(
