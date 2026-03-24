@@ -1,4 +1,5 @@
-import { altertable, TrackingConsent } from '../../packages/altertable-js/src/index';
+const sdkModule = await import('../../packages/altertable-js/dist/index.js');
+const { altertable, TrackingConsent } = sdkModule;
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
