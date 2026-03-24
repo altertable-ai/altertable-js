@@ -188,24 +188,24 @@ assert(
 );
 
 // Invalid API key path: mock should reject unauthorized requests.
-const invalidErrors: Array<{ status?: number }> = [];
 altertable.init('__invalid_api_key__', {
   baseUrl: endpoint,
   environment,
   autoCapture: false,
   persistence: 'memory',
   trackingConsent: TrackingConsent.GRANTED,
-  onError: error => {
-    invalidErrors.push({ status: (error as any).status });
-  },
 });
 altertable.track('ci_smoke_invalid_api_key', { case: 'invalid-key' });
 
 await waitForAllRequests();
 
+const invalidKeyTrack = captures.find(
+  entry => entry.payload.event === 'ci_smoke_invalid_api_key'
+);
+assert(Boolean(invalidKeyTrack), 'Missing invalid api key track payload');
 assert(
-  invalidErrors.some(error => error.status === 401),
-  `Expected at least one 401 invalid API key error, got ${JSON.stringify(invalidErrors)}`
+  invalidKeyTrack?.status === 401,
+  `Expected invalid API key request to return 401, got ${invalidKeyTrack?.status}`
 );
 
 console.log('altertable-js integration smoke passed');
