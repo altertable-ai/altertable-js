@@ -1,4 +1,4 @@
-import { Altertable, TrackingConsent } from '../../packages/altertable-js/src/index';
+import { altertable, TrackingConsent } from '../../packages/altertable-js/src/index';
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
@@ -25,8 +25,7 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   return requestPromise;
 }) as typeof fetch;
 
-const sdk = new Altertable();
-sdk.init(apiKey, {
+altertable.init(apiKey, {
   baseUrl: endpoint,
   environment,
   autoCapture: false,
@@ -37,9 +36,9 @@ sdk.init(apiKey, {
   },
 });
 
-sdk.track('ci_smoke_track', { suite: 'integration', source: 'github-actions' });
-sdk.identify('ci-user-1', { plan: 'pro', ci: true });
-sdk.alias('ci-user-1-linked');
+altertable.track('ci_smoke_track', { suite: 'integration', source: 'github-actions' });
+altertable.identify('ci-user-1', { plan: 'pro', ci: true });
+altertable.alias('ci-user-1-linked');
 
 await Promise.all(pendingRequests);
 
