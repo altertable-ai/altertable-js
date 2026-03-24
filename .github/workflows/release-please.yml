@@ -1,0 +1,55 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Checkout
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.0'
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        run: bun run build
+
+      - name: Publish @altertable/altertable-js
+        if: ${{ steps.release.outputs['packages/altertable-js--release_created'] == 'true' }}
+        run: bun publish --access public
+        working-directory: packages/altertable-js
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @altertable/altertable-react
+        if: ${{ steps.release.outputs['packages/altertable-react--release_created'] == 'true' }}
+        run: bun publish --access public
+        working-directory: packages/altertable-react
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
