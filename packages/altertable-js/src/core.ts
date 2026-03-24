@@ -309,20 +309,23 @@ export class Altertable {
     }, this._config.flushIntervalMs);
 
     const flushOnVisibilityChange = () => {
-      safelyRunOnBrowser(({ document }) => {
-        if (document.visibilityState === 'hidden') {
+      safelyRunOnBrowser(({ window }) => {
+        if (window.document.visibilityState === 'hidden') {
           this._flushBatches();
         }
       });
     };
     const flushOnPageHide = () => this._flushBatches();
 
-    safelyRunOnBrowser(({ window, document }) => {
-      document.addEventListener('visibilitychange', flushOnVisibilityChange);
+    safelyRunOnBrowser(({ window }) => {
+      window.document.addEventListener(
+        'visibilitychange',
+        flushOnVisibilityChange
+      );
       window.addEventListener('pagehide', flushOnPageHide);
 
       this._cleanupBatchLifecycle = () => {
-        document.removeEventListener(
+        window.document.removeEventListener(
           'visibilitychange',
           flushOnVisibilityChange
         );
@@ -819,17 +822,6 @@ export class Altertable {
       case TrackingConsent.DENIED:
         // Do nothing (don't collect or send data)
         break;
-    }
-  }
-
-  private async _sendEvent<TPayload extends EventPayload>(
-    eventType: EventType,
-    payload: TPayload
-  ) {
-    try {
-      await this._requester.send(`/${eventType}`, payload);
-    } catch (error) {
-      this._handleSendError(error, eventType, payload);
     }
   }
 
