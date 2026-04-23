@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.0.7...altertable-js-v1.1.0) (2026-04-23)
+
+
+### Features
+
+* batch events, add HTTP retries and unload flush ([#125](https://github.com/altertable-ai/altertable-js/issues/125)) ([d27d446](https://github.com/altertable-ai/altertable-js/commit/d27d44651ddcf508c88d27487751878117f5de5d)), closes [#124](https://github.com/altertable-ai/altertable-js/issues/124)
+* introduce alias API and rework identity flow ([#89](https://github.com/altertable-ai/altertable-js/issues/89)) ([bbb6a31](https://github.com/altertable-ai/altertable-js/commit/bbb6a3146a9efbfe4f3d8b6401efe6a577aa6d77))
+
+
+### Bug Fixes
+
+* isIdentified flag on init ([#94](https://github.com/altertable-ai/altertable-js/issues/94)) ([575ae4b](https://github.com/altertable-ai/altertable-js/commit/575ae4bd06b1a18a033f84c5f30f1c9680c41f34))
+
 ## [1.0.7] - 2026-01-12
 
 - `identify()` logs warnings instead of throwing when called with invalid arguments ([#115](https://github.com/altertable-ai/altertable-js/pull/115))
