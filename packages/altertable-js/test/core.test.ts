@@ -114,6 +114,10 @@ describe('Altertable', () => {
 
     // Default window state for deterministic tests
     setupWindow();
+    Object.defineProperty(global.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
 
     if (altertable?.['_isInitialized']) {
       altertable.reset({ resetDeviceId: true });
@@ -940,17 +944,21 @@ describe('Altertable', () => {
         expect(storageMock.setItem).toHaveBeenCalledTimes(0);
 
         setupAltertable();
-        expect(storageMock.setItem).toHaveBeenCalledTimes(1);
+        const sessionStorageCalls = () =>
+          storageMock.setItem.mock.calls.filter(
+            ([key]) => key === 'atbl.test-api-key.production'
+          );
+        expect(sessionStorageCalls()).toHaveLength(1);
 
         altertable.identify('user123', { email: 'user@example.com' });
-        expect(storageMock.setItem).toHaveBeenCalledTimes(2);
+        expect(sessionStorageCalls()).toHaveLength(2);
         expect(storageMock.setItem).toHaveBeenCalledWith(
           'atbl.test-api-key.production',
           expect.stringContaining('"distinctId":"user123"')
         );
 
         altertable.identify('user123', { email: 'user@example.com' });
-        expect(storageMock.setItem).toHaveBeenCalledTimes(2);
+        expect(sessionStorageCalls()).toHaveLength(2);
       });
     });
 
@@ -1358,11 +1366,10 @@ describe('Altertable', () => {
           expect.stringContaining('"distinctId":"user123"')
         );
 
-        const lastCall =
-          storageMock.setItem.mock.calls[
-            storageMock.setItem.mock.calls.length - 1
-          ];
-        const storedData = JSON.parse(lastCall[1]);
+        const sessionStorageCalls = storageMock.setItem.mock.calls.filter(
+          ([key]) => key === 'atbl.test-api-key.production'
+        );
+        const storedData = JSON.parse(sessionStorageCalls.at(-1)![1]);
         expect(storedData).toMatchObject({
           anonymousId: expect.stringMatching(REGEXP_ANONYMOUS_ID),
           sessionId: expect.stringMatching(REGEXP_SESSION_ID),
@@ -1470,13 +1477,20 @@ describe('Altertable', () => {
       it('migrates data when persistence strategy changes', () => {
         const initialStorageMock = createStorageMock();
         const newStorageMock = createStorageMock();
+        const initialEventStorageMock = createStorageMock();
+        const newEventStorageMock = createStorageMock();
         const migrateSpy = vi.fn();
+        const eventMigrateSpy = vi.fn();
 
         newStorageMock.migrate = migrateSpy;
+        newEventStorageMock.migrate = eventMigrateSpy;
 
         vi.spyOn(storageModule, 'selectStorage')
           .mockReturnValueOnce(initialStorageMock)
           .mockReturnValueOnce(newStorageMock);
+        vi.spyOn(storageModule, 'selectEventStorage')
+          .mockReturnValueOnce(initialEventStorageMock)
+          .mockReturnValueOnce(newEventStorageMock);
 
         altertable.init(apiKey, {
           baseUrl: 'http://localhost',
@@ -1489,6 +1503,9 @@ describe('Altertable', () => {
 
         expect(migrateSpy).toHaveBeenCalledWith(initialStorageMock, [
           'atbl.test-api-key.production',
+        ]);
+        expect(eventMigrateSpy).toHaveBeenCalledWith(initialEventStorageMock, [
+          'atbl.test-api-key.production.events',
         ]);
       });
 
@@ -1508,6 +1525,69 @@ describe('Altertable', () => {
         }).toWarnDev('[Altertable] persistence fallback during configure');
 
         expect(storageMock.migrate).toHaveBeenCalled();
+      });
+
+      it('wires logger.warn as selectEventStorage onFallback when configure changes persistence', () => {
+        setupAltertable({ persistence: 'memory' });
+        const storageMock = createStorageMock();
+        const eventStorageMock = createStorageMock();
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+        vi.spyOn(storageModule, 'selectEventStorage').mockImplementation(
+          (_type, { onFallback }) => {
+            onFallback('event persistence fallback during configure');
+            return eventStorageMock;
+          }
+        );
+
+        expect(() => {
+          altertable.configure({ persistence: 'localStorage' });
+        }).toWarnDev(
+          '[Altertable] event persistence fallback during configure'
+        );
+
+        expect(eventStorageMock.migrate).toHaveBeenCalled();
+      });
+
+      it('uses migrated event storage warnings after configure changes persistence', () => {
+        setupAltertable({ persistence: 'memory' });
+        const storageMock = createStorageMock();
+        const eventStorageMock = createStorageMock({
+          setItem: vi.fn().mockReturnValue(false),
+        });
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+        vi.spyOn(storageModule, 'selectEventStorage').mockReturnValue(
+          eventStorageMock
+        );
+
+        altertable.configure({ persistence: 'localStorage' });
+
+        expect(() => {
+          altertable.track('post-configure-persistence-warning');
+        }).toWarnDev(
+          '[Altertable] Unable to persist event buffer. Offline delivery will continue in memory only.'
+        );
+      });
+
+      it('warns when event buffer persistence fails', () => {
+        const storageMock = createStorageMock();
+        const eventStorageMock = createStorageMock({
+          setItem: vi.fn().mockReturnValue(false),
+        });
+
+        vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
+        vi.spyOn(storageModule, 'selectEventStorage').mockReturnValue(
+          eventStorageMock
+        );
+
+        setupAltertable({ flushEventThreshold: 20 });
+
+        expect(() => {
+          altertable.track('offline-persistence-warning');
+        }).toWarnDev(
+          '[Altertable] Unable to persist event buffer. Offline delivery will continue in memory only.'
+        );
       });
 
       it('preserves data during migration', () => {
@@ -3128,6 +3208,49 @@ describe('Altertable', () => {
       window.dispatchEvent(new Event('pagehide'));
 
       expect(beaconMock).toHaveBeenCalled();
+    });
+
+    it('keeps events queued while offline and flushes them on online', async () => {
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+      setupAltertable({ flushEventThreshold: 1, flushIntervalMs: 86_400_000 });
+
+      altertable.track('offline-test', {});
+
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).not.toHaveBeenCalled();
+      mockFetch.mockClear();
+
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+      window.dispatchEvent(new Event('online'));
+
+      await vi.waitFor(() =>
+        expect(
+          mockFetch.mock.calls.some(call =>
+            String(call[1].body).includes('offline-test')
+          )
+        ).toBe(true)
+      );
+    });
+
+    it('does not run unload delivery while offline', () => {
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('offline-unload-test', {});
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      beaconMock.mockClear();
+
+      window.dispatchEvent(new Event('pagehide'));
+
+      expect(beaconMock).not.toHaveBeenCalled();
     });
   });
 });

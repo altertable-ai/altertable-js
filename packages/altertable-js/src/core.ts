@@ -33,6 +33,7 @@ import { captureRuntimeContext, RuntimeContext } from './lib/runtimeContext';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
+  selectEventStorage,
   selectStorage,
   type StorageApi,
   type StorageType,
@@ -176,7 +177,9 @@ export class Altertable {
   private _referrer: string | null;
   private _requester: Requester<EventPayload> | undefined;
   private _sessionManager: SessionManager | undefined;
+  private _eventStorage: StorageApi | undefined;
   private _storage: StorageApi | undefined;
+  private _eventStorageKey: string | undefined;
   private _storageKey: string | undefined;
 
   constructor() {
@@ -227,6 +230,11 @@ export class Altertable {
 
     this._config = resolveAltertableConfig(config);
     this._storageKey = keyBuilder(apiKey, this._config.environment);
+    this._eventStorageKey = keyBuilder(
+      apiKey,
+      this._config.environment,
+      'events'
+    );
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -236,6 +244,9 @@ export class Altertable {
       () => null
     );
     this._storage = selectStorage(this._config.persistence, {
+      onFallback: message => this._logger.warn(message),
+    });
+    this._eventStorage = selectEventStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
     this._requester = new Requester({
@@ -250,6 +261,12 @@ export class Altertable {
       flushEventThreshold: this._config.flushEventThreshold,
       flushIntervalMs: this._config.flushIntervalMs,
       maxBatchSize: this._config.maxBatchSize,
+      persistence: {
+        storage: this._eventStorage,
+        storageKey: this._eventStorageKey,
+        onFallback: message => this._logger.warn(message),
+      },
+      isOnline: () => this._isOnline(),
       send: async (eventType, payloads) => {
         try {
           await this._requester.sendBatch(`/${eventType}`, payloads);
@@ -326,10 +343,22 @@ export class Altertable {
       updates.persistence !== this._config.persistence
     ) {
       const previousStorage = this._storage;
+      const previousEventStorage = this._eventStorage;
       this._storage = selectStorage(updates.persistence, {
         onFallback: message => this._logger.warn(message),
       });
+      this._eventStorage = selectEventStorage(updates.persistence, {
+        onFallback: message => this._logger.warn(message),
+      });
       this._storage.migrate(previousStorage, [this._storageKey]);
+      this._eventStorage.migrate(previousEventStorage, [this._eventStorageKey]);
+      this._batcher.updateConfig({
+        persistence: {
+          storage: this._eventStorage,
+          storageKey: this._eventStorageKey,
+          onFallback: message => this._logger.warn(message),
+        },
+      });
     }
 
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
@@ -753,10 +782,11 @@ export class Altertable {
   }
 
   /**
-   * Flushes all buffered events to the API. Resolves when every HTTP request **started by this
-   * flush** has finished. Overlapping flushes (for example a manual `flush()` while the interval
-   * timer also flushes) are independent: each call only waits on its own requests, not on sends
-   * from other concurrent flushes.
+   * Flushes buffered events to the API when the browser is online. If the browser reports offline,
+   * this resolves without sending and keeps the durable buffer queued for the next online retry.
+   * Resolves when every HTTP request **started by this flush** has finished. Overlapping flushes
+   * (for example a manual `flush()` while the interval timer also flushes) are independent: each
+   * call only waits on its own requests, not on sends from other concurrent flushes.
    *
    * @example
    * ```javascript
@@ -854,6 +884,10 @@ export class Altertable {
           });
         };
 
+        const flushOnline = () => {
+          void this._batcher.flush();
+        };
+
         const onVisibilityChange = () => {
           if (window.document.visibilityState !== 'hidden') {
             return;
@@ -869,6 +903,7 @@ export class Altertable {
           'visibilitychange',
           onVisibilityChange
         );
+        window.addEventListener('online', flushOnline);
         window.addEventListener('pagehide', onPageHide);
 
         return () => {
@@ -876,12 +911,20 @@ export class Altertable {
             'visibilitychange',
             onVisibilityChange
           );
+          window.removeEventListener('online', flushOnline);
           window.removeEventListener('pagehide', onPageHide);
         };
       },
       () => () => {
         // No-op cleanup when not in a browser environment.
       }
+    );
+  }
+
+  private _isOnline(): boolean {
+    return safelyRunOnBrowser(
+      ({ window }) => window.navigator?.onLine !== false,
+      () => true
     );
   }
 

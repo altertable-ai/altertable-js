@@ -10,7 +10,7 @@ export type StorageType =
 
 export interface StorageApi {
   getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
+  setItem(key: string, value: string): boolean;
   removeItem(key: string): void;
   migrate(fromStorage: StorageApi, keys: string[]): void;
 }
@@ -34,8 +34,9 @@ class MemoryStore implements StorageApi {
   getItem(key: string): string | null {
     return this.store[key] ?? null;
   }
-  setItem(key: string, value: string) {
+  setItem(key: string, value: string): boolean {
     this.store[key] = value;
+    return true;
   }
   removeItem(key: string) {
     delete this.store[key];
@@ -57,10 +58,14 @@ class CookieStore implements StorageApi {
       () => null
     );
   }
-  setItem(key: string, value: string) {
-    safelyRunOnBrowser(({ window }) => {
-      window.document.cookie = `${key}=${encodeURIComponent(value)}; path=/;`;
-    });
+  setItem(key: string, value: string): boolean {
+    return safelyRunOnBrowser(
+      ({ window }) => {
+        window.document.cookie = `${key}=${encodeURIComponent(value)}; path=/;`;
+        return true;
+      },
+      () => false
+    );
   }
   removeItem(key: string) {
     safelyRunOnBrowser(({ window }) => {
@@ -86,14 +91,18 @@ class WebStorageStore implements StorageApi {
       () => null
     );
   }
-  setItem(key: string, value: string) {
-    safelyRunOnBrowser(({ window }) => {
-      try {
-        window[this.storage].setItem(key, value);
-      } catch {
-        /* ignore */
-      }
-    });
+  setItem(key: string, value: string): boolean {
+    return safelyRunOnBrowser(
+      ({ window }) => {
+        try {
+          window[this.storage].setItem(key, value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      () => false
+    );
   }
   removeItem(key: string) {
     safelyRunOnBrowser(({ window }) => {
@@ -115,9 +124,10 @@ class LocalPlusCookieStore implements StorageApi {
   getItem(key: string): string | null {
     return this.localStore.getItem(key) ?? this.cookieStore.getItem(key);
   }
-  setItem(key: string, value: string) {
-    this.localStore.setItem(key, value);
-    this.cookieStore.setItem(key, value);
+  setItem(key: string, value: string): boolean {
+    const didSetLocal = this.localStore.setItem(key, value);
+    const didSetCookie = this.cookieStore.setItem(key, value);
+    return didSetLocal || didSetCookie;
   }
   removeItem(key: string) {
     this.localStore.removeItem(key);
@@ -219,6 +229,47 @@ export function selectStorage(
       return new MemoryStore();
     }
 
+    case 'memory': {
+      return new MemoryStore();
+    }
+
+    default: {
+      throw new Error(
+        `Unknown storage type: "${type}". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.`
+      );
+    }
+  }
+}
+
+export function selectEventStorage(
+  type: StorageType | 'unknown',
+  params: { onFallback: (message: string) => void }
+): StorageApi {
+  const { onFallback } = params;
+
+  switch (type) {
+    case 'localStorage':
+    case 'localStorage+cookie': {
+      if (testStorageSupport('localStorage')) {
+        return new WebStorageStore('localStorage');
+      }
+      onFallback(
+        'localStorage not supported for event buffering, falling back to memory.'
+      );
+      return new MemoryStore();
+    }
+
+    case 'sessionStorage': {
+      if (testStorageSupport('sessionStorage')) {
+        return new WebStorageStore('sessionStorage');
+      }
+      onFallback(
+        'sessionStorage not supported for event buffering, falling back to memory.'
+      );
+      return new MemoryStore();
+    }
+
+    case 'cookie':
     case 'memory': {
       return new MemoryStore();
     }

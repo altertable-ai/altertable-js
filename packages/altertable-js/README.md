@@ -48,7 +48,8 @@ altertable.alias('new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
 
 - **Automatic page view tracking** – Captures page views automatically
 - **Session management** – Handles anonymous and session IDs automatically
-- **Event queuing** – Queues events when offline or consent is pending
+- **Offline delivery** – Persists unsent events and retries when the browser comes back online
+- **Event queuing** – Queues events when consent is pending
 - **Privacy compliance** – Built-in tracking consent management
 - **Multiple storage options** – localStorage, cookies, or both
 - **TypeScript support** – Full TypeScript definitions included
@@ -78,6 +79,18 @@ altertable.init('YOUR_API_KEY', {
 ```
 
 Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
+
+### Offline Delivery
+
+Altertable persists unsent events automatically. No extra configuration is required.
+
+- Events are kept in durable storage until their HTTP request succeeds.
+- The SDK retries automatically when the browser fires the `online` event.
+- `altertable.flush()` sends immediately when online. When the browser reports offline, it resolves without sending and keeps events queued.
+- Page unload delivery uses `sendBeacon`/`fetch keepalive` when online, but queued events remain persisted until a normal request succeeds.
+- With the default `localStorage+cookie` persistence, identity data can use cookies, but event payloads are stored in `localStorage` only. Event payloads are never written to cookies.
+- If event storage is unavailable, the SDK falls back to memory and logs a warning; events queued only in memory do not survive a reload.
+- The persisted event buffer is capped at 1,000 events, 512 KB, and 7 days. When a cap is exceeded, the oldest buffered events are dropped.
 
 ### Event Tracking
 
@@ -222,6 +235,14 @@ altertable.reset({
 
 ### Configuration
 
+#### `altertable.flush()`
+
+Flushes buffered events immediately when the browser is online.
+
+**Returns:** `Promise<void>`
+
+When the browser reports offline, `flush()` resolves without sending and keeps persisted events queued for the next automatic online retry.
+
 #### `altertable.configure(updates)`
 
 Updates the configuration after initialization.
@@ -263,19 +284,19 @@ if (consent === 'granted') {
 
 Configuration options for the Altertable SDK.
 
-| Property          | Type                                          | Default                       | Description                                            |
-| ----------------- | --------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
-| `baseUrl`         | `string`                                      | `"https://api.altertable.ai"` | The base URL of the Altertable API                     |
-| `environment`     | `string`                                      | `"production"`                | The environment of the application                     |
-| `autoCapture`     | `boolean`                                     | `true`                        | Whether to automatically capture page views and events |
-| `release`         | `string`                                      | -                             | The release ID of the application                      |
-| `debug`           | `boolean`                                     | `false`                       | Whether to log events to the console                   |
-| `persistence`     | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for storing IDs               |
-| `trackingConsent` | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
-| `onError`         | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                        |
+| Property              | Type                                          | Default                       | Description                                             |
+| --------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------------------------- |
+| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"` | The base URL of the Altertable API                      |
+| `environment`         | `string`                                      | `"production"`                | The environment of the application                      |
+| `autoCapture`         | `boolean`                                     | `true`                        | Whether to automatically capture page views and events  |
+| `release`             | `string`                                      | -                             | The release ID of the application                       |
+| `debug`               | `boolean`                                     | `false`                       | Whether to log events to the console                    |
+| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs and offline buffering  |
+| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                              |
+| `onError`             | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                         |
 | `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count    |
-| `flushIntervalMs` | `number`                                      | `150`                         | Periodic batch flush interval (ms)                     |
-| `maxBatchSize`    | `number`                                      | `20`                          | Max payloads per HTTP request (per `/track`, `/identify`, `/alias`) |
+| `flushIntervalMs`     | `number`                                      | `150`                         | Periodic batch flush interval (ms)                      |
+| `maxBatchSize`        | `number`                                      | `20`                          | Max payloads per HTTP request                           |
 
 ### `EventProperties`
 
