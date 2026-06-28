@@ -20,6 +20,7 @@ type FormData = {
 };
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
+type InputField = Exclude<keyof FormData, 'plan'>;
 
 interface SignupFunnelMapping extends FunnelMapping {
   signup: [
@@ -143,7 +144,10 @@ export function SignupFunnel({
     onStepChange(Math.max(currentStep - 1, 1));
   }
 
-  function updateFormData(field: keyof FormData, value: string | boolean) {
+  function updateFormData<Field extends keyof FormData>(
+    field: Field,
+    value: FormData[Field]
+  ) {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -167,20 +171,21 @@ export function SignupFunnel({
     }
   }
 
-  function handleInputChange(field: keyof FormData) {
+  function handleInputChange(field: InputField) {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value =
-        event.target.type === 'checkbox'
-          ? event.target.checked
-          : event.target.value;
-      updateFormData(field, value);
-
       if (field === 'agreeToTerms') {
+        const value = event.target.checked;
+        updateFormData(field, value);
         trackStep('Terms Agreement Changed', {
           agreed: value,
           step: currentStep,
         });
+
+        return;
       }
+
+      const value = event.target.value;
+      updateFormData(field, value);
     };
   }
 
