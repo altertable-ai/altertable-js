@@ -1,3 +1,3 @@
 export { AltertableProvider } from './AltertableProvider';
-export type { FunnelMapping, FunnelTracker } from './types';
+export type { FunnelMapping } from './types';
 export { useAltertable } from './useAltertable';
