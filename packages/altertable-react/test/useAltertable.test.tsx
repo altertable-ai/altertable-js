@@ -1,7 +1,13 @@
 import { type Altertable, altertable } from '@altertable/altertable-js';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import React, { useEffect } from 'react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { AltertableProvider, type FunnelMapping, useAltertable } from '../src';
 
@@ -46,10 +52,14 @@ function SignupPage() {
 
 describe('useAltertable()', () => {
   beforeEach(() => {
-    altertable.init('TEST_API_KEY');
+    altertable.init('TEST_API_KEY', { autoCapture: false });
 
     vi.clearAllMocks();
     vi.spyOn(altertable, 'track').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   describe('API', () => {
@@ -135,6 +145,10 @@ describe('pre-init behavior', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.resetModules();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   test('calling identify before init works', async () => {

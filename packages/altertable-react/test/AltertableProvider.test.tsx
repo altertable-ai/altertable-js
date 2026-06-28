@@ -1,7 +1,7 @@
 import { altertable } from '@altertable/altertable-js';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import React, { type ComponentProps } from 'react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   AltertableProvider,
@@ -9,10 +9,14 @@ import {
 } from '../src/AltertableProvider';
 
 beforeEach(() => {
-  altertable.init('TEST_API_KEY');
+  altertable.init('TEST_API_KEY', { autoCapture: false });
 
   vi.clearAllMocks();
   vi.spyOn(altertable, 'track').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 describe('<AltertableProvider>', () => {
