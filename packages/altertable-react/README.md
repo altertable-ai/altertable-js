@@ -145,7 +145,7 @@ Returns an object with tracking methods and funnel utilities.
 | `updateTraits`       | `(traits: UserTraits) => void`                                   | Update user traits                                                                             |
 | `configure`          | `(updates: Partial<AltertableConfig>) => void`                   | Update configuration                                                                           |
 | `getTrackingConsent` | `() => TrackingConsentType`                                      | Get current consent state                                                                      |
-| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }` | Get funnel-specific tracker                                                                    |
+| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => FunnelTracker`           | Get funnel-specific tracker                                                                    |
 
 **Example:**
 
@@ -323,10 +323,10 @@ type FunnelStep = {
 Type-safe tracker for a specific funnel.
 
 ```typescript
-type FunnelTracker = {
-  trackStep: (
-    stepName: FunnelStepName,
-    properties?: FunnelStepProperties
+type FunnelTracker<TSteps extends readonly FunnelStep[]> = {
+  trackStep: <TStepName extends FunnelStepName<TSteps>>(
+    stepName: TStepName,
+    properties?: FunnelStepProperties<TSteps, TStepName>
   ) => void;
 };
 ```
