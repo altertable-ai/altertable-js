@@ -1,4 +1,3 @@
-import { createLogger } from '@altertable/altertable-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
@@ -11,11 +10,10 @@ import {
   PROPERTY_VIEW_NAME,
   PROPERTY_VIEW_TYPE,
 } from './constants';
+import { logger } from './logger';
 
 type ViewProperties = Record<string, unknown>;
 type ViewType = 'screen' | 'view';
-
-const logger = createLogger('Altertable React');
 
 type BaseViewOptions = {
   /**
