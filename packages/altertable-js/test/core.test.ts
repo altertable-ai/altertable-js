@@ -3123,6 +3123,19 @@ describe('Altertable', () => {
   });
 
   describe('batching and flush()', () => {
+    const eventStorageKey = 'atbl.test-api-key.production.events';
+
+    function initPersistentClient(client: Altertable): () => void {
+      return client.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'localStorage',
+        flushEventThreshold: 20,
+        flushIntervalMs: 86_400_000,
+      });
+    }
+
     function getFetchPayloadsForPath(path: string): any[] {
       const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
       return mockFetch.mock.calls
@@ -3246,7 +3259,6 @@ describe('Altertable', () => {
     });
 
     it('recovers a long-lived offline session after reload and flushes on online', async () => {
-      const eventStorageKey = 'atbl.test-api-key.production.events';
       window.localStorage.clear();
       vi.spyOn(Date, 'now').mockReturnValue(
         Date.parse('2026-01-01T00:00:00.000Z')
@@ -3257,14 +3269,7 @@ describe('Altertable', () => {
       });
 
       const firstClient = new Altertable();
-      const cleanupFirstClient = firstClient.init(apiKey, {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-        persistence: 'localStorage',
-        flushEventThreshold: 20,
-        flushIntervalMs: 86_400_000,
-      });
+      const cleanupFirstClient = initPersistentClient(firstClient);
 
       firstClient.track('offline-long-track', { day: 0 });
       firstClient.identify('offline-user', { plan: 'pro' });
@@ -3283,14 +3288,7 @@ describe('Altertable', () => {
       );
 
       const secondClient = new Altertable();
-      const cleanupSecondClient = secondClient.init(apiKey, {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-        persistence: 'localStorage',
-        flushEventThreshold: 20,
-        flushIntervalMs: 86_400_000,
-      });
+      const cleanupSecondClient = initPersistentClient(secondClient);
 
       await secondClient.flush();
       expect(mockFetch).not.toHaveBeenCalled();
@@ -3327,7 +3325,6 @@ describe('Altertable', () => {
     });
 
     it('clears expired offline events on reload instead of replaying them', async () => {
-      const eventStorageKey = 'atbl.test-api-key.production.events';
       window.localStorage.clear();
       vi.spyOn(Date, 'now').mockReturnValue(
         Date.parse('2026-01-01T00:00:00.000Z')
@@ -3338,14 +3335,7 @@ describe('Altertable', () => {
       });
 
       const firstClient = new Altertable();
-      const cleanupFirstClient = firstClient.init(apiKey, {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-        persistence: 'localStorage',
-        flushEventThreshold: 20,
-        flushIntervalMs: 86_400_000,
-      });
+      const cleanupFirstClient = initPersistentClient(firstClient);
 
       firstClient.track('offline-expired-track', {});
       await firstClient.flush();
@@ -3363,14 +3353,7 @@ describe('Altertable', () => {
       });
 
       const secondClient = new Altertable();
-      const cleanupSecondClient = secondClient.init(apiKey, {
-        baseUrl: 'http://localhost',
-        autoCapture: false,
-        trackingConsent: 'granted',
-        persistence: 'localStorage',
-        flushEventThreshold: 20,
-        flushIntervalMs: 86_400_000,
-      });
+      const cleanupSecondClient = initPersistentClient(secondClient);
       await secondClient.flush();
 
       const mockFetch = global.fetch as ReturnType<typeof vi.fn>;

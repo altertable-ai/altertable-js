@@ -31,6 +31,25 @@ export type BatcherConfigurableKeys =
   | 'persistence'
   | 'isOnline';
 
+type ResolvedBatcherPersistence = {
+  storage: StorageApi;
+  storageKey: string;
+  maxEventCount: number;
+  maxBytes: number;
+  ttlMs: number;
+  onFallback?: (message: string) => void;
+};
+
+/** Configuration after defaults are applied. */
+type ResolvedBatcherConfig = {
+  flushEventThreshold: number;
+  flushIntervalMs: number;
+  maxBatchSize: number;
+  send: BatcherSendFn;
+  persistence?: ResolvedBatcherPersistence;
+  isOnline: () => boolean;
+};
+
 export type BatcherApi = {
   add(eventType: EventType, payload: EventPayload): void;
   flush(): Promise<void>;
@@ -52,6 +71,40 @@ const DEFAULT_PERSISTED_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
 /** Guard against pathological send() that never settles. */
 const FLUSH_MAX_DRAIN_ITERATIONS = 100;
 
+function resolveBatcherPersistence(
+  persistence: BatcherConfig['persistence']
+): ResolvedBatcherPersistence | undefined {
+  if (!persistence) {
+    return undefined;
+  }
+
+  return {
+    storage: persistence.storage,
+    storageKey: persistence.storageKey,
+    maxEventCount: Math.max(
+      1,
+      persistence.maxEventCount ?? DEFAULT_MAX_PERSISTED_EVENT_COUNT
+    ),
+    maxBytes: Math.max(
+      1,
+      persistence.maxBytes ?? DEFAULT_MAX_PERSISTED_BYTES
+    ),
+    ttlMs: Math.max(1, persistence.ttlMs ?? DEFAULT_PERSISTED_TTL_MS),
+    onFallback: persistence.onFallback,
+  };
+}
+
+function resolveBatcherConfig(config: BatcherConfig): ResolvedBatcherConfig {
+  return {
+    send: config.send,
+    flushEventThreshold: Math.max(1, config.flushEventThreshold),
+    flushIntervalMs: Math.max(1, config.flushIntervalMs),
+    maxBatchSize: Math.max(1, config.maxBatchSize),
+    persistence: resolveBatcherPersistence(config.persistence),
+    isOnline: config.isOnline ?? (() => true),
+  };
+}
+
 function createEmptyBuffers(): Map<EventType, EventPayload[]> {
   return new Map([
     ['track', []],
@@ -69,7 +122,7 @@ function createEmptyChunkBuffers(): Map<EventType, EventPayload[][]> {
 }
 
 function readPersistedBuffers(
-  persistence: BatcherConfig['persistence']
+  persistence: ResolvedBatcherPersistence | undefined
 ): Map<EventType, EventPayload[]> {
   if (!persistence) {
     return createEmptyBuffers();
@@ -170,7 +223,7 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
  * same turn).
  */
 export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
-  let config = initialConfig;
+  let config = resolveBatcherConfig(initialConfig);
   let buffers = readPersistedBuffers(config.persistence);
   let inFlightChunks = createEmptyChunkBuffers();
   let intervalId: ReturnType<typeof setInterval> | undefined;
@@ -180,25 +233,6 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   const inFlightTimer = new Set<Promise<void>>();
   /** All other sends (flushEventThreshold, manual flush, updateConfig). */
   const inFlightOther = new Set<Promise<void>>();
-
-  function isOnline(): boolean {
-    return config.isOnline?.() ?? true;
-  }
-
-  function getPersistenceMaxEventCount(): number {
-    return Math.max(
-      1,
-      config.persistence?.maxEventCount ?? DEFAULT_MAX_PERSISTED_EVENT_COUNT
-    );
-  }
-
-  function getPersistenceMaxBytes(): number {
-    return Math.max(1, config.persistence?.maxBytes ?? DEFAULT_MAX_PERSISTED_BYTES);
-  }
-
-  function getPersistenceTtlMs(): number {
-    return Math.max(1, config.persistence?.ttlMs ?? DEFAULT_PERSISTED_TTL_MS);
-  }
 
   function getDurableBuffers(): Map<EventType, EventPayload[]> {
     const durableBuffers = createEmptyBuffers();
@@ -215,17 +249,13 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     return durableBuffers;
   }
 
-  function notifyPersistenceFallback(message: string): void {
-    config.persistence?.onFallback?.(message);
-  }
-
   function dropOldestBufferedEvent(reason: string): boolean {
     for (const eventType of EVENT_TYPES) {
       const items = buffers.get(eventType) ?? [];
       if (items.length > 0) {
         items.shift();
         buffers.set(eventType, items);
-        notifyPersistenceFallback(reason);
+        config.persistence?.onFallback?.(reason);
         return true;
       }
     }
@@ -233,27 +263,29 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   }
 
   function serializeDurableBuffersWithinLimits(): string {
+    const { maxEventCount, maxBytes, ttlMs } = config.persistence!;
+
     while (
       totalBufferedCount(buffers) + totalInFlightCount(inFlightChunks) >
-      getPersistenceMaxEventCount()
+      maxEventCount
     ) {
       if (
         !dropOldestBufferedEvent(
-          `Persisted event buffer is full (${getPersistenceMaxEventCount()} events). Dropping the oldest buffered event.`
+          `Persisted event buffer is full (${maxEventCount} events). Dropping the oldest buffered event.`
         )
       ) {
         break;
       }
     }
 
-    let serialized = serializeBuffers(getDurableBuffers(), getPersistenceTtlMs());
+    let serialized = serializeBuffers(getDurableBuffers(), ttlMs);
     while (
-      serialized.length > getPersistenceMaxBytes() &&
+      serialized.length > maxBytes &&
       dropOldestBufferedEvent(
-        `Persisted event buffer exceeds ${getPersistenceMaxBytes()} bytes. Dropping the oldest buffered event.`
+        `Persisted event buffer exceeds ${maxBytes} bytes. Dropping the oldest buffered event.`
       )
     ) {
-      serialized = serializeBuffers(getDurableBuffers(), getPersistenceTtlMs());
+      serialized = serializeBuffers(getDurableBuffers(), ttlMs);
     }
 
     return serialized;
@@ -286,7 +318,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       serialized
     );
     if (didPersist === false) {
-      notifyPersistenceFallback(
+      config.persistence?.onFallback?.(
         'Unable to persist event buffer. Offline delivery will continue in memory only.'
       );
     }
@@ -329,7 +361,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
    * settles when all chunk sends for this snapshot finish.
    */
   function dispatchFlushFromBuffer(fromTimer: boolean): Promise<void> {
-    if (!isOnline()) {
+    if (!config.isOnline()) {
       return Promise.resolve();
     }
 
@@ -378,7 +410,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   }
 
   async function flushUntilDrained(): Promise<void> {
-    if (!isOnline()) {
+    if (!config.isOnline()) {
       return;
     }
 
@@ -439,7 +471,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     flushUnload(
       sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
     ): void {
-      if (!isOnline()) {
+      if (!config.isOnline()) {
         return;
       }
 
@@ -461,18 +493,18 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     updateConfig(
       updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>
     ): void {
-      const nextFlushEventThreshold =
-        updates.flushEventThreshold ?? config.flushEventThreshold;
-      const nextInterval = updates.flushIntervalMs ?? config.flushIntervalMs;
-      const nextMaxBatch = updates.maxBatchSize ?? config.maxBatchSize;
-      config = {
-        ...config,
-        flushEventThreshold: Math.max(1, nextFlushEventThreshold),
-        flushIntervalMs: Math.max(1, nextInterval),
-        maxBatchSize: Math.max(1, nextMaxBatch),
-        persistence: updates.persistence ?? config.persistence,
+      config = resolveBatcherConfig({
+        send: config.send,
+        flushEventThreshold:
+          updates.flushEventThreshold ?? config.flushEventThreshold,
+        flushIntervalMs: updates.flushIntervalMs ?? config.flushIntervalMs,
+        maxBatchSize: updates.maxBatchSize ?? config.maxBatchSize,
+        persistence:
+          updates.persistence !== undefined
+            ? updates.persistence
+            : config.persistence,
         isOnline: updates.isOnline ?? config.isOnline,
-      };
+      });
       if (updates.persistence !== undefined) {
         persistBuffers();
       }
