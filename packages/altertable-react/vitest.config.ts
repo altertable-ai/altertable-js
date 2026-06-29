@@ -7,6 +7,9 @@ export default defineConfig({
     __LIB_VERSION__: JSON.stringify('TEST_LIB_VERSION'),
   },
   test: {
+    coverage: {
+      exclude: ['src/index.ts'],
+    },
     environment: 'jsdom',
     setupFiles: ['../../test-utils/setup.ts'],
     watch: false,
