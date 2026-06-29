@@ -1,3 +1,4 @@
+import { createLogger } from '@altertable/altertable-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
@@ -13,6 +14,8 @@ import {
 
 type ViewProperties = Record<string, unknown>;
 type ViewType = 'screen' | 'view';
+
+const logger = createLogger('Altertable React');
 
 type BaseViewOptions = {
   /**
@@ -163,7 +166,9 @@ export function useView<TElement extends Element = HTMLElement>(
     }
 
     if (typeof IntersectionObserver === 'undefined') {
-      trackView();
+      logger.warnOnce(
+        'useView() requires IntersectionObserver. Skipping view tracking because this browser does not support it.'
+      );
       return;
     }
 

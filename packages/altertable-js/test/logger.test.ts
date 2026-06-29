@@ -608,6 +608,49 @@ describe('Logger', () => {
     });
   });
 
+  describe('warnOnce', () => {
+    it('warns with prefix and message', () => {
+      const logger = createLogger('TestLogger');
+      const message = 'Warning message';
+
+      logger.warnOnce(message);
+
+      expect(console.warn).toHaveBeenCalledWith('[TestLogger] Warning message');
+    });
+
+    it('passes additional arguments', () => {
+      const logger = createLogger('TestLogger');
+      const message = 'Warning message';
+      const additionalArg = { debug: 'info' };
+
+      logger.warnOnce(message, additionalArg);
+
+      expect(console.warn).toHaveBeenCalledWith(
+        '[TestLogger] Warning message',
+        additionalArg
+      );
+    });
+
+    it('does not warn the same message twice', () => {
+      const logger = createLogger('TestLogger');
+      const message = 'Warning message';
+
+      logger.warnOnce(message);
+      logger.warnOnce(message);
+
+      expect(console.warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('caches messages with trimmed content', () => {
+      const logger = createLogger('TestLogger');
+
+      logger.warnOnce('Warning message');
+      logger.warnOnce('  Warning message  ');
+
+      expect(console.warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('error', () => {
     it('errors with prefix', () => {
       const logger = createLogger('TestLogger');

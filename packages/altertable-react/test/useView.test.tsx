@@ -82,6 +82,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe('useScreenView()', () => {
@@ -412,8 +413,9 @@ describe('useView()', () => {
     );
   });
 
-  test('falls back to tracking after ref attachment without IntersectionObserver', () => {
+  test('skips tracking and warns once when IntersectionObserver is unavailable', () => {
     vi.stubGlobal('IntersectionObserver', undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     function InsightCard(): React.JSX.Element {
       const { viewRef } = useView<HTMLDivElement>('Insight', {
@@ -429,26 +431,11 @@ describe('useView()', () => {
       </AltertableProvider>
     );
 
-    expect(altertable.track).toHaveBeenCalledTimes(1);
-    expect(altertable.track).toHaveBeenLastCalledWith('$view', {
-      $lib: 'TEST_LIB_NAME',
-      $lib_version: 'TEST_LIB_VERSION',
-      $view_id: 'insight-1',
-      $view_name: 'Insight',
-      $view_type: 'view',
-    });
-  });
-
-  test('does not double-track fallback visibility during React Strict Mode effect replay', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-
-    function InsightCard(): React.JSX.Element {
-      const { viewRef } = useView<HTMLDivElement>('Insight', {
-        id: 'insight-1',
-      });
-
-      return <div ref={viewRef}>Insight</div>;
-    }
+    expect(altertable.track).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenLastCalledWith(
+      '[Altertable React] useView() requires IntersectionObserver. Skipping view tracking because this browser does not support it.'
+    );
 
     render(
       <React.StrictMode>
@@ -458,7 +445,8 @@ describe('useView()', () => {
       </React.StrictMode>
     );
 
-    expect(altertable.track).toHaveBeenCalledTimes(1);
+    expect(altertable.track).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   test('tracks again when the view identity changes', async () => {

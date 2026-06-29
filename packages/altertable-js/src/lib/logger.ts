@@ -174,6 +174,15 @@ export function createLogger(prefix: string) {
     warn: (...args: unknown[]) => {
       console.warn(`[${prefix}]`, ...args);
     },
+    warnOnce: (message: string, ...args: unknown[]) => {
+      const sanitizedMessage = message.trim();
+      const hasAlreadyPrinted = loggerCache.current[sanitizedMessage];
+
+      if (!hasAlreadyPrinted) {
+        loggerCache.current[sanitizedMessage] = true;
+        console.warn(`[${prefix}] ${sanitizedMessage}`, ...args);
+      }
+    },
     warnDev: (message: string, ...args: unknown[]) => {
       if (!__DEV__) {
         return;
