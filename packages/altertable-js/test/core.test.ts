@@ -3123,6 +3123,13 @@ describe('Altertable', () => {
   });
 
   describe('batching and flush()', () => {
+    function getFetchPayloadsForPath(path: string): any[] {
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      return mockFetch.mock.calls
+        .filter(([url]) => String(url).startsWith(`http://localhost${path}?`))
+        .flatMap(([, options]) => JSON.parse(options.body as string));
+    }
+
     it('exposes flush() that returns a promise', async () => {
       setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
       altertable.track('a', {});
@@ -3236,6 +3243,145 @@ describe('Altertable', () => {
           )
         ).toBe(true)
       );
+    });
+
+    it('recovers a long-lived offline session after reload and flushes on online', async () => {
+      const eventStorageKey = 'atbl.test-api-key.production.events';
+      window.localStorage.clear();
+      vi.spyOn(Date, 'now').mockReturnValue(
+        Date.parse('2026-01-01T00:00:00.000Z')
+      );
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+
+      const firstClient = new Altertable();
+      const cleanupFirstClient = firstClient.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'localStorage',
+        flushEventThreshold: 20,
+        flushIntervalMs: 86_400_000,
+      });
+
+      firstClient.track('offline-long-track', { day: 0 });
+      firstClient.identify('offline-user', { plan: 'pro' });
+      firstClient.alias('offline-user-linked');
+      await firstClient.flush();
+
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem(eventStorageKey)).toContain(
+        'offline-long-track'
+      );
+      cleanupFirstClient();
+
+      vi.spyOn(Date, 'now').mockReturnValue(
+        Date.parse('2026-01-06T00:00:00.000Z')
+      );
+
+      const secondClient = new Altertable();
+      const cleanupSecondClient = secondClient.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'localStorage',
+        flushEventThreshold: 20,
+        flushIntervalMs: 86_400_000,
+      });
+
+      await secondClient.flush();
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+      window.dispatchEvent(new Event('online'));
+
+      await vi.waitFor(() => {
+        expect(getFetchPayloadsForPath('/track')).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ event: 'offline-long-track' }),
+          ])
+        );
+        expect(getFetchPayloadsForPath('/identify')).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              distinct_id: 'offline-user',
+              traits: expect.objectContaining({ plan: 'pro' }),
+            }),
+          ])
+        );
+        expect(getFetchPayloadsForPath('/alias')).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ new_user_id: 'offline-user-linked' }),
+          ])
+        );
+      });
+      expect(window.localStorage.getItem(eventStorageKey)).toBeNull();
+
+      cleanupSecondClient();
+    });
+
+    it('clears expired offline events on reload instead of replaying them', async () => {
+      const eventStorageKey = 'atbl.test-api-key.production.events';
+      window.localStorage.clear();
+      vi.spyOn(Date, 'now').mockReturnValue(
+        Date.parse('2026-01-01T00:00:00.000Z')
+      );
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+
+      const firstClient = new Altertable();
+      const cleanupFirstClient = firstClient.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'localStorage',
+        flushEventThreshold: 20,
+        flushIntervalMs: 86_400_000,
+      });
+
+      firstClient.track('offline-expired-track', {});
+      await firstClient.flush();
+      expect(window.localStorage.getItem(eventStorageKey)).toContain(
+        'offline-expired-track'
+      );
+      cleanupFirstClient();
+
+      vi.spyOn(Date, 'now').mockReturnValue(
+        Date.parse('2026-01-09T00:00:00.000Z')
+      );
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+
+      const secondClient = new Altertable();
+      const cleanupSecondClient = secondClient.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        trackingConsent: 'granted',
+        persistence: 'localStorage',
+        flushEventThreshold: 20,
+        flushIntervalMs: 86_400_000,
+      });
+      await secondClient.flush();
+
+      const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+      expect(
+        mockFetch.mock.calls.some(call =>
+          String(call[1].body).includes('offline-expired-track')
+        )
+      ).toBe(false);
+      expect(window.localStorage.getItem(eventStorageKey)).toBeNull();
+
+      cleanupSecondClient();
     });
 
     it('does not run unload delivery while offline', () => {
