@@ -80,18 +80,6 @@ altertable.init('YOUR_API_KEY', {
 
 Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
 
-### Offline Delivery
-
-Altertable persists unsent events automatically. No extra configuration is required.
-
-- Events are kept in durable storage until their HTTP request succeeds.
-- The SDK retries automatically when the browser fires the `online` event.
-- `altertable.flush()` sends immediately when online. When the browser reports offline, it resolves without sending and keeps events queued.
-- Page unload delivery uses `sendBeacon`/`fetch keepalive` when online, but queued events remain persisted until a normal request succeeds.
-- With the default `localStorage+cookie` persistence, identity data can use cookies, but event payloads are stored in `localStorage` only. Event payloads are never written to cookies.
-- If event storage is unavailable, the SDK falls back to memory and logs a warning; events queued only in memory do not survive a reload.
-- The persisted event buffer is capped at 1,000 events, 512 KB, and 7 days. When a cap is exceeded, the oldest buffered events are dropped.
-
 ### Event Tracking
 
 #### `altertable.track(event, properties?)`
@@ -234,14 +222,6 @@ altertable.reset({
 ```
 
 ### Configuration
-
-#### `altertable.flush()`
-
-Flushes buffered events immediately when the browser is online.
-
-**Returns:** `Promise<void>`
-
-When the browser reports offline, `flush()` resolves without sending and keeps persisted events queued for the next automatic online retry.
 
 #### `altertable.configure(updates)`
 
