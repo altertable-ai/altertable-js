@@ -2,7 +2,12 @@ import { useCallback, useMemo } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
-import { FunnelMapping, FunnelStepName, FunnelStepProperties } from './types';
+import {
+  FunnelMapping,
+  FunnelStepName,
+  FunnelStepProperties,
+  FunnelTracker,
+} from './types';
 
 /**
  * `useAltertable()` provides access to type-safe event and funnel tracking for Altertable.
@@ -64,6 +69,13 @@ export function useAltertable<T extends FunnelMapping>() {
     [altertable]
   );
 
+  const funnelTracker = useMemo(
+    (): FunnelTracker<T[keyof T]> => ({
+      trackStep: track<T[keyof T]>,
+    }),
+    [track]
+  );
+
   /**
    * Selects a specific funnel for type-safe step tracking.
    *
@@ -79,10 +91,11 @@ export function useAltertable<T extends FunnelMapping>() {
    * ```
    */
   const selectFunnel = useCallback(
-    <FunnelName extends keyof T>(_funnelName: FunnelName) => ({
-      trackStep: track<T[FunnelName]>,
-    }),
-    [track]
+    <FunnelName extends keyof T>(
+      _funnelName: FunnelName
+    ): FunnelTracker<T[FunnelName]> =>
+      funnelTracker as FunnelTracker<T[FunnelName]>,
+    [funnelTracker]
   );
 
   return useMemo(

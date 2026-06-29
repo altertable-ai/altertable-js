@@ -9,6 +9,13 @@ export type FunnelStepProperties<
   N extends FunnelStepName<T>,
 > = Extract<T[number], { name: N }>['properties'];
 
+export type FunnelTracker<T extends readonly FunnelStep[]> = {
+  trackStep: <N extends FunnelStepName<T>>(
+    stepName: N,
+    properties?: FunnelStepProperties<T, N>
+  ) => void;
+};
+
 /**
  * Type for defining funnel configurations that map funnel names to their step definitions.
  *
