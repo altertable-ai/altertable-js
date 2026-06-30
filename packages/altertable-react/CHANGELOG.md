@@ -1,25 +1,10 @@
 # Changelog
 
-## [1.1.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.0.7...altertable-react-v1.1.0) (2026-06-30)
+## [1.1.0] - 2026-06-30
 
-
-### Features
-
-* batch events, add HTTP retries and unload flush ([#125](https://github.com/altertable-ai/altertable-js/issues/125)) ([d27d446](https://github.com/altertable-ai/altertable-js/commit/d27d44651ddcf508c88d27487751878117f5de5d)), closes [#124](https://github.com/altertable-ai/altertable-js/issues/124)
-* introduce alias API and rework identity flow ([#89](https://github.com/altertable-ai/altertable-js/issues/89)) ([bbb6a31](https://github.com/altertable-ai/altertable-js/commit/bbb6a3146a9efbfe4f3d8b6401efe6a577aa6d77))
-* **js:** add offline support for queued events ([#137](https://github.com/altertable-ai/altertable-js/issues/137)) ([2068d5d](https://github.com/altertable-ai/altertable-js/commit/2068d5dd42a0875aa9c8160cb9cea088dd0843f0))
-
-
-### Bug Fixes
-
-* **react:** stabilize funnel tracker identity ([#134](https://github.com/altertable-ai/altertable-js/issues/134)) ([efe03b1](https://github.com/altertable-ai/altertable-js/commit/efe03b1cf35d69a1bb10d03aaf660145e50f994b))
-
-
-### Dependencies
-
-* The following workspace dependencies were updated
-  * dependencies
-    * @altertable/altertable-js bumped from ^1.0.7 to ^1.1.0
+- Add `useScreenView()` and `useView()` hooks for screen and element visibility tracking ([#136](https://github.com/altertable-ai/altertable-js/pull/136))
+- Stabilize funnel tracker identity from `selectFunnel()` so `trackStep` references stay stable across renders ([#134](https://github.com/altertable-ai/altertable-js/pull/134))
+- Depends on `@altertable/altertable-js` 1.1.0: event batching with retries and unload flush, offline queued events ([#125](https://github.com/altertable-ai/altertable-js/pull/125), [#137](https://github.com/altertable-ai/altertable-js/pull/137))
 
 ## [1.0.7] - 2026-01-12
 
@@ -101,6 +86,7 @@
 
 - Initial published React package under the current name ([#26](https://github.com/altertable-ai/altertable-js/pull/26), [#28](https://github.com/altertable-ai/altertable-js/pull/28))
 
+[1.1.0]: https://github.com/altertable-ai/altertable-js/compare/v1.0.7...v1.1.0
 [1.0.7]: https://github.com/altertable-ai/altertable-js/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/altertable-ai/altertable-js/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/altertable-ai/altertable-js/compare/v1.0.3...v1.0.5

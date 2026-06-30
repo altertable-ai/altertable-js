@@ -1,18 +1,9 @@
 # Changelog
 
-## [1.1.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.0.7...altertable-js-v1.1.0) (2026-06-30)
+## [1.1.0] - 2026-06-30
 
-
-### Features
-
-* batch events, add HTTP retries and unload flush ([#125](https://github.com/altertable-ai/altertable-js/issues/125)) ([d27d446](https://github.com/altertable-ai/altertable-js/commit/d27d44651ddcf508c88d27487751878117f5de5d)), closes [#124](https://github.com/altertable-ai/altertable-js/issues/124)
-* introduce alias API and rework identity flow ([#89](https://github.com/altertable-ai/altertable-js/issues/89)) ([bbb6a31](https://github.com/altertable-ai/altertable-js/commit/bbb6a3146a9efbfe4f3d8b6401efe6a577aa6d77))
-* **js:** add offline support for queued events ([#137](https://github.com/altertable-ai/altertable-js/issues/137)) ([2068d5d](https://github.com/altertable-ai/altertable-js/commit/2068d5dd42a0875aa9c8160cb9cea088dd0843f0))
-
-
-### Bug Fixes
-
-* isIdentified flag on init ([#94](https://github.com/altertable-ai/altertable-js/issues/94)) ([575ae4b](https://github.com/altertable-ai/altertable-js/commit/575ae4bd06b1a18a033f84c5f30f1c9680c41f34))
+- Batch events before sending, with HTTP retries and unload flush so events are not lost when the tab closes ([#125](https://github.com/altertable-ai/altertable-js/pull/125))
+- Offline support: persist queued events to storage and replay when connectivity returns ([#137](https://github.com/altertable-ai/altertable-js/pull/137))
 
 ## [1.0.7] - 2026-01-12
 
@@ -103,6 +94,7 @@
 
 - Initial published package layout under the current package name ([#26](https://github.com/altertable-ai/altertable-js/pull/26), [#28](https://github.com/altertable-ai/altertable-js/pull/28))
 
+[1.1.0]: https://github.com/altertable-ai/altertable-js/compare/v1.0.7...v1.1.0
 [1.0.7]: https://github.com/altertable-ai/altertable-js/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/altertable-ai/altertable-js/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/altertable-ai/altertable-js/compare/v1.0.3...v1.0.5
