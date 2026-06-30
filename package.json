@@ -53,6 +53,5 @@
   "resolutions": {
     "esbuild": "0.25.4",
     "brace-expansion": "2.0.2"
-  },
-  "version": ""
+  }
 }
