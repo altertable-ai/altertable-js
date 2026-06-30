@@ -739,6 +739,45 @@ describe('Altertable', () => {
       });
     });
 
+    it('uses persistence as the default event persistence strategy', () => {
+      vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+        createStorageMock()
+      );
+      const selectEventStorageSpy = vi
+        .spyOn(storageModule, 'selectEventStorage')
+        .mockReturnValue(createStorageMock());
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        persistence: 'memory',
+      });
+
+      expect(selectEventStorageSpy).toHaveBeenCalledWith('memory', {
+        onFallback: expect.any(Function),
+      });
+    });
+
+    it('allows disabling durable event persistence', () => {
+      vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
+        createStorageMock()
+      );
+      const selectEventStorageSpy = vi.spyOn(
+        storageModule,
+        'selectEventStorage'
+      );
+
+      altertable.init(apiKey, {
+        baseUrl: 'http://localhost',
+        autoCapture: false,
+        flushEventThreshold: 20,
+        eventPersistence: false,
+      });
+      altertable.track('memory-only-event');
+
+      expect(selectEventStorageSpy).not.toHaveBeenCalled();
+    });
+
     it('warns when storage fallback occurs', () => {
       vi.spyOn(storageModule, 'selectStorage').mockImplementation(
         (_type, { onFallback }) => {
@@ -1567,6 +1606,22 @@ describe('Altertable', () => {
           altertable.track('post-configure-persistence-warning');
         }).toWarnDev(
           '[Altertable] Unable to persist event buffer. Offline delivery will continue in memory only.'
+        );
+      });
+
+      it('clears event storage when eventPersistence is disabled', () => {
+        setupAltertable({ persistence: 'memory' });
+        const eventStorageMock = createStorageMock();
+
+        vi.spyOn(storageModule, 'selectEventStorage').mockReturnValue(
+          eventStorageMock
+        );
+
+        altertable.configure({ eventPersistence: 'localStorage' });
+        altertable.configure({ eventPersistence: false });
+
+        expect(eventStorageMock.removeItem).toHaveBeenCalledWith(
+          'atbl.test-api-key.production.events'
         );
       });
 
@@ -3228,6 +3283,22 @@ describe('Altertable', () => {
       window.dispatchEvent(new Event('pagehide'));
 
       expect(beaconMock).toHaveBeenCalled();
+    });
+
+    it('does not repeat unload delivery across visibilitychange and pagehide', () => {
+      setupAltertable({ flushEventThreshold: 20, flushIntervalMs: 86_400_000 });
+      altertable.track('unload-test', {});
+      const beaconMock = navigator.sendBeacon as ReturnType<typeof vi.fn>;
+      beaconMock.mockClear();
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+
+      expect(beaconMock).toHaveBeenCalledTimes(1);
     });
 
     it('keeps events queued while offline and flushes them on online', async () => {

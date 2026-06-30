@@ -271,12 +271,25 @@ Configuration options for the Altertable SDK.
 | `autoCapture`         | `boolean`                                     | `true`                        | Whether to automatically capture page views and events  |
 | `release`             | `string`                                      | -                             | The release ID of the application                       |
 | `debug`               | `boolean`                                     | `false`                       | Whether to log events to the console                    |
-| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs and offline buffering  |
+| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs                        |
+| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`         | The persistence strategy for unsent event payloads      |
 | `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                              |
 | `onError`             | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                         |
 | `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count    |
 | `flushIntervalMs`     | `number`                                      | `150`                         | Periodic batch flush interval (ms)                      |
 | `maxBatchSize`        | `number`                                      | `20`                          | Max payloads per HTTP request                           |
+
+#### Offline Delivery
+
+Altertable can persist unsent event payloads so they survive reloads and send when the browser comes back online. By default, event payloads use the same storage strategy as [`persistence`](#altertableconfig), but cookie-backed strategies store event payloads in `localStorage` only.
+
+If you do not want event payloads written to durable browser storage, set `eventPersistence: false`. Events will still batch in memory for the current page session, but they will not survive a reload.
+
+```javascript
+altertable.init('YOUR_API_KEY', {
+  eventPersistence: false,
+});
+```
 
 ### `EventProperties`
 

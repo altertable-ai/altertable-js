@@ -322,9 +322,12 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let buffers = initialState.buffers;
   let bufferOrder = initialState.order;
   let inFlightChunks = createEmptyChunkBuffers();
+  let inFlightOrder: BufferedEventRef[] = [];
   let intervalId: ReturnType<typeof setInterval> | undefined;
   /** Bumped on authoritative clear / unload so stale send failures do not requeue. */
   let bufferGeneration = 0;
+  let unloadFlushVersion = 0;
+  let lastUnloadFlushVersion: number | undefined;
   /** HTTP work started by the periodic timer — excluded from {@link flush} drain. */
   const inFlightTimer = new Set<Promise<void>>();
   /** All other sends (flushEventThreshold, manual flush, updateConfig). */
@@ -332,23 +335,24 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
 
   function getPersistableState(): BufferState {
     const persistableBuffers = createEmptyBuffers();
-    const persistableOrder: BufferedEventRef[] = [];
 
     for (const eventType of EVENT_TYPES) {
       const items: EventPayload[] = [];
       for (const chunk of inFlightChunks.get(eventType) ?? []) {
         items.push(...chunk);
-        for (const payload of chunk) {
-          persistableOrder.push({ eventType, payload });
-        }
       }
       items.push(...(buffers.get(eventType) ?? []));
       persistableBuffers.set(eventType, items);
     }
 
-    persistableOrder.push(...bufferOrder);
+    return {
+      buffers: persistableBuffers,
+      order: [...inFlightOrder, ...bufferOrder],
+    };
+  }
 
-    return { buffers: persistableBuffers, order: persistableOrder };
+  function markUnloadDirty(): void {
+    unloadFlushVersion += 1;
   }
 
   function dropOldestBufferedEvent(reason: string): boolean {
@@ -359,6 +363,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       if (index !== -1) {
         items.splice(index, 1);
         buffers.set(eventType, items);
+        markUnloadDirty();
         config.persistence?.onFallback?.(reason);
         return true;
       }
@@ -369,6 +374,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       const payload = items.shift();
       if (payload) {
         buffers.set(eventType, items);
+        markUnloadDirty();
         config.persistence?.onFallback?.(reason);
         return true;
       }
@@ -456,6 +462,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       ...items.map(payload => ({ eventType, payload })),
       ...bufferOrder,
     ];
+    markUnloadDirty();
     persistBuffers();
   }
 
@@ -471,6 +478,15 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     if (index !== -1) {
       chunks.splice(index, 1);
       inFlightChunks.set(eventType, chunks);
+    }
+
+    for (const payload of chunk) {
+      const orderIndex = inFlightOrder.findIndex(
+        ref => ref.eventType === eventType && ref.payload === payload
+      );
+      if (orderIndex !== -1) {
+        inFlightOrder.splice(orderIndex, 1);
+      }
     }
   }
 
@@ -507,16 +523,21 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     if (!hadAny) {
       return Promise.resolve();
     }
+    const snapshotOrder = bufferOrder;
     for (const eventType of EVENT_TYPES) {
       buffers.set(eventType, []);
     }
     bufferOrder = [];
 
     const sendPromises: Promise<void>[] = [];
+    const dispatchedPayloads = new Set<EventPayload>();
     for (const eventType of EVENT_TYPES) {
       const items = snapshot.get(eventType) ?? [];
       for (const chunk of chunkArray(items, config.maxBatchSize)) {
         addInFlightChunk(eventType, chunk);
+        for (const payload of chunk) {
+          dispatchedPayloads.add(payload);
+        }
         const chunkPromise = config
           .send(eventType, chunk)
           .then(() => {
@@ -535,6 +556,9 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
         sendPromises.push(chunkPromise);
       }
     }
+    inFlightOrder.push(
+      ...snapshotOrder.filter(ref => dispatchedPayloads.has(ref.payload))
+    );
     persistBuffers();
     return Promise.all(sendPromises).then(() => {});
   }
@@ -566,6 +590,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       list.push(payload);
       buffers.set(eventType, list);
       bufferOrder.push({ eventType, payload });
+      markUnloadDirty();
       persistBuffers();
       if (totalBufferedCount(buffers) >= config.flushEventThreshold) {
         void dispatchFlushFromBuffer(false);
@@ -581,6 +606,8 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       buffers = createEmptyBuffers();
       bufferOrder = [];
       inFlightChunks = createEmptyChunkBuffers();
+      inFlightOrder = [];
+      markUnloadDirty();
       persistBuffers();
     },
 
@@ -606,14 +633,23 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       if (!config.isOnline()) {
         return;
       }
+      if (lastUnloadFlushVersion === unloadFlushVersion) {
+        return;
+      }
 
       const snapshot = createEmptyBuffers();
+      let hadAny = false;
       for (const eventType of EVENT_TYPES) {
         const items = buffers.get(eventType) ?? [];
         if (items.length > 0) {
+          hadAny = true;
           snapshot.set(eventType, [...items]);
         }
       }
+      if (!hadAny) {
+        return;
+      }
+      lastUnloadFlushVersion = unloadFlushVersion;
       for (const eventType of EVENT_TYPES) {
         const items = snapshot.get(eventType) ?? [];
         for (const chunk of chunkArray(items, config.maxBatchSize)) {
