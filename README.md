@@ -29,6 +29,7 @@ For detailed installation and usage instructions, see the package-specific docum
 
 ### Prerequisites
 
+- Install Node.js 24 (see [`.node-version`](./.node-version))
 - Install [Bun](https://bun.sh/)
 
 ### Setup
