@@ -612,6 +612,82 @@ describe('createBatcher', () => {
     );
   });
 
+  it('drops the oldest buffered event across event types when capped', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('identify', {
+      environment: 'test',
+      device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      distinct_id: 'old-identify',
+      anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      traits: {},
+    });
+    batcher.add('track', createTrackPayload('middle-track'));
+    batcher.add('track', createTrackPayload('newest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-identify');
+    expect(persisted).toContain('middle-track');
+    expect(persisted).toContain('newest-track');
+  });
+
+  it('preserves buffered event order across reload before applying caps', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const firstBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 10,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    firstBatcher.add('identify', {
+      environment: 'test',
+      device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      distinct_id: 'old-identify',
+      anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      traits: {},
+    });
+    firstBatcher.add('track', createTrackPayload('middle-track'));
+    firstBatcher.add('track', createTrackPayload('newest-track'));
+
+    const secondBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    secondBatcher.add('track', createTrackPayload('latest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-identify');
+    expect(persisted).not.toContain('middle-track');
+    expect(persisted).toContain('newest-track');
+    expect(persisted).toContain('latest-track');
+  });
+
   it('keeps in-flight events durable even when they exceed the count cap', () => {
     const store = new Map<string, string>();
     const storage = createMemoryStorage(store);
