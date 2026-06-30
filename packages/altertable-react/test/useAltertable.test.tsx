@@ -55,15 +55,20 @@ function SignupPage() {
 }
 
 describe('useAltertable()', () => {
-  beforeEach(() => {
-    altertable.init('TEST_API_KEY', { autoCapture: false });
-
-    vi.clearAllMocks();
-    vi.spyOn(altertable, 'track').mockImplementation(() => {});
-  });
+  let cleanupAltertable: (() => void) | undefined;
 
   afterEach(() => {
     cleanup();
+    cleanupAltertable?.();
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    cleanupAltertable = altertable.init('TEST_API_KEY', {
+      autoCapture: false,
+    });
+
+    vi.spyOn(altertable, 'track').mockImplementation(() => {});
   });
 
   describe('API', () => {
@@ -207,13 +212,14 @@ describe('useAltertable()', () => {
 });
 
 describe('pre-init behavior', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.resetModules();
-  });
-
-  afterEach(() => {
-    cleanup();
   });
 
   test('calling identify before init works', async () => {

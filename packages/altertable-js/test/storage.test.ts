@@ -6,6 +6,7 @@ import {
 } from '../../../test-utils/mocks/storageMock';
 import { STORAGE_KEY_TEST } from '../src/constants';
 import {
+  selectEventStorage,
   selectStorage,
   type StorageApi,
   type StorageType,
@@ -157,6 +158,63 @@ describe('Storage API', () => {
     });
   });
 
+  describe('Event storage', () => {
+    it('uses localStorage without writing event payloads to cookies for localStorage+cookie persistence', () => {
+      const storage = selectEventStorage('localStorage+cookie', { onFallback });
+
+      storage.setItem('pending-events', '{"event":"test"}');
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        'pending-events',
+        '{"event":"test"}'
+      );
+      expect(mockDocument.cookie).not.toContain('pending-events');
+    });
+
+    it('uses memory instead of cookies for cookie persistence', () => {
+      const storage = selectEventStorage('cookie', { onFallback });
+
+      storage.setItem('pending-events', '{"event":"test"}');
+
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalled();
+      expect(mockDocument.cookie).not.toContain('pending-events');
+      expect(storage.getItem('pending-events')).toBe('{"event":"test"}');
+    });
+
+    it('uses sessionStorage for sessionStorage persistence', () => {
+      const storage = selectEventStorage('sessionStorage', { onFallback });
+
+      storage.setItem('pending-events', '{"event":"test"}');
+
+      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
+        'pending-events',
+        '{"event":"test"}'
+      );
+    });
+
+    it('falls back to memory when sessionStorage event buffering is unavailable', () => {
+      mockSessionStorage.setItem.mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      const storage = selectEventStorage('sessionStorage', { onFallback });
+
+      storage.setItem('pending-events', '{"event":"test"}');
+
+      expect(onFallback).toHaveBeenCalledWith(
+        'sessionStorage not supported for event buffering, falling back to memory.'
+      );
+      expect(storage.getItem('pending-events')).toBe('{"event":"test"}');
+    });
+
+    it('throws for unknown event storage types', () => {
+      expect(() => {
+        selectEventStorage('unknown', { onFallback });
+      }).toThrow(
+        'Unknown storage type: "unknown". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.'
+      );
+    });
+  });
+
   describe('CookieStore', () => {
     let storage: StorageApi;
 
@@ -183,6 +241,18 @@ describe('Storage API', () => {
     it('should return null for non-existent cookies', () => {
       mockDocument.cookie = 'other-cookie=value';
       expect(storage.getItem('test-key')).toBeNull();
+    });
+
+    it('should return null when reading cookies after window becomes unavailable', () => {
+      delete (global as any).window;
+
+      expect(storage.getItem('test-key')).toBeNull();
+    });
+
+    it('should return false when writing cookies after window becomes unavailable', () => {
+      delete (global as any).window;
+
+      expect(storage.setItem('test-key', 'test-value')).toBe(false);
     });
 
     it('should remove cookies', () => {
@@ -257,6 +327,13 @@ describe('Storage API', () => {
       // Should not throw, just ignore the error
       expect(mockLocalStorage.removeItem).toHaveBeenCalled();
     });
+
+    it('should use SSR fallbacks after window becomes unavailable', () => {
+      delete (global as any).window;
+
+      expect(storage.getItem('test-key')).toBeNull();
+      expect(storage.setItem('test-key', 'test-value')).toBe(false);
+    });
   });
 
   describe('WebStorageStore / sessionStorage', () => {
@@ -286,7 +363,7 @@ describe('Storage API', () => {
       cookieValue = '';
 
       // Mock localStorage to work for this test
-      mockLocalStorage.setItem.mockImplementation(() => {});
+      mockLocalStorage.setItem.mockImplementation(() => true);
       mockLocalStorage.removeItem.mockImplementation(() => {});
 
       storage = selectStorage('localStorage+cookie', { onFallback });
@@ -339,7 +416,7 @@ describe('Storage API', () => {
   describe('selectStorage', () => {
     describe('storage support testing', () => {
       it('should test localStorage support correctly', () => {
-        mockLocalStorage.setItem.mockImplementation(() => {});
+        mockLocalStorage.setItem.mockImplementation(() => true);
         mockLocalStorage.removeItem.mockImplementation(() => {});
 
         selectStorage('localStorage', { onFallback });
@@ -354,7 +431,7 @@ describe('Storage API', () => {
       });
 
       it('should test sessionStorage support correctly', () => {
-        mockSessionStorage.setItem.mockImplementation(() => {});
+        mockSessionStorage.setItem.mockImplementation(() => true);
         mockSessionStorage.removeItem.mockImplementation(() => {});
 
         selectStorage('sessionStorage', { onFallback });
@@ -405,7 +482,7 @@ describe('Storage API', () => {
 
       it('should fallback to localStorage when cookie is not supported', () => {
         // Mock localStorage to work
-        mockLocalStorage.setItem.mockImplementation(() => {});
+        mockLocalStorage.setItem.mockImplementation(() => true);
         mockLocalStorage.removeItem.mockImplementation(() => {});
 
         disableCookieSupport();

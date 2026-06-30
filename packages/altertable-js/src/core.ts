@@ -33,6 +33,7 @@ import { captureRuntimeContext, RuntimeContext } from './lib/runtimeContext';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
+  selectEventStorage,
   selectStorage,
   type StorageApi,
   type StorageType,
@@ -84,6 +85,12 @@ export interface AltertableConfig {
    */
   persistence?: StorageType;
   /**
+   * The persistence strategy for unsent event payloads. Defaults to the same
+   * value as `persistence`. Set to `false` to keep offline event buffering
+   * in memory only.
+   */
+  eventPersistence?: StorageType | false;
+  /**
    * The tracking consent state.
    * @default "granted"
    */
@@ -125,7 +132,9 @@ type ResolvedAltertableConfig = Omit<
   AltertableConfig,
   ResolvedAltertableConfigKeys
 > &
-  Required<Pick<AltertableConfig, ResolvedAltertableConfigKeys>>;
+  Required<Pick<AltertableConfig, ResolvedAltertableConfigKeys>> & {
+    eventPersistence: StorageType | false;
+  };
 
 const DEFAULT_CONFIG: ResolvedAltertableConfig = {
   autoCapture: true,
@@ -136,6 +145,7 @@ const DEFAULT_CONFIG: ResolvedAltertableConfig = {
   flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
   maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
   persistence: 'localStorage+cookie',
+  eventPersistence: 'localStorage+cookie',
   release: undefined,
   trackingConsent: TrackingConsent.GRANTED,
 };
@@ -144,13 +154,18 @@ function resolveAltertableConfig(
   partial: AltertableConfig
 ): ResolvedAltertableConfig {
   const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...partial };
+  const persistence = merged.persistence ?? DEFAULT_CONFIG.persistence;
   return {
     ...merged,
     baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
     environment: merged.environment ?? DEFAULT_CONFIG.environment,
     autoCapture: merged.autoCapture ?? DEFAULT_CONFIG.autoCapture,
     debug: merged.debug ?? DEFAULT_CONFIG.debug,
-    persistence: merged.persistence ?? DEFAULT_CONFIG.persistence,
+    persistence,
+    eventPersistence:
+      partial.eventPersistence === undefined
+        ? persistence
+        : partial.eventPersistence,
     trackingConsent: merged.trackingConsent ?? DEFAULT_CONFIG.trackingConsent,
     flushEventThreshold: Math.max(
       1,
@@ -176,7 +191,10 @@ export class Altertable {
   private _referrer: string | null;
   private _requester: Requester<EventPayload> | undefined;
   private _sessionManager: SessionManager | undefined;
+  private _eventStorage: StorageApi | undefined;
+  private _eventPersistenceConfigured = false;
   private _storage: StorageApi | undefined;
+  private _eventStorageKey: string | undefined;
   private _storageKey: string | undefined;
 
   constructor() {
@@ -226,7 +244,13 @@ export class Altertable {
     }
 
     this._config = resolveAltertableConfig(config);
+    this._eventPersistenceConfigured = config.eventPersistence !== undefined;
     this._storageKey = keyBuilder(apiKey, this._config.environment);
+    this._eventStorageKey = keyBuilder(
+      apiKey,
+      this._config.environment,
+      'events'
+    );
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -238,6 +262,9 @@ export class Altertable {
     this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
+    this._eventStorage = this._selectEventStorage(
+      this._config.eventPersistence
+    );
     this._requester = new Requester({
       baseUrl: this._config.baseUrl,
       apiKey,
@@ -250,6 +277,8 @@ export class Altertable {
       flushEventThreshold: this._config.flushEventThreshold,
       flushIntervalMs: this._config.flushIntervalMs,
       maxBatchSize: this._config.maxBatchSize,
+      persistence: this._getBatcherPersistence(),
+      isOnline: () => this._isOnline(),
       send: async (eventType, payloads) => {
         try {
           await this._requester.sendBatch(`/${eventType}`, payloads);
@@ -321,15 +350,46 @@ export class Altertable {
       this._handleAutoCaptureChange(updates.autoCapture);
     }
 
+    const nextUpdates = { ...updates };
     if (
       updates.persistence !== undefined &&
-      updates.persistence !== this._config.persistence
+      updates.eventPersistence === undefined &&
+      !this._eventPersistenceConfigured
     ) {
+      nextUpdates.eventPersistence = updates.persistence;
+    }
+    const nextConfig = resolveAltertableConfig({
+      ...this._config,
+      ...nextUpdates,
+    });
+
+    if (updates.eventPersistence !== undefined) {
+      this._eventPersistenceConfigured = true;
+    }
+
+    if (nextConfig.persistence !== this._config.persistence) {
       const previousStorage = this._storage;
-      this._storage = selectStorage(updates.persistence, {
+      this._storage = selectStorage(nextConfig.persistence, {
         onFallback: message => this._logger.warn(message),
       });
       this._storage.migrate(previousStorage, [this._storageKey]);
+    }
+
+    if (nextConfig.eventPersistence !== this._config.eventPersistence) {
+      const previousEventStorage = this._eventStorage;
+      this._eventStorage = this._selectEventStorage(
+        nextConfig.eventPersistence
+      );
+      if (previousEventStorage && this._eventStorage) {
+        this._eventStorage.migrate(previousEventStorage, [
+          this._eventStorageKey,
+        ]);
+      } else if (previousEventStorage && !this._eventStorage) {
+        previousEventStorage.removeItem(this._eventStorageKey);
+      }
+      this._batcher.updateConfig({
+        persistence: this._getBatcherPersistence(),
+      });
     }
 
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
@@ -352,7 +412,7 @@ export class Altertable {
       }
     }
 
-    this._config = resolveAltertableConfig({ ...this._config, ...updates });
+    this._config = nextConfig;
 
     if (
       updates.flushEventThreshold !== undefined ||
@@ -753,10 +813,11 @@ export class Altertable {
   }
 
   /**
-   * Flushes all buffered events to the API. Resolves when every HTTP request **started by this
-   * flush** has finished. Overlapping flushes (for example a manual `flush()` while the interval
-   * timer also flushes) are independent: each call only waits on its own requests, not on sends
-   * from other concurrent flushes.
+   * Flushes buffered events to the API when the browser is online. If the browser reports offline,
+   * this resolves without sending and keeps the durable buffer queued for the next online retry.
+   * Resolves when every HTTP request **started by this flush** has finished. Overlapping flushes
+   * (for example a manual `flush()` while the interval timer also flushes) are independent: each
+   * call only waits on its own requests, not on sends from other concurrent flushes.
    *
    * @example
    * ```javascript
@@ -854,6 +915,10 @@ export class Altertable {
           });
         };
 
+        const flushOnline = () => {
+          void this._batcher.flush();
+        };
+
         const onVisibilityChange = () => {
           if (window.document.visibilityState !== 'hidden') {
             return;
@@ -869,6 +934,7 @@ export class Altertable {
           'visibilitychange',
           onVisibilityChange
         );
+        window.addEventListener('online', flushOnline);
         window.addEventListener('pagehide', onPageHide);
 
         return () => {
@@ -876,6 +942,7 @@ export class Altertable {
             'visibilitychange',
             onVisibilityChange
           );
+          window.removeEventListener('online', flushOnline);
           window.removeEventListener('pagehide', onPageHide);
         };
       },
@@ -883,6 +950,33 @@ export class Altertable {
         // No-op cleanup when not in a browser environment.
       }
     );
+  }
+
+  private _isOnline(): boolean {
+    return safelyRunOnBrowser(
+      ({ window }) => window.navigator?.onLine !== false,
+      () => true
+    );
+  }
+
+  private _selectEventStorage(eventPersistence: StorageType | false) {
+    if (eventPersistence === false) {
+      return undefined;
+    }
+    return selectEventStorage(eventPersistence, {
+      onFallback: message => this._logger.warn(message),
+    });
+  }
+
+  private _getBatcherPersistence() {
+    if (!this._eventStorage) {
+      return undefined;
+    }
+    return {
+      storage: this._eventStorage,
+      storageKey: this._eventStorageKey,
+      onFallback: (message: string) => this._logger.warn(message),
+    };
   }
 
   private _getContext(): AltertableContext {
