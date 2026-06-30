@@ -36,7 +36,7 @@ jobs:
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
