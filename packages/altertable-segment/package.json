@@ -5,7 +5,10 @@
   "private": true,
   "license": "MIT",
   "homepage": "https://github.com/altertable-ai/altertable-js",
-  "repository": "altertable-ai/altertable-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/altertable-ai/altertable-js.git"
+  },
   "author": {
     "name": "Altertable",
     "url": "https://altertable.ai"
