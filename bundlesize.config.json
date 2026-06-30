@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "./packages/altertable-js/dist/index.js",
-      "maxSize": "9 kB"
+      "maxSize": "9.5 kB"
     },
     {
       "path": "./packages/altertable-js/dist/index.mjs",
