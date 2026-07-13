@@ -8,12 +8,3 @@ updates:
       prefix: chore
       prefix-development: chore
       include: scope
-
-  - package-ecosystem: bun
-    directory: /examples/example-react
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: chore
-      prefix-development: chore
-      include: scope
