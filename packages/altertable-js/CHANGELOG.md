@@ -19,7 +19,7 @@
 
 ## [1.0.4] - 2025-12-31
 
-- Rename the anonymous identity field from `visitorId` to `anonymousId` in public types and payloads ([#110](https://github.com/altertable-ai/altertable-js/pull/110))  
+- Rename the anonymous identity field from `visitorId` to `anonymousId` in public types and payloads ([#110](https://github.com/altertable-ai/altertable-js/pull/110))
 
 ## [1.0.3] - 2025-12-16
 
