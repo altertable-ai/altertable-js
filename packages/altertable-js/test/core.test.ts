@@ -450,6 +450,243 @@ describe('Altertable', () => {
   });
 
   describe('tracking', () => {
+    describe('transformEvent', () => {
+      it('transforms automatically captured page views after the payload is constructed', () => {
+        setupWindow({ url: 'http://localhost/articles/analytics?source=rss' });
+        const transformEvent = vi.fn(event => ({
+          ...event,
+          properties: {
+            ...event.properties,
+            article_title: 'Analytics without friction',
+            tags: ['analytics', 'sdk'],
+          },
+        }));
+
+        expect(() => {
+          setupAltertable({ autoCapture: true, transformEvent });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/articles/analytics',
+              source: 'rss',
+              article_title: 'Analytics without friction',
+              tags: ['analytics', 'sdk'],
+            }),
+          }),
+        });
+
+        expect(transformEvent).toHaveBeenCalledTimes(1);
+        expect(transformEvent).toHaveBeenCalledWith({
+          event: EVENT_PAGEVIEW,
+          timestamp: expect.stringMatching(REGEXP_DATE_ISO),
+          environment: 'production',
+          device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+          distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
+          anonymous_id: null,
+          session_id: expect.stringMatching(REGEXP_SESSION_ID),
+          properties: expect.objectContaining({
+            [PROPERTY_LIB]: 'TEST_LIB_NAME',
+            [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
+            [PROPERTY_URL]: 'http://localhost/articles/analytics',
+            [PROPERTY_VIEWPORT]: viewPort,
+            [PROPERTY_REFERER]: null,
+            source: 'rss',
+          }),
+        });
+      });
+
+      it('transforms manually tracked events', () => {
+        setupAltertable({
+          transformEvent: event => ({
+            ...event,
+            event: `Web: ${event.event}`,
+            properties: {
+              ...event.properties,
+              application: 'dashboard',
+            },
+          }),
+        });
+
+        expect(() => {
+          altertable.track('Button Clicked', { button: 'save' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'Web: Button Clicked',
+            properties: expect.objectContaining({
+              button: 'save',
+              application: 'dashboard',
+            }),
+          }),
+        });
+      });
+
+      it('discards an event when the transformer returns null', () => {
+        setupAltertable({ transformEvent: () => null });
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.track('Sensitive Event');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(altertable['_queue'].getSize()).toBe(0);
+      });
+
+      it('uses the transformer configured after initialization', () => {
+        setupAltertable();
+        altertable.configure({
+          transformEvent: event => ({
+            ...event,
+            properties: { ...event.properties, configured: true },
+          }),
+        });
+
+        expect(() => {
+          altertable.track('Configured Event');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            properties: expect.objectContaining({ configured: true }),
+          }),
+        });
+      });
+
+      it('allows disabling a configured transformer', () => {
+        setupAltertable({ transformEvent: () => null });
+        altertable.configure({ transformEvent: undefined });
+
+        expect(() => {
+          altertable.track('Untransformed Event');
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({ event: 'Untransformed Event' }),
+        });
+      });
+
+      it('applies the configured transformer when replaying pre-init events', () => {
+        const client = new Altertable();
+        client.track('Queued Event', { queued: true });
+
+        expect(() => {
+          client.init(apiKey, {
+            baseUrl: 'http://localhost',
+            autoCapture: false,
+            trackingConsent: 'granted',
+            persistence: 'memory',
+            flushEventThreshold: 1,
+            flushIntervalMs: 86_400_000,
+            transformEvent: event => ({
+              ...event,
+              properties: { ...event.properties, transformed: true },
+            }),
+          });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'Queued Event',
+            properties: expect.objectContaining({
+              queued: true,
+              transformed: true,
+            }),
+          }),
+        });
+      });
+
+      it('transforms consent-pending events once before replay', () => {
+        const transformEvent = vi.fn(event => ({
+          ...event,
+          properties: { ...event.properties, transformed: true },
+        }));
+        setupAltertable({ trackingConsent: 'pending', transformEvent });
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.track('Pending Event');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(transformEvent).toHaveBeenCalledOnce();
+
+        expect(() => {
+          altertable.configure({ trackingConsent: 'granted' });
+        }).toRequestApi('/track', {
+          payload: expect.objectContaining({
+            event: 'Pending Event',
+            properties: expect.objectContaining({ transformed: true }),
+          }),
+        });
+        expect(transformEvent).toHaveBeenCalledOnce();
+      });
+
+      it('does not transform identity or alias payloads', () => {
+        const transformEvent = vi.fn(event => event);
+        setupAltertable({ transformEvent });
+
+        altertable.identify('user-123', { plan: 'pro' });
+        altertable.updateTraits({ role: 'admin' });
+        altertable.alias('merged-user-123');
+
+        expect(transformEvent).not.toHaveBeenCalled();
+      });
+
+      it('drops the event and reports transformer errors', () => {
+        const transformError = new Error('Could not redact event');
+        const onError = vi.fn();
+        setupAltertable({
+          onError,
+          transformEvent: () => {
+            throw transformError;
+          },
+        });
+        const errorSpy = vi.spyOn(altertable['_logger'], 'error');
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockClear();
+
+        altertable.track('Sensitive Event', { secret: 'redact-me' });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledOnce();
+        expect(onError).toHaveBeenCalledWith(transformError);
+        expect(errorSpy).toHaveBeenCalledWith('Failed to transform event', {
+          error: transformError,
+        });
+        expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('redact-me');
+      });
+
+      it('normalizes non-Error values thrown by the transformer', () => {
+        const onError = vi.fn();
+        const throwUnknown = (value: unknown): never => {
+          throw value;
+        };
+        setupAltertable({
+          onError,
+          transformEvent: () => throwUnknown('transform failed'),
+        });
+
+        altertable.track('Broken Event');
+
+        expect(onError).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'transform failed' })
+        );
+      });
+
+      it('logs the transformed payload in debug mode', () => {
+        setupAltertable({
+          debug: true,
+          transformEvent: event => ({
+            ...event,
+            properties: { ...event.properties, transformed: true },
+          }),
+        });
+        const logEventSpy = vi.spyOn(altertable['_logger'], 'logEvent');
+
+        altertable.track('Debug Event');
+
+        expect(logEventSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            properties: expect.objectContaining({ transformed: true }),
+          }),
+          { trackingConsent: 'granted' }
+        );
+      });
+    });
+
     describe('track() method', () => {
       it('sends track event with custom properties', () => {
         setupAltertable();

@@ -50,6 +50,7 @@ import {
   EventType,
   IdentifyPayload,
   TrackPayload,
+  TransformEvent,
   UserTraits,
 } from './types';
 
@@ -99,6 +100,13 @@ export interface AltertableConfig {
    * Optional error handler for intercepting SDK errors.
    */
   onError?: (error: Error) => void;
+  /**
+   * Transforms fully constructed track events before they are queued or sent.
+   * This includes automatically captured page views. Return `null` to discard
+   * an event. If the callback throws, the event is discarded and the error is
+   * passed to `onError` when configured.
+   */
+  transformEvent?: TransformEvent;
   /**
    * Flush when the combined number of queued events (all types) reaches this count.
    * @default 20
@@ -783,11 +791,34 @@ export class Altertable {
       },
     };
 
-    this._processEvent('track', payload);
+    const transformedPayload = this._transformEvent(payload);
+    if (!transformedPayload) {
+      return;
+    }
+
+    this._processEvent('track', transformedPayload);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
-      this._logger.logEvent(payload, { trackingConsent });
+      this._logger.logEvent(transformedPayload, { trackingConsent });
+    }
+  }
+
+  private _transformEvent(payload: TrackPayload): TrackPayload | null {
+    if (!this._config.transformEvent) {
+      return payload;
+    }
+
+    try {
+      return this._config.transformEvent(payload);
+    } catch (error) {
+      const transformError =
+        error instanceof Error ? error : new Error(String(error));
+      this._config.onError?.(transformError);
+      this._logger.error('Failed to transform event', {
+        error: transformError,
+      });
+      return null;
     }
   }
 

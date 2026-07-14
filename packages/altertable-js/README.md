@@ -137,6 +137,56 @@ altertable.page('https://example.com/products');
 > - Virtual page views that don't trigger URL changes (modals, step changes)
 > - Server-side tracking where auto-capture isn't available
 
+#### Transforming events
+
+Use `transformEvent` to customize a fully constructed track event before the
+SDK queues, persists, or sends it. The transformer also runs for automatically
+captured page views, so you can enrich them without disabling `autoCapture` or
+adding router-specific tracking code.
+
+```typescript
+altertable.init('YOUR_API_KEY', {
+  transformEvent(event) {
+    if (event.event === '$pageview') {
+      return {
+        ...event,
+        properties: {
+          ...event.properties,
+          title: document.title,
+          content_group: 'documentation',
+        },
+      };
+    }
+
+    return event;
+  },
+});
+```
+
+The callback receives the complete [`TrackPayload`](#trackpayload), including
+the event name, generated context, timestamp, and default properties. It runs
+synchronously for events created by `track()` and `page()`; identity and alias
+payloads are not transformed.
+
+Return `null` to discard an event:
+
+```typescript
+altertable.init('YOUR_API_KEY', {
+  transformEvent(event) {
+    if (event.properties.internal_traffic === true) {
+      return null;
+    }
+
+    return event;
+  },
+});
+```
+
+If the transformer throws, Altertable discards the event instead of sending
+the original payload. The error is logged and passed to `onError` when an error
+handler is configured. You can replace `transformEvent` at runtime with
+`altertable.configure({ transformEvent })`.
+
 ### User Identification
 
 #### `altertable.identify(userId, traits?)`
@@ -193,7 +243,7 @@ Links a new ID to the current identity.
 **Example:**
 
 ```javascript
-altertable.alias("new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd");
+altertable.alias('new_user_id-019aca6a-1e42-71af-81a0-1e14bbe2ccbd');
 ```
 
 ### Session Management
@@ -204,10 +254,10 @@ Resets the current identity context so future events are not associated with the
 
 **Parameters:**
 
-| Parameter                | Type      | Required | Default | Description                 |
-| ------------------------ | --------- | -------- | ------- | --------------------------- |
-| `options`                | `object`  | No       | `{}`    | Reset options               |
-| `options.resetDeviceId`  | `boolean` | No       | `false` | Whether to reset device ID  |
+| Parameter               | Type      | Required | Default | Description                |
+| ----------------------- | --------- | -------- | ------- | -------------------------- |
+| `options`               | `object`  | No       | `{}`    | Reset options              |
+| `options.resetDeviceId` | `boolean` | No       | `false` | Whether to reset device ID |
 
 **Example:**
 
@@ -264,20 +314,21 @@ if (consent === 'granted') {
 
 Configuration options for the Altertable SDK.
 
-| Property              | Type                                          | Default                       | Description                                             |
-| --------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------------------------- |
-| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"` | The base URL of the Altertable API                      |
-| `environment`         | `string`                                      | `"production"`                | The environment of the application                      |
-| `autoCapture`         | `boolean`                                     | `true`                        | Whether to automatically capture page views and events  |
-| `release`             | `string`                                      | -                             | The release ID of the application                       |
-| `debug`               | `boolean`                                     | `false`                       | Whether to log events to the console                    |
-| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs                        |
-| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`         | The persistence strategy for unsent event payloads      |
-| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                              |
-| `onError`             | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                         |
-| `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count    |
-| `flushIntervalMs`     | `number`                                      | `150`                         | Periodic batch flush interval (ms)                      |
-| `maxBatchSize`        | `number`                                      | `20`                          | Max payloads per HTTP request                           |
+| Property              | Type                                          | Default                       | Description                                            |
+| --------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"` | The base URL of the Altertable API                     |
+| `environment`         | `string`                                      | `"production"`                | The environment of the application                     |
+| `autoCapture`         | `boolean`                                     | `true`                        | Whether to automatically capture page views and events |
+| `release`             | `string`                                      | -                             | The release ID of the application                      |
+| `debug`               | `boolean`                                     | `false`                       | Whether to log events to the console                   |
+| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs                       |
+| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`         | The persistence strategy for unsent event payloads     |
+| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
+| `onError`             | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                        |
+| `transformEvent`      | [`TransformEvent`](#transformevent)           | -                             | Transform or discard track and page-view events        |
+| `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count   |
+| `flushIntervalMs`     | `number`                                      | `150`                         | Periodic batch flush interval (ms)                     |
+| `maxBatchSize`        | `number`                                      | `20`                          | Max payloads per HTTP request                          |
 
 #### Offline Delivery
 
@@ -310,6 +361,32 @@ type EventProperties = Record<string, unknown>;
   user_type: 'premium'
 }
 ```
+
+### `TrackPayload`
+
+The complete payload passed to `transformEvent` and sent to the track API.
+
+```typescript
+type TrackPayload = {
+  event: string;
+  properties: EventProperties;
+  timestamp: string;
+  environment: string;
+  device_id: `device-${string}`;
+  distinct_id: string;
+  anonymous_id: `anonymous-${string}` | null;
+  session_id: `session-${string}`;
+};
+```
+
+### `TransformEvent`
+
+```typescript
+type TransformEvent = (event: TrackPayload) => TrackPayload | null;
+```
+
+`EventProperties`, `TrackPayload`, and `TransformEvent` are exported from
+`@altertable/altertable-js` for use in application code.
 
 ### `UserTraits`
 

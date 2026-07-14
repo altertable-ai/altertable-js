@@ -33,6 +33,12 @@ export type TrackPayload = AltertableContext & {
   timestamp: string;
 };
 
+/**
+ * Transforms a fully constructed track event before it is queued or sent.
+ * Return `null` to discard the event.
+ */
+export type TransformEvent = (event: TrackPayload) => TrackPayload | null;
+
 export type IdentifyPayload = Omit<AltertableContext, 'session_id'> & {
   traits: UserTraits;
 };
