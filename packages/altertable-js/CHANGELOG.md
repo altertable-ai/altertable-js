@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.1.0...altertable-js-v1.2.0) (2026-07-15)
+
+
+### Features
+
+* **core:** add transformEvent for track payload customization ([b3985f0](https://github.com/altertable-ai/altertable-js/commit/b3985f05488bbb88c5543f4e1e4c88dab9d76bc5))
+
 ## [1.1.0] - 2026-06-30
 
 - Batch events before sending, with HTTP retries and unload flush so events are not lost when the tab closes ([#125](https://github.com/altertable-ai/altertable-js/pull/125))

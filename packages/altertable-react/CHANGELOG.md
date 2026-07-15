@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.1.0...altertable-react-v1.2.0) (2026-07-15)
+
+
+### Miscellaneous Chores
+
+* **altertable-react:** Synchronize altertable-sdk versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.1.0 to ^1.2.0
+
 ## [1.1.0] - 2026-06-30
 
 - Add `useScreenView()` and `useView()` hooks for screen and element visibility tracking ([#136](https://github.com/altertable-ai/altertable-js/pull/136))
