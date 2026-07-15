@@ -8,6 +8,10 @@
     "type": "git",
     "url": "git+https://github.com/altertable-ai/altertable-js.git"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "author": {
     "name": "Altertable",
     "url": "https://altertable.ai"
