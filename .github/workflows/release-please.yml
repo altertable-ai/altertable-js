@@ -4,10 +4,22 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Existing package version to publish from main
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - altertable-js
+          - altertable-react
 
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   release-please:
@@ -15,6 +27,7 @@ jobs:
     steps:
       - name: Run release-please
         id: release
+        if: ${{ github.event_name == 'push' }}
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -22,39 +35,40 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       - name: Checkout
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
         uses: actions/checkout@v4
 
       - name: Set up Node.js
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
 
       - name: Set up Bun
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
 
+      - name: Set up npm for trusted publishing
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
+        run: npm install --global npm@11.18.0
+
       - name: Install dependencies
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
         run: bun install --frozen-lockfile
 
       - name: Build
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.releases_created == 'true' }}
         run: bun run build
 
       - name: Publish @altertable/altertable-js
-        if: ${{ steps.release.outputs['packages/altertable-js--release_created'] == 'true' }}
-        run: bun publish --access public
+        if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.package == 'all' || inputs.package == 'altertable-js')) || steps.release.outputs['packages/altertable-js--release_created'] == 'true' }}
+        run: npm publish --access public
         working-directory: packages/altertable-js
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @altertable/altertable-react
-        if: ${{ steps.release.outputs['packages/altertable-react--release_created'] == 'true' }}
-        run: bun publish --access public
+        if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.package == 'all' || inputs.package == 'altertable-react')) || steps.release.outputs['packages/altertable-react--release_created'] == 'true' }}
+        run: npm publish --access public
         working-directory: packages/altertable-react
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
