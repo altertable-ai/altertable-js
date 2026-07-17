@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.1.0...altertable-js-v1.2.0) (2026-07-15)
+
+
+### Features
+
+* **core:** add transformEvent for track payload customization ([b3985f0](https://github.com/altertable-ai/altertable-js/commit/b3985f05488bbb88c5543f4e1e4c88dab9d76bc5))
+
+## [1.1.0] - 2026-06-30
+
+- Batch events before sending, with HTTP retries and unload flush so events are not lost when the tab closes ([#125](https://github.com/altertable-ai/altertable-js/pull/125))
+- Offline support: persist queued events to storage and replay when connectivity returns ([#137](https://github.com/altertable-ai/altertable-js/pull/137))
+
 ## [1.0.7] - 2026-01-12
 
 - `identify()` logs warnings instead of throwing when called with invalid arguments ([#115](https://github.com/altertable-ai/altertable-js/pull/115))
@@ -14,7 +26,7 @@
 
 ## [1.0.4] - 2025-12-31
 
-- Rename the anonymous identity field from `visitorId` to `anonymousId` in public types and payloads ([#110](https://github.com/altertable-ai/altertable-js/pull/110))  
+- Rename the anonymous identity field from `visitorId` to `anonymousId` in public types and payloads ([#110](https://github.com/altertable-ai/altertable-js/pull/110))
 
 ## [1.0.3] - 2025-12-16
 
@@ -89,6 +101,7 @@
 
 - Initial published package layout under the current package name ([#26](https://github.com/altertable-ai/altertable-js/pull/26), [#28](https://github.com/altertable-ai/altertable-js/pull/28))
 
+[1.1.0]: https://github.com/altertable-ai/altertable-js/compare/v1.0.7...v1.1.0
 [1.0.7]: https://github.com/altertable-ai/altertable-js/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/altertable-ai/altertable-js/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/altertable-ai/altertable-js/compare/v1.0.3...v1.0.5

@@ -86,6 +86,7 @@ function SignupPage() {
 - **Privacy compliance** – Built-in tracking consent management
 - **Multiple storage options** – localStorage, cookies, or both
 - **Type-safe funnel tracking** – Define funnel steps with TypeScript for compile-time safety
+- **React view tracking** – Track screen and component views without Strict Mode duplicates
 - **React Hooks** – Easy-to-use Hooks for tracking events and managing funnels
 - **Context provider** – Share Altertable instance across your React component tree
 - **Zero dependencies** – Only depends on React and the core Altertable SDK
@@ -145,7 +146,7 @@ Returns an object with tracking methods and funnel utilities.
 | `updateTraits`       | `(traits: UserTraits) => void`                                   | Update user traits                                                                             |
 | `configure`          | `(updates: Partial<AltertableConfig>) => void`                   | Update configuration                                                                           |
 | `getTrackingConsent` | `() => TrackingConsentType`                                      | Get current consent state                                                                      |
-| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { track: FunnelTracker }` | Get funnel-specific tracker                                                                    |
+| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { trackStep: (...) => void }` | Get funnel-specific tracker                                                                |
 
 **Example:**
 
@@ -259,6 +260,78 @@ function SignupPage() {
 }
 ```
 
+#### `useScreenView(name, options?)`
+
+Tracks a screen view when the component mounts.
+
+Sends a `$screen` event with `$view_name`, `$view_type`, and `$view_id` when an `id` is provided.
+
+Use this hook for virtual screens that are not already represented by a page URL, such as app tabs, modal routes, embedded flows, or entity-specific screens. For full-page navigation, prefer Altertable's automatic pageview capture, which is enabled by default in the core SDK.
+
+**Example:**
+
+```tsx
+import { useScreenView } from '@altertable/altertable-react';
+
+function DashboardScreen({ dashboard }: { dashboard: Dashboard }) {
+  useScreenView('Dashboard', {
+    id: dashboard.id,
+    properties: { dashboardId: dashboard.id },
+  });
+
+  return <DashboardBody />;
+}
+```
+
+The hook sends once per screen identity. Properties are captured from the first render where tracking is eligible; later property changes for the same `name` and `id` do not send another event. The hook also prevents React Strict Mode effect replay from sending duplicate screen events in development.
+
+**Options:**
+
+| Property     | Type                      | Description                                                                 |
+| ------------ | ------------------------- | --------------------------------------------------------------------------- |
+| `id`         | `string`                  | Stable identifier for this screen instance within `name`. Use when multiple screens share the same name — typically the entity id, e.g. `id: dashboard.id` for each dashboard using the screen name `Dashboard`. |
+| `properties` | `Record<string, unknown>` | Additional properties to include with the screen event.                     |
+| `disabled`   | `boolean`                 | Prevents the screen event from being sent.                                  |
+
+#### `useView(name, options?)`
+
+Tracks a view when the referenced element becomes visible.
+
+Returns `{ viewRef }`, a callback ref to attach to the root element of the view to track.
+
+Sends a `$view` event with `$view_name`, `$view_type`, and `$view_id` when an `id` is provided.
+
+Use this hook for meaningful parts of a screen, such as cards, sections, dashboard insights, or embedded panels. It is not a replacement for full-page pageview capture.
+
+**Example:**
+
+```tsx
+import { useView } from '@altertable/altertable-react';
+
+function InsightCard({ insight }: { insight: Insight }) {
+  const { viewRef } = useView<HTMLDivElement>('Insight', {
+    id: insight.id,
+    properties: { insightId: insight.id, kind: insight.kind },
+  });
+
+  return <div ref={viewRef}>{insight.title}</div>;
+}
+```
+
+The hook sends once per view identity when the element becomes visible. Properties are captured from the latest render before the first visible event; later property changes for the same `name` and `id` do not send another event. The hook also prevents React Strict Mode effect replay from sending duplicate view events in development.
+
+**Options:**
+
+| Property                | Type                        | Description                                                                                                                                                                                                                                                                 |
+| ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | `string`                    | Stable identifier for this view instance within `name`. Use when multiple views share the same name — typically the entity id, e.g. `id: insight.id` for each insight card using the view name `Insight`.                                                                                                                                  |
+| `properties`            | `Record<string, unknown>`   | Additional properties to include with the view event.                                                                                                                                                                                                                       |
+| `disabled`              | `boolean`                   | Prevents the view event from being sent.                                                                                                                                                                                                                                    |
+| `visibility`            | `ViewVisibilityOptions`     | Visibility settings for the underlying [`IntersectionObserver`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver).                                                                                                                                           |
+| `visibility.root`       | `Element \| Document \| null` | The element used as the viewport for checking visibility of the target. Defaults to `null`. See [`IntersectionObserver`: `root`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#root).                                              |
+| `visibility.rootMargin` | `string`                    | Offsets applied to the root's bounding box before intersection tests, using the same syntax as the CSS `margin` property. See [`IntersectionObserver`: `rootMargin`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#rootmargin).   |
+| `visibility.threshold`  | `number \| number[]`        | One or more visibility ratios at which the observer callback runs. A value of `0` fires when any pixel becomes visible; `1.0` fires when the target is fully visible. Defaults to `0`. See [`IntersectionObserver`: `threshold`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#threshold). |
+
 ## Types
 
 ### `AltertableConfig`
@@ -317,19 +390,6 @@ type FunnelStep = {
 | ------------ | ---------------------- | -------- | --------------------------------- |
 | `name`       | `string`               | Yes      | The name of the funnel step       |
 | `properties` | `FunnelStepProperties` | No       | Expected properties for this step |
-
-### `FunnelTracker`
-
-Type-safe tracker for a specific funnel.
-
-```typescript
-type FunnelTracker = {
-  trackStep: (
-    stepName: FunnelStepName,
-    properties?: FunnelStepProperties
-  ) => void;
-};
-```
 
 ## License
 

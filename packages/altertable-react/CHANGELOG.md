@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.1.0...altertable-react-v1.2.0) (2026-07-15)
+
+
+### Miscellaneous Chores
+
+* **altertable-react:** Synchronize altertable-sdk versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.1.0 to ^1.2.0
+
+## [1.1.0] - 2026-06-30
+
+- Add `useScreenView()` and `useView()` hooks for screen and element visibility tracking ([#136](https://github.com/altertable-ai/altertable-js/pull/136))
+- Stabilize funnel tracker identity from `selectFunnel()` so `trackStep` references stay stable across renders ([#134](https://github.com/altertable-ai/altertable-js/pull/134))
+- Depends on `@altertable/altertable-js` 1.1.0: event batching with retries and unload flush, offline queued events ([#125](https://github.com/altertable-ai/altertable-js/pull/125), [#137](https://github.com/altertable-ai/altertable-js/pull/137))
+
 ## [1.0.7] - 2026-01-12
 
 - Depends on `@altertable/altertable-js` 1.0.7: `identify()` warnings instead of throws for invalid input ([#115](https://github.com/altertable-ai/altertable-js/pull/115), [#116](https://github.com/altertable-ai/altertable-js/pull/116))
@@ -80,6 +100,7 @@
 
 - Initial published React package under the current name ([#26](https://github.com/altertable-ai/altertable-js/pull/26), [#28](https://github.com/altertable-ai/altertable-js/pull/28))
 
+[1.1.0]: https://github.com/altertable-ai/altertable-js/compare/v1.0.7...v1.1.0
 [1.0.7]: https://github.com/altertable-ai/altertable-js/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/altertable-ai/altertable-js/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/altertable-ai/altertable-js/compare/v1.0.3...v1.0.5

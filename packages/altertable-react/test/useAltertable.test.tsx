@@ -1,9 +1,19 @@
 import { type Altertable, altertable } from '@altertable/altertable-js';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import React, { useEffect } from 'react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { AltertableProvider, type FunnelMapping, useAltertable } from '../src';
+import {
+  AltertableProvider,
+  type FunnelMapping,
+  useAltertable,
+} from '../src';
 
 interface SignupFunnelMapping extends FunnelMapping {
   signup: [
@@ -45,19 +55,30 @@ function SignupPage() {
 }
 
 describe('useAltertable()', () => {
-  beforeEach(() => {
-    altertable.init('TEST_API_KEY');
+  let cleanupAltertable: (() => void) | undefined;
 
-    vi.clearAllMocks();
+  afterEach(() => {
+    cleanup();
+    cleanupAltertable?.();
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    cleanupAltertable = altertable.init('TEST_API_KEY', {
+      autoCapture: false,
+    });
+
     vi.spyOn(altertable, 'track').mockImplementation(() => {});
   });
 
   describe('API', () => {
     type UseAltertableReturn = ReturnType<typeof useAltertable>;
-    const REACT_ONLY_METHODS: Array<keyof UseAltertableReturn> = [
+    type UseAltertableMethod = Extract<keyof UseAltertableReturn, string>;
+    type AltertableMethod = Extract<keyof Altertable, string>;
+    const REACT_ONLY_METHODS: UseAltertableMethod[] = [
       'selectFunnel',
     ];
-    const CORE_ONLY_METHODS: Array<keyof Altertable> = [
+    const CORE_ONLY_METHODS: AltertableMethod[] = [
       'init', // Handled by <AltertableProvider>, not exposed via useAltertable()
     ];
 
@@ -78,10 +99,10 @@ describe('useAltertable()', () => {
       const coreMethods = Object.getOwnPropertyNames(
         Object.getPrototypeOf(altertable)
       ).filter(
-        (m): m is keyof Altertable =>
+        (m): m is AltertableMethod =>
           m !== 'constructor' &&
           !m.startsWith('_') &&
-          !CORE_ONLY_METHODS.includes(m as keyof Altertable)
+          !CORE_ONLY_METHODS.includes(m as AltertableMethod)
       );
 
       for (const method of coreMethods) {
@@ -129,9 +150,73 @@ describe('useAltertable()', () => {
       userId: 'test',
     });
   });
+
+  test('returns stable funnel objects from selectFunnel', async () => {
+    const renders: Array<{
+      funnel: unknown;
+      trackStep: unknown;
+    }> = [];
+
+    function StableFunnelPage({ label }: { label: string }) {
+      const { selectFunnel } = useAltertable<SignupFunnelMapping>();
+      const funnel = selectFunnel('signup');
+
+      useEffect(() => {
+        renders.push({ funnel, trackStep: funnel.trackStep });
+      });
+
+      return (
+        <button
+          data-testid="stable-funnel-button"
+          onClick={() => {
+            funnel.trackStep('Signup Completed', { userId: 'test' });
+          }}
+        >
+          {label}
+        </button>
+      );
+    }
+
+    const { rerender } = render(
+      <AltertableProvider client={altertable}>
+        <StableFunnelPage label="First" />
+      </AltertableProvider>
+    );
+
+    await waitFor(() => {
+      expect(renders).toHaveLength(1);
+    });
+
+    rerender(
+      <AltertableProvider client={altertable}>
+        <StableFunnelPage label="Second" />
+      </AltertableProvider>
+    );
+
+    await waitFor(() => {
+      expect(renders).toHaveLength(2);
+    });
+
+    expect(renders[1].funnel).toBe(renders[0].funnel);
+    expect(renders[1].trackStep).toBe(renders[0].trackStep);
+
+    fireEvent.click(screen.getByTestId('stable-funnel-button'));
+
+    expect(altertable.track).toHaveBeenCalledTimes(1);
+    expect(altertable.track).toHaveBeenLastCalledWith('Signup Completed', {
+      $lib: 'TEST_LIB_NAME',
+      $lib_version: 'TEST_LIB_VERSION',
+      userId: 'test',
+    });
+  });
 });
 
 describe('pre-init behavior', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.resetModules();

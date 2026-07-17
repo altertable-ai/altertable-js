@@ -29,7 +29,8 @@ For detailed installation and usage instructions, see the package-specific docum
 
 ### Prerequisites
 
-- Install [Bun](https://bun.sh/)
+- Install Node.js (see [`.node-version`](./.node-version))
+- Install Bun (see [`.bun-version`](./.bun-version))
 
 ### Setup
 
@@ -91,7 +92,11 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 1. Merge conventional commits into `main` (`fix:` for patch, `feat:` for minor, `feat!:` for major)
 2. release-please opens/updates a release PR with version and changelog updates
 3. Merge the release PR
-4. The `release-please.yml` workflow publishes released packages to npm automatically
+4. The `release-please.yml` workflow publishes both packages to npm through trusted publishing
+
+`@altertable/altertable-js` and `@altertable/altertable-react` share one version and are always published together. The workflow fails before publishing if their versions differ or if GitHub OIDC is unavailable. It does not use an `NPM_TOKEN`.
+
+Configure the npm trusted publisher for both packages with the GitHub organization `altertable-ai`, repository `altertable-js`, workflow filename `release-please.yml`, and the `npm publish` action. To recover an existing release, manually run the **Release Please** workflow from `main`. Recovery is retry-safe: versions already present on npm are skipped before both packages are attempted.
 
 ## Documentation
 

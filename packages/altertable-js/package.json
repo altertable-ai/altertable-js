@@ -1,10 +1,17 @@
 {
   "name": "@altertable/altertable-js",
   "description": "JavaScript SDK to capture and send events to Altertable.",
-  "version": "1.0.7",
+  "version": "1.2.0",
   "license": "MIT",
   "homepage": "https://github.com/altertable-ai/altertable-js",
-  "repository": "altertable-ai/altertable-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/altertable-ai/altertable-js.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "author": {
     "name": "Altertable",
     "url": "https://altertable.ai"

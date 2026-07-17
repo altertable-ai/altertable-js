@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createBatcher } from '../src/lib/batcher';
+import type { StorageApi } from '../src/lib/storage';
 import type { EventPayload, EventType } from '../src/types';
 
 function createTrackPayload(timestamp: string): EventPayload {
@@ -13,6 +14,28 @@ function createTrackPayload(timestamp: string): EventPayload {
     distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     session_id: 'session-0197d9df-4e77-72cb-bf0a-e35b3f1f5425',
+  };
+}
+
+function createMemoryStorage(store: Map<string, string>): StorageApi {
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+      return true;
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    migrate: (fromStorage: StorageApi, keys: string[]) => {
+      for (const key of keys) {
+        const value = fromStorage.getItem(key);
+        if (value !== null) {
+          store.set(key, value);
+          fromStorage.removeItem(key);
+        }
+      }
+    },
   };
 }
 
@@ -145,6 +168,7 @@ describe('createBatcher', () => {
     batcher.add('track', createTrackPayload('t1'));
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
 
+    await batcher.flush();
     batcher.add('track', createTrackPayload('t2'));
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(3));
 
@@ -409,5 +433,563 @@ describe('createBatcher', () => {
     );
 
     batcher.stop();
+  });
+
+  it('persists buffered events before they are flushed', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const send = vi.fn().mockResolvedValue(undefined);
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send,
+    });
+
+    batcher.add('track', createTrackPayload('persisted'));
+
+    expect(store.get('pending-events')).toContain('persisted');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('rehydrates persisted events and removes them after a successful flush', async () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const firstBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    firstBatcher.add('track', createTrackPayload('rehydrated'));
+
+    const send = vi.fn().mockResolvedValue(undefined);
+    const secondBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send,
+    });
+
+    await secondBatcher.flush();
+
+    expect(send).toHaveBeenCalledWith(
+      'track',
+      expect.arrayContaining([
+        expect.objectContaining({ timestamp: 'rehydrated' }),
+      ])
+    );
+    expect(store.has('pending-events')).toBe(false);
+  });
+
+  it('keeps persisted events durable until the in-flight request succeeds', async () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    let resolveSend: () => void;
+    const send = vi.fn().mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveSend = resolve;
+        })
+    );
+    const batcher = createBatcher({
+      flushEventThreshold: 1,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send,
+    });
+
+    batcher.add('track', createTrackPayload('in-flight'));
+    expect(store.get('pending-events')).toContain('in-flight');
+
+    resolveSend!();
+    await batcher.flush();
+
+    expect(store.has('pending-events')).toBe(false);
+  });
+
+  it('clears malformed persisted event buffers', () => {
+    const store = new Map<string, string>([['pending-events', '{not-json']]);
+    const storage = createMemoryStorage(store);
+    const onFallback = vi.fn();
+
+    createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        onFallback,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    expect(store.has('pending-events')).toBe(false);
+    expect(onFallback).toHaveBeenCalledWith(
+      'Persisted event buffer was unreadable and has been cleared.'
+    );
+  });
+
+  it('clears expired persisted event buffers', async () => {
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const store = new Map<string, string>([
+      [
+        'pending-events',
+        JSON.stringify({
+          version: 1,
+          expiresAt: Date.parse('2025-01-01T00:00:00.000Z'),
+          buffers: {
+            track: [createTrackPayload('expired')],
+            identify: [],
+            alias: [],
+          },
+        }),
+      ],
+    ]);
+    const storage = createMemoryStorage(store);
+    const send = vi.fn().mockResolvedValue(undefined);
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send,
+    });
+
+    await batcher.flush();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(store.has('pending-events')).toBe(false);
+  });
+
+  it('drops oldest buffered events when the persisted event count cap is reached', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const onFallback = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+        onFallback,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('oldest'));
+    batcher.add('track', createTrackPayload('middle'));
+    batcher.add('track', createTrackPayload('newest'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('oldest');
+    expect(persisted).toContain('middle');
+    expect(persisted).toContain('newest');
+    expect(onFallback).toHaveBeenCalledWith(
+      'Persisted event buffer is full (2 events). Dropping the oldest buffered event.'
+    );
+  });
+
+  it('drops the oldest buffered event across event types when capped', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('identify', {
+      environment: 'test',
+      device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      distinct_id: 'old-identify',
+      anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      traits: {},
+    });
+    batcher.add('track', createTrackPayload('middle-track'));
+    batcher.add('track', createTrackPayload('newest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-identify');
+    expect(persisted).toContain('middle-track');
+    expect(persisted).toContain('newest-track');
+  });
+
+  it('preserves buffered event order across reload before applying caps', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const firstBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 10,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    firstBatcher.add('identify', {
+      environment: 'test',
+      device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      distinct_id: 'old-identify',
+      anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      traits: {},
+    });
+    firstBatcher.add('track', createTrackPayload('middle-track'));
+    firstBatcher.add('track', createTrackPayload('newest-track'));
+
+    const secondBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    secondBatcher.add('track', createTrackPayload('latest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-identify');
+    expect(persisted).not.toContain('middle-track');
+    expect(persisted).toContain('newest-track');
+    expect(persisted).toContain('latest-track');
+  });
+
+  it('normalizes stale persisted order before applying caps', () => {
+    const store = new Map<string, string>([
+      [
+        'pending-events',
+        JSON.stringify({
+          version: 1,
+          expiresAt: Date.now() + 60_000,
+          buffers: {
+            track: [createTrackPayload('old-track')],
+            identify: [
+              {
+                environment: 'test',
+                device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+                distinct_id: 'missing-from-order',
+                anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+                traits: {},
+              },
+            ],
+            alias: [],
+          },
+          order: [
+            { eventType: 'track', index: 9 },
+            { eventType: 'track', index: 0 },
+            { eventType: 'track', index: 0 },
+          ],
+        }),
+      ],
+    ]);
+    const storage = createMemoryStorage(store);
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('latest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-track');
+    expect(persisted).toContain('missing-from-order');
+    expect(persisted).toContain('latest-track');
+  });
+
+  it('preserves in-flight event order across reload before applying caps', async () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const send = vi.fn().mockImplementation(() => new Promise<void>(() => {}));
+    const firstBatcher = createBatcher({
+      flushEventThreshold: 3,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 10,
+      },
+      send,
+    });
+
+    firstBatcher.add('identify', {
+      environment: 'test',
+      device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      distinct_id: 'old-identify',
+      anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
+      traits: {},
+    });
+    firstBatcher.add('track', createTrackPayload('middle-track'));
+    firstBatcher.add('track', createTrackPayload('newest-track'));
+    await vi.waitFor(() => expect(send).toHaveBeenCalled());
+
+    const secondBatcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    secondBatcher.add('track', createTrackPayload('latest-track'));
+
+    const persisted = store.get('pending-events') ?? '';
+    expect(persisted).not.toContain('old-identify');
+    expect(persisted).not.toContain('middle-track');
+    expect(persisted).toContain('newest-track');
+    expect(persisted).toContain('latest-track');
+  });
+
+  it('keeps in-flight events durable even when they exceed the count cap', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const onFallback = vi.fn();
+    const send = vi.fn().mockImplementation(() => new Promise<void>(() => {}));
+    const batcher = createBatcher({
+      flushEventThreshold: 2,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 1,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 2,
+        onFallback,
+      },
+      send,
+    });
+
+    batcher.add('track', createTrackPayload('in-flight-1'));
+    batcher.add('track', createTrackPayload('in-flight-2'));
+    batcher.updateConfig({
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxEventCount: 1,
+        onFallback,
+      },
+    });
+
+    expect(store.get('pending-events')).toContain('in-flight-1');
+    expect(store.get('pending-events')).toContain('in-flight-2');
+    expect(onFallback).not.toHaveBeenCalled();
+  });
+
+  it('drops oldest buffered events when the persisted byte cap is exceeded', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const onFallback = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        maxBytes: 10,
+        onFallback,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('too-large'));
+
+    expect(store.has('pending-events')).toBe(false);
+    expect(onFallback).toHaveBeenCalledWith(
+      'Persisted event buffer exceeds 10 bytes. Dropping the oldest buffered event.'
+    );
+  });
+
+  it('notifies fallback when durable event persistence fails', () => {
+    const onFallback = vi.fn();
+    const storage: StorageApi = {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn().mockReturnValue(false),
+      removeItem: vi.fn(),
+      migrate: vi.fn(),
+    };
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+        onFallback,
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('persist-fail'));
+
+    expect(onFallback).toHaveBeenCalledWith(
+      'Unable to persist event buffer. Offline delivery will continue in memory only.'
+    );
+  });
+
+  it('keeps persisted events queued while offline and flushes after returning online', async () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    let isOnline = false;
+    const send = vi.fn().mockResolvedValue(undefined);
+    const batcher = createBatcher({
+      flushEventThreshold: 1,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      isOnline: () => isOnline,
+      send,
+    });
+
+    batcher.add('track', createTrackPayload('offline'));
+    await batcher.flush();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(store.get('pending-events')).toContain('offline');
+
+    isOnline = true;
+    await batcher.flush();
+
+    expect(send).toHaveBeenCalledWith(
+      'track',
+      expect.arrayContaining([expect.objectContaining({ timestamp: 'offline' })])
+    );
+    expect(store.has('pending-events')).toBe(false);
+  });
+
+  it('leaves buffers intact when flushUnload runs while offline', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const sendUnload = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      isOnline: () => false,
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('unload-offline'));
+    batcher.flushUnload(sendUnload);
+
+    expect(sendUnload).not.toHaveBeenCalled();
+    expect(store.get('pending-events')).toContain('unload-offline');
+  });
+
+  it('keeps unload-delivered events durable for a later normal flush', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const sendUnload = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('unload-online'));
+    batcher.flushUnload(sendUnload);
+
+    expect(sendUnload).toHaveBeenCalledWith(
+      'track',
+      expect.arrayContaining([
+        expect.objectContaining({ timestamp: 'unload-online' }),
+      ])
+    );
+    expect(store.get('pending-events')).toContain('unload-online');
+  });
+
+  it('does not repeat unload delivery until the buffer changes', () => {
+    const store = new Map<string, string>();
+    const storage = createMemoryStorage(store);
+    const sendUnload = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage,
+        storageKey: 'pending-events',
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+
+    batcher.add('track', createTrackPayload('first-unload'));
+    batcher.flushUnload(sendUnload);
+    batcher.flushUnload(sendUnload);
+    expect(sendUnload).toHaveBeenCalledTimes(1);
+
+    batcher.add('track', createTrackPayload('second-unload'));
+    batcher.flushUnload(sendUnload);
+    expect(sendUnload).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when flush cannot drain a permanently failing sender', async () => {
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      send: vi.fn().mockRejectedValue(new Error('fail')),
+    });
+
+    batcher.add('track', createTrackPayload('never-drains'));
+
+    await expect(batcher.flush()).rejects.toThrow(
+      'Batcher flush exceeded 100 drain iterations'
+    );
   });
 });

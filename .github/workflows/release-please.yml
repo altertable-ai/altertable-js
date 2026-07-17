@@ -4,15 +4,17 @@ on:
   push:
     branches:
       - main
-
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  workflow_dispatch:
 
 jobs:
-  release-please:
+  release:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - name: Run release-please
         id: release
@@ -22,34 +24,79 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  publish:
+    needs: release
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release.outputs.releases_created == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
       - name: Checkout
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          # registry-url is intentionally omitted: it creates token auth config that prevents npm OIDC.
+          package-manager-cache: false
 
       - name: Set up Bun
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.0'
+          bun-version-file: .bun-version
+
+      - name: Set up npm for trusted publishing
+        run: npm install --global npm@11.18.0
+
+      - name: Verify release contract
+        shell: bash
+        run: |
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+            echo "::error::GitHub OIDC is unavailable; the publish job requires id-token: write."
+            exit 1
+          fi
+
+          if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::NODE_AUTH_TOKEN must be unset so npm uses trusted publishing."
+            exit 1
+          fi
+
+          core_version="$(node --print "require('./packages/altertable-js/package.json').version")"
+          react_version="$(node --print "require('./packages/altertable-react/package.json').version")"
+
+          if [[ "${core_version}" != "${react_version}" ]]; then
+            echo "::error::Core (${core_version}) and React (${react_version}) versions must match."
+            exit 1
+          fi
 
       - name: Install dependencies
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
         run: bun install --frozen-lockfile
 
       - name: Build
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
         run: bun run build
 
       - name: Publish @altertable/altertable-js
-        if: ${{ steps.release.outputs['packages/altertable-js--release_created'] == 'true' }}
-        run: bun publish --access public
         working-directory: packages/altertable-js
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          package_name="$(node --print "require('./package.json').name")"
+          package_version="$(node --print "require('./package.json').version")"
+
+          if npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "${package_name}@${package_version} is already published; skipping."
+          else
+            npm publish
+          fi
 
       - name: Publish @altertable/altertable-react
-        if: ${{ steps.release.outputs['packages/altertable-react--release_created'] == 'true' }}
-        run: bun publish --access public
         working-directory: packages/altertable-react
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          package_name="$(node --print "require('./package.json').name")"
+          package_version="$(node --print "require('./package.json').version")"
+
+          if npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "${package_name}@${package_version} is already published; skipping."
+          else
+            npm publish
+          fi
