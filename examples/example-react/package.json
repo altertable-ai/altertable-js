@@ -15,11 +15,11 @@
     "@altertable/altertable-js": "workspace:*",
     "@altertable/altertable-react": "workspace:*",
     "@c15t/react": "1.8.1",
-    "@tailwindcss/vite": "4.3.2",
+    "@tailwindcss/vite": "4.3.3",
     "lucide-react": "0.554.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "tailwindcss": "4.3.2"
+    "tailwindcss": "4.3.3"
   },
   "devDependencies": {
     "@types/react": "19.2.17",
