@@ -17,8 +17,8 @@
     "@c15t/react": "1.8.1",
     "@tailwindcss/vite": "4.3.3",
     "lucide-react": "0.554.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "tailwindcss": "4.3.3"
   },
   "devDependencies": {
