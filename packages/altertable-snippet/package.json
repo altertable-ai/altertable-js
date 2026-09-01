@@ -21,6 +21,6 @@
     "lint": "eslint index.js"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.46"
+    "@swc/core": "^1.16.1"
   }
 }
