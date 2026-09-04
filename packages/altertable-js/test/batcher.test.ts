@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createBatcher } from '../src/lib/batcher';
 import type { StorageApi } from '../src/lib/storage';
-import type { EventPayload, EventType } from '../src/types';
+import type { EventPayload, EventType, TrackPayload } from '../src/types';
 
 function createTrackPayload(timestamp: string): EventPayload {
   return {
@@ -326,6 +326,44 @@ describe('createBatcher', () => {
     expect(trackSends[0][1]).toHaveLength(3);
     expect(trackSends[1][1]).toHaveLength(3);
     expect(trackSends[2][1]).toHaveLength(1);
+  });
+
+  it('uses the web default maxBatchSize of 20 and preserves FIFO order', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const batcher = createBatcher({
+      flushEventThreshold: 100,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 20,
+      send,
+    });
+
+    for (let index = 1; index <= 21; index += 1) {
+      batcher.add('track', createTrackPayload(`event-${String(index).padStart(2, '0')}`));
+    }
+    await batcher.flush();
+
+    const trackSends = send.mock.calls.filter(call => call[0] === 'track');
+    expect(trackSends.map(call => call[1])).toHaveLength(2);
+    expect(trackSends.map(call => (call[1] as EventPayload[]).length)).toEqual([20, 1]);
+    expect(trackSends.flatMap(call => (call[1] as TrackPayload[]).map(payload => payload.timestamp))).toEqual(
+      Array.from({ length: 21 }, (_, index) => `event-${String(index + 1).padStart(2, '0')}`)
+    );
+  });
+
+  it('clamps maxBatchSize below one to one payload per request', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const batcher = createBatcher({
+      flushEventThreshold: 100,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 0,
+      send,
+    });
+
+    batcher.add('track', createTrackPayload('first'));
+    batcher.add('track', createTrackPayload('second'));
+    await batcher.flush();
+
+    expect(send.mock.calls.map(call => (call[1] as EventPayload[]).length)).toEqual([1, 1]);
   });
 
   it('flushEventThreshold triggers flush while chunk size follows maxBatchSize', async () => {
