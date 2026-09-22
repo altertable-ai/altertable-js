@@ -25,7 +25,24 @@ export type AltertableContext = {
   session_id: SessionId;
 };
 
-export type EventPayload = TrackPayload | IdentifyPayload | AliasPayload;
+export type EventPayload =
+  TrackPayload | AdapterTrackPayload | IdentifyPayload | AliasPayload;
+
+/** @internal Shared wire context for Altertable and adapter delivery. */
+export type EventContext = {
+  environment: Environment;
+  distinct_id: string;
+  device_id?: string;
+  anonymous_id: string | null;
+  session_id?: string;
+};
+
+/** @internal Normalized track payload received from an analytics adapter. */
+export type AdapterTrackPayload = EventContext & {
+  event: string;
+  properties: EventProperties;
+  timestamp: string;
+};
 
 export type TrackPayload = AltertableContext & {
   event: string;
@@ -34,15 +51,17 @@ export type TrackPayload = AltertableContext & {
 };
 
 /**
- * Transforms a fully constructed track event before it is queued or sent.
+ * Transforms a fully constructed Altertable track event before it is queued or sent.
  * Return `null` to discard the event.
  */
 export type TransformEvent = (event: TrackPayload) => TrackPayload | null;
 
-export type IdentifyPayload = Omit<AltertableContext, 'session_id'> & {
+export type IdentifyPayload = Omit<EventContext, 'session_id'> & {
+  timestamp?: string;
   traits: UserTraits;
 };
 
-export type AliasPayload = Omit<AltertableContext, 'session_id'> & {
+export type AliasPayload = Omit<EventContext, 'session_id'> & {
+  timestamp?: string;
   new_user_id: DistinctId;
 };

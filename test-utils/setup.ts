@@ -1,9 +1,21 @@
 import { beforeEach, expect } from 'vitest';
+import type {} from 'vitest/jsdom';
 
 import { loggerCache } from '../packages/altertable-js/src/lib/logger';
 import type { RequestOptions } from './matchers/toRequestApi';
 import { toRequestApi } from './matchers/toRequestApi';
 import { toWarnDev } from './matchers/toWarnDev';
+
+// Node may expose unavailable Web Storage globals. Browser tests use jsdom's storage.
+if (typeof jsdom !== 'undefined') {
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    const storage = jsdom.window[name];
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      get: () => storage,
+    });
+  }
+}
 
 // Extend expect with custom matchers
 expect.extend({

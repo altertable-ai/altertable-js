@@ -1014,6 +1014,89 @@ describe('createBatcher', () => {
     batcher.add('track', createTrackPayload('second-unload'));
     batcher.flushUnload(sendUnload);
     expect(sendUnload).toHaveBeenCalledTimes(2);
+    expect(sendUnload).toHaveBeenLastCalledWith('track', [
+      expect.objectContaining({ timestamp: 'second-unload' }),
+    ]);
+  });
+
+  it('tracks unload delivery per buffered occurrence', () => {
+    const sendUnload = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    const payload = createTrackPayload('duplicate-reference');
+
+    batcher.add('track', payload);
+    batcher.add('track', payload);
+    batcher.flushUnload(sendUnload);
+
+    expect(sendUnload).toHaveBeenLastCalledWith('track', [payload, payload]);
+
+    batcher.add('track', payload);
+    batcher.flushUnload(sendUnload);
+
+    expect(sendUnload).toHaveBeenLastCalledWith('track', [payload]);
+  });
+
+  it('persists duplicate payload references as distinct occurrences', () => {
+    const store = new Map<string, string>();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      persistence: {
+        storage: createMemoryStorage(store),
+        storageKey: 'pending-events',
+      },
+      send: vi.fn().mockResolvedValue(undefined),
+    });
+    const payload = createTrackPayload('duplicate-reference');
+
+    batcher.add('track', payload);
+    batcher.add('track', payload);
+
+    const persisted = JSON.parse(store.get('pending-events')!);
+    expect(persisted.order).toEqual([
+      { eventType: 'track', index: 0 },
+      { eventType: 'track', index: 1 },
+    ]);
+  });
+
+  it('does not let an in-flight occurrence hide a late duplicate from unload delivery', async () => {
+    let resolveSend: () => void;
+    const send = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            resolveSend = resolve;
+          })
+      )
+      .mockResolvedValue(undefined);
+    const sendUnload = vi.fn();
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      send,
+    });
+    const payload = createTrackPayload('reused-reference');
+
+    batcher.add('track', payload);
+    batcher.flushUnload(sendUnload);
+    const flush = batcher.flush();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+
+    batcher.add('track', payload);
+    batcher.flushUnload(sendUnload);
+
+    expect(sendUnload).toHaveBeenLastCalledWith('track', [payload]);
+
+    resolveSend!();
+    await flush;
   });
 
   it('throws when flush cannot drain a permanently failing sender', async () => {

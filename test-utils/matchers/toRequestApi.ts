@@ -1,5 +1,6 @@
 import { expect, type Mock } from 'vitest';
 
+import { isRecord } from '../../packages/altertable-js/src/lib/isRecord';
 import type { EventPayload } from '../../packages/altertable-js/src/types';
 
 export type RequestOptions = Partial<{
@@ -185,9 +186,7 @@ function validateFetchCall(
       if (Array.isArray(actualPayload) && actualPayload.length === 1) {
         actualPayload = actualPayload[0];
       }
-      validationErrors.push(
-        ...validatePayload(actualPayload, options.payload)
-      );
+      validationErrors.push(...validatePayload(actualPayload, options.payload));
     } catch (error) {
       validationErrors.push(
         `Failed to parse payload: ${JSON.stringify(error, null, 2)}`
@@ -265,11 +264,7 @@ function validatePayload(
         `Payload validation failed at ${path}: ${JSON.stringify(matcherError, null, 2)}`
       );
     }
-  } else if (
-    expected &&
-    typeof expected === 'object' &&
-    !Array.isArray(expected)
-  ) {
+  } else if (isRecord(expected)) {
     // Regular object - recursively validate each property
     for (const [key, value] of Object.entries(expected)) {
       const newPath = path ? `${path}.${key}` : key;

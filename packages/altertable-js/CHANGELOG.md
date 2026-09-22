@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- Add `adapters: { posthog }` to forward existing PostHog analytics through Altertable. While an adapter is configured, native `track`, `identify`, and `alias` calls are ignored and autocapture stays off.
+- Allow `configure({ adapters })` to replace or disconnect adapters while preserving buffered events and explicit autocapture settings.
+- Contain throwing `onError` handlers consistently for Altertable and adapter events.
+- Scope initialization cleanup to its own lifecycle so stale cleanup cannot stop a newer client initialization.
+
 ## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.1.0...altertable-js-v1.2.0) (2026-07-15)
 
 
