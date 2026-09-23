@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.2.0...altertable-react-v1.3.0) (2026-09-23)
+
+
+### Features
+
+* **js:** forward PostHog events through Altertable ([29ba658](https://github.com/altertable-ai/altertable-js/commit/29ba658af90ecc57aff1c320c29dd22c2a21ca52))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.2.0 to ^1.3.0
+
 ## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.1.0...altertable-react-v1.2.0) (2026-07-15)
 
 
