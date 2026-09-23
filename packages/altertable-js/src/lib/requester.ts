@@ -2,7 +2,7 @@ import {
   HTTP_REQUEST_MAX_ATTEMPTS,
   RETRY_BASE_DELAY_MS,
 } from '../constants';
-import { EventPayload } from '../types';
+import type { EventPayload } from '../types';
 import {
   ApiError,
   ApiErrorResponse,

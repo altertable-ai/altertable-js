@@ -5,7 +5,12 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from '../constants';
-import { AliasPayload, IdentifyPayload, TrackPayload } from '../types';
+import {
+  AdapterTrackPayload,
+  AliasPayload,
+  IdentifyPayload,
+  TrackPayload,
+} from '../types';
 
 export type Logger = ReturnType<typeof createLogger>;
 
@@ -24,7 +29,7 @@ export function createLogger(prefix: string) {
       }
     },
     logEvent: (
-      payload: TrackPayload,
+      payload: TrackPayload | AdapterTrackPayload,
       { trackingConsent }: { trackingConsent: TrackingConsentType }
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(

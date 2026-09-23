@@ -1,3 +1,6 @@
+import { connectAdapters, hasConfiguredAdapter } from './adapters/providers';
+import type { AdapterSubscription } from './adapters/subscription';
+import type { AdapterEvent, Adapters, SourceMetadata } from './adapters/types';
 import {
   AUTO_CAPTURE_INTERVAL_MS,
   DEFAULT_FLUSH_EVENT_THRESHOLD,
@@ -41,6 +44,7 @@ import {
 import { validateUserId } from './lib/validateUserId';
 import { getViewport } from './lib/viewport';
 import {
+  AdapterTrackPayload,
   AliasPayload,
   AltertableContext,
   DistinctId,
@@ -55,6 +59,8 @@ import {
 } from './types';
 
 export interface AltertableConfig {
+  /** Existing analytics instances to receive events from. While one is set, native track, identify, and alias calls are ignored and autocapture stays off. */
+  adapters?: Adapters;
   /**
    * The base URL of the Altertable API.
    * @default https://api.altertable.ai
@@ -67,6 +73,7 @@ export interface AltertableConfig {
   environment?: Environment;
   /**
    * Whether to automatically capture page views and events.
+   * Stays off while an adapter is configured, even when explicitly enabled.
    * @default true
    */
   autoCapture?: boolean;
@@ -167,7 +174,9 @@ function resolveAltertableConfig(
     ...merged,
     baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
     environment: merged.environment ?? DEFAULT_CONFIG.environment,
-    autoCapture: merged.autoCapture ?? DEFAULT_CONFIG.autoCapture,
+    autoCapture: hasConfiguredAdapter(partial.adapters)
+      ? false
+      : (partial.autoCapture ?? true),
     debug: merged.debug ?? DEFAULT_CONFIG.debug,
     persistence,
     eventPersistence:
@@ -189,6 +198,11 @@ function resolveAltertableConfig(
 
 export class Altertable {
   private _batcher: BatcherApi | undefined;
+  /** The caller's preference, preserved while an adapter forces autocapture off. */
+  private _requestedAutoCapture: boolean | undefined;
+  private _adapterSubscription: AdapterSubscription | undefined;
+  private _generation = 0;
+  private _pageHidden = false;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _cleanupLifecycleFlush: (() => void) | undefined;
   private _config: ResolvedAltertableConfig;
@@ -243,6 +257,9 @@ export class Altertable {
    */
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
+    const generation = ++this._generation;
+    this._adapterSubscription?.dispose();
+    this._pageHidden = false;
     this._cleanupLifecycleFlush?.();
     this._cleanupAutoCapture?.();
     this._batcher?.stop();
@@ -251,6 +268,7 @@ export class Altertable {
       this._queue.clear();
     }
 
+    this._requestedAutoCapture = config.autoCapture;
     this._config = resolveAltertableConfig(config);
     this._eventPersistenceConfigured = config.eventPersistence !== undefined;
     this._storageKey = keyBuilder(apiKey, this._config.environment);
@@ -325,8 +343,22 @@ export class Altertable {
     }
 
     this._handleAutoCaptureChange(this._config.autoCapture);
+    this._adapterSubscription = safelyRunOnBrowser(() =>
+      connectAdapters({
+        getEnvironment: () => this._config.environment,
+        emit: event => this._ingestAdapterEvent(event),
+        onError: error => this._reportAdapterError(error),
+      })
+    );
+    this._adapterSubscription?.update(this._config.adapters);
 
+    let cleanedUp = false;
     return () => {
+      if (cleanedUp || generation !== this._generation) {
+        return;
+      }
+      cleanedUp = true;
+      this._adapterSubscription?.dispose();
       this._cleanupAutoCapture?.();
       this._cleanupLifecycleFlush?.();
       this._batcher.stop();
@@ -351,13 +383,9 @@ export class Altertable {
       'The client must be initialized with init() before configuring.'
     );
 
-    if (
-      updates.autoCapture !== undefined &&
-      updates.autoCapture !== this._config.autoCapture
-    ) {
-      this._handleAutoCaptureChange(updates.autoCapture);
+    if ('autoCapture' in updates) {
+      this._requestedAutoCapture = updates.autoCapture;
     }
-
     const nextUpdates = { ...updates };
     if (
       updates.persistence !== undefined &&
@@ -369,6 +397,7 @@ export class Altertable {
     const nextConfig = resolveAltertableConfig({
       ...this._config,
       ...nextUpdates,
+      autoCapture: this._requestedAutoCapture,
     });
 
     if (updates.eventPersistence !== undefined) {
@@ -420,7 +449,13 @@ export class Altertable {
       }
     }
 
+    const autoCaptureChanged =
+      nextConfig.autoCapture !== this._config.autoCapture;
     this._config = nextConfig;
+    if (autoCaptureChanged) {
+      this._handleAutoCaptureChange(nextConfig.autoCapture);
+    }
+    this._adapterSubscription?.update(nextConfig.adapters);
 
     if (
       updates.flushEventThreshold !== undefined ||
@@ -432,6 +467,35 @@ export class Altertable {
         flushIntervalMs: this._config.flushIntervalMs,
         maxBatchSize: this._config.maxBatchSize,
       });
+    }
+  }
+
+  private _ingestAdapterEvent(record: AdapterEvent) {
+    if (this.getTrackingConsent() === TrackingConsent.DENIED) {
+      return;
+    }
+    if (record.type === 'track') {
+      this._processAdapterTrack(record.payload, record.source);
+    } else {
+      this._processEvent(record.type, record.payload);
+    }
+    if (this._pageHidden) {
+      this._flushUnload();
+    }
+  }
+
+  private _reportAdapterError(error: unknown) {
+    const sourceError =
+      error instanceof Error ? error : new Error('Analytics adapter failed.');
+    this._logger.warnDev(sourceError.message);
+    this._notifyError(sourceError);
+  }
+
+  private _notifyError(error: Error) {
+    try {
+      this._config.onError?.(error);
+    } catch {
+      // Customer diagnostics must not interrupt tracking or delivery.
     }
   }
 
@@ -485,6 +549,10 @@ export class Altertable {
    * ```
    */
   identify(userId: DistinctId, traits: UserTraits = {}) {
+    if (this._isInitialized && this._rejectAltertableCall()) {
+      return;
+    }
+
     try {
       validateUserId(userId);
     } catch (error) {
@@ -503,7 +571,20 @@ export class Altertable {
     this._identify(userId, { ...traits });
   }
 
+  private _rejectAltertableCall(): boolean {
+    if (!hasConfiguredAdapter(this._config.adapters)) {
+      return false;
+    }
+    this._logger.warnDev(
+      'Altertable track, page, identify, alias, updateTraits, and reset calls were ignored because an analytics adapter is configured.'
+    );
+    return true;
+  }
+
   private _identify(userId: DistinctId, traits: UserTraits = {}) {
+    if (this._rejectAltertableCall()) {
+      return;
+    }
     if (
       this._sessionManager.isIdentified() &&
       userId !== this._sessionManager.getDistinctId()
@@ -546,6 +627,10 @@ export class Altertable {
    * ```
    */
   alias(newUserId: DistinctId) {
+    if (this._isInitialized && this._rejectAltertableCall()) {
+      return;
+    }
+
     try {
       validateUserId(newUserId);
     } catch (error) {
@@ -565,6 +650,9 @@ export class Altertable {
   }
 
   private _alias(newUserId: DistinctId) {
+    if (this._rejectAltertableCall()) {
+      return;
+    }
     const context = this._getContext();
 
     const payload: AliasPayload = {
@@ -609,6 +697,9 @@ export class Altertable {
   }
 
   private _updateTraits(traits: UserTraits) {
+    if (this._rejectAltertableCall()) {
+      return;
+    }
     const context = this._getContext();
 
     if (context.anonymous_id === null) {
@@ -654,6 +745,10 @@ export class Altertable {
     /** Whether to reset device ID (default: false) */
     resetDeviceId?: boolean;
   } = {}) {
+    if (this._isInitialized && this._rejectAltertableCall()) {
+      return;
+    }
+
     // Clear queued commands to prevent cross-identity/session mixing
     this._queue.clear();
     this._batcher?.clear();
@@ -759,6 +854,9 @@ export class Altertable {
     properties: EventProperties,
     runtimeContext: RuntimeContext = captureRuntimeContext()
   ) {
+    if (this._rejectAltertableCall()) {
+      return;
+    }
     this._sessionManager.renewSessionIfNeeded();
     this._sessionManager.updateLastEventAt(runtimeContext.timestamp);
 
@@ -791,16 +889,34 @@ export class Altertable {
       },
     };
 
-    const transformedPayload = this._transformEvent(payload);
-    if (!transformedPayload) {
+    this._processTrack(payload);
+  }
+
+  private _processTrack(payload: TrackPayload) {
+    const transformed = this._transformEvent(payload);
+    if (!transformed) {
       return;
     }
+    this._deliverTrack(transformed);
+  }
 
-    this._processEvent('track', transformedPayload);
+  private _processAdapterTrack(
+    payload: AdapterTrackPayload,
+    source: SourceMetadata
+  ) {
+    const request: AdapterTrackPayload = {
+      ...payload,
+      properties: { ...payload.properties, $altertable_source: source },
+    };
+    this._deliverTrack(request);
+  }
+
+  private _deliverTrack(request: TrackPayload | AdapterTrackPayload) {
+    this._processEvent('track', request);
 
     if (this._config.debug) {
       const trackingConsent = this._sessionManager.getTrackingConsent();
-      this._logger.logEvent(transformedPayload, { trackingConsent });
+      this._logger.logEvent(request, { trackingConsent });
     }
   }
 
@@ -814,7 +930,7 @@ export class Altertable {
     } catch (error) {
       const transformError =
         error instanceof Error ? error : new Error(String(error));
-      this._config.onError?.(transformError);
+      this._notifyError(transformError);
       this._logger.error('Failed to transform event', {
         error: transformError,
       });
@@ -940,25 +1056,26 @@ export class Altertable {
   private _setupLifecycleFlush(): () => void {
     return safelyRunOnBrowser(
       ({ window }) => {
-        const flushUnload = () => {
-          this._batcher.flushUnload((eventType, payloads) => {
-            this._requester.sendUnload(`/${eventType}`, payloads);
-          });
-        };
+        const flushUnload = () => this._flushUnload();
 
         const flushOnline = () => {
           void this._batcher.flush();
         };
 
         const onVisibilityChange = () => {
-          if (window.document.visibilityState !== 'hidden') {
+          this._pageHidden = window.document.visibilityState === 'hidden';
+          if (!this._pageHidden) {
             return;
           }
           flushUnload();
         };
 
         const onPageHide = () => {
+          this._pageHidden = true;
           flushUnload();
+        };
+        const onPageShow = () => {
+          this._pageHidden = false;
         };
 
         window.document.addEventListener(
@@ -967,6 +1084,7 @@ export class Altertable {
         );
         window.addEventListener('online', flushOnline);
         window.addEventListener('pagehide', onPageHide);
+        window.addEventListener('pageshow', onPageShow);
 
         return () => {
           window.document.removeEventListener(
@@ -975,12 +1093,19 @@ export class Altertable {
           );
           window.removeEventListener('online', flushOnline);
           window.removeEventListener('pagehide', onPageHide);
+          window.removeEventListener('pageshow', onPageShow);
         };
       },
       () => () => {
         // No-op cleanup when not in a browser environment.
       }
     );
+  }
+
+  private _flushUnload() {
+    this._batcher.flushUnload((eventType, payloads) => {
+      this._requester.sendUnload(`/${eventType}`, payloads);
+    });
   }
 
   private _isOnline(): boolean {
@@ -1050,7 +1175,7 @@ export class Altertable {
     payloads: EventPayload[]
   ) {
     if (isAltertableError(error)) {
-      this._config.onError?.(error);
+      this._notifyError(error);
     }
 
     if (isApiError(error) && error.errorCode === 'environment-not-found') {

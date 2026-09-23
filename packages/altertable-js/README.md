@@ -137,6 +137,26 @@ altertable.page('https://example.com/products');
 > - Virtual page views that don't trigger URL changes (modals, step changes)
 > - Server-side tracking where auto-capture isn't available
 
+#### Existing analytics adapters
+
+Reuse an existing PostHog implementation without changing its tracking calls.
+Initialize Altertable before PostHog:
+
+```javascript
+import posthog from 'posthog-js';
+import { altertable } from '@altertable/altertable-js';
+
+altertable.init('ALTERTABLE_KEY', {
+  adapters: { posthog },
+});
+
+posthog.init('POSTHOG_KEY');
+```
+
+Altertable forwards PostHog events and disables its own collection.
+`track`, `page`, `identify`, `alias`, and `updateTraits` calls are ignored, and
+autocapture stays off while the adapter is configured.
+
 #### Transforming events
 
 Use `transformEvent` to customize a fully constructed track event before the
@@ -165,8 +185,8 @@ altertable.init('YOUR_API_KEY', {
 
 The callback receives the complete [`TrackPayload`](#trackpayload), including
 the event name, generated context, timestamp, and default properties. It runs
-synchronously for events created by `track()` and `page()`; identity and alias
-payloads are not transformed.
+synchronously for events created by `track()` and `page()`; adapter, identity,
+and alias payloads are not transformed.
 
 Return `null` to discard an event:
 
@@ -314,21 +334,22 @@ if (consent === 'granted') {
 
 Configuration options for the Altertable SDK.
 
-| Property              | Type                                          | Default                       | Description                                            |
-| --------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
-| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"` | The base URL of the Altertable API                     |
-| `environment`         | `string`                                      | `"production"`                | The environment of the application                     |
-| `autoCapture`         | `boolean`                                     | `true`                        | Whether to automatically capture page views and events |
-| `release`             | `string`                                      | -                             | The release ID of the application                      |
-| `debug`               | `boolean`                                     | `false`                       | Whether to log events to the console                   |
-| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`       | The persistence strategy for IDs                       |
-| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`         | The persistence strategy for unsent event payloads     |
-| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                   | The tracking consent state                             |
-| `onError`             | `(error: Error) => void`                      | -                             | Optional handler for SDK errors                        |
-| `transformEvent`      | [`TransformEvent`](#transformevent)           | -                             | Transform or discard track and page-view events        |
-| `flushEventThreshold` | `number`                                      | `20`                          | Flush when combined buffered events reach this count   |
-| `flushIntervalMs`     | `number`                                      | `150`                         | Periodic batch flush interval (ms)                     |
-| `maxBatchSize`        | `number`                                      | `20`                          | Max payloads per HTTP request                          |
+| Property              | Type                                          | Default                             | Description                                            |
+| --------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"`       | The base URL of the Altertable API                     |
+| `environment`         | `string`                                      | `"production"`                      | The environment of the application                     |
+| `adapters`            | `Adapters`                                    | -                                   | Existing analytics instances; currently `{ posthog }`  |
+| `autoCapture`         | `boolean`                                     | `true`; off while an adapter is set | Whether to automatically capture page views and events |
+| `release`             | `string`                                      | -                                   | The release ID of the application                      |
+| `debug`               | `boolean`                                     | `false`                             | Whether to log events to the console                   |
+| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`             | The persistence strategy for IDs                       |
+| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`               | The persistence strategy for unsent event payloads     |
+| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                         | The tracking consent state                             |
+| `onError`             | `(error: Error) => void`                      | -                                   | Optional handler for SDK errors                        |
+| `transformEvent`      | [`TransformEvent`](#transformevent)           | -                                   | Transform or discard track and page-view events        |
+| `flushEventThreshold` | `number`                                      | `20`                                | Flush when combined buffered events reach this count   |
+| `flushIntervalMs`     | `number`                                      | `150`                               | Periodic batch flush interval (ms)                     |
+| `maxBatchSize`        | `number`                                      | `20`                                | Max payloads per HTTP request                          |
 
 #### Offline Delivery
 

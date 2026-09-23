@@ -3,6 +3,7 @@ import { Altertable, type AltertableConfig } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export type { Altertable, AltertableConfig };
+export type { Adapters, PostHogAdapter } from './adapters/types';
 export type { EventProperties, TrackPayload, TransformEvent } from './types';
 export { TrackingConsent };
 

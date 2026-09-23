@@ -15,7 +15,7 @@ export default defineConfig({
   root: repoRoot,
   test: {
     environment: 'node',
-    include: ['scripts/integration/altertable.integration.test.ts'],
+    include: ['scripts/integration/*.integration.test.ts'],
     // Flush can issue several HTTP calls; each may retry (see Requester), so stay above worst-case retry windows.
     testTimeout: 45_000,
     watch: false,

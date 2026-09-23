@@ -46,5 +46,9 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "posthog-js": "1.434.3",
+    "posthog-js-minimum": "npm:posthog-js@1.230.0"
   }
 }
