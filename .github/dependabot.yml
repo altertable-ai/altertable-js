@@ -1,5 +1,12 @@
 version: 2
 updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "11:00"
+      timezone: Europe/Paris
   - package-ecosystem: bun
     directory: /
     schedule:
