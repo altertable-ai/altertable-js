@@ -17,7 +17,7 @@
 
 ## Code Style
 
-This project uses `ESLint` for linting and `Prettier` for formatting. Run `bun run lint` before committing.
+This project uses Oxlint for linting and Oxfmt for formatting. Run `bun run lint` before committing; use `bun run lint:fix` to apply available fixes and formatting.
 
 ## Tests
 
