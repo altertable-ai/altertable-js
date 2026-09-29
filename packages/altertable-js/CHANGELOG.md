@@ -2,17 +2,15 @@
 
 ## [1.3.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.2.0...altertable-js-v1.3.0) (2026-09-23)
 
-
 ### Features
 
-* **js:** forward PostHog events through Altertable ([29ba658](https://github.com/altertable-ai/altertable-js/commit/29ba658af90ecc57aff1c320c29dd22c2a21ca52))
+- **js:** forward PostHog events through Altertable ([29ba658](https://github.com/altertable-ai/altertable-js/commit/29ba658af90ecc57aff1c320c29dd22c2a21ca52))
 
 ## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.1.0...altertable-js-v1.2.0) (2026-07-15)
 
-
 ### Features
 
-* **core:** add transformEvent for track payload customization ([b3985f0](https://github.com/altertable-ai/altertable-js/commit/b3985f05488bbb88c5543f4e1e4c88dab9d76bc5))
+- **core:** add transformEvent for track payload customization ([b3985f0](https://github.com/altertable-ai/altertable-js/commit/b3985f05488bbb88c5543f4e1e4c88dab9d76bc5))
 
 ## [1.1.0] - 2026-06-30
 

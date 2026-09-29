@@ -5,7 +5,7 @@ export type EventType = 'track' | 'identify' | 'alias';
 export type EventProperties = Record<string, unknown>;
 
 export type UserId = string;
-export type DistinctId = StringWithAutocomplete<UserId | AnonymousId>;
+export type DistinctId = StringWithAutocomplete<AnonymousId>;
 export type DeviceId = `device-${string}`;
 export type AnonymousId = `anonymous-${string}`;
 export type SessionId = `session-${string}`;
@@ -26,7 +26,10 @@ export type AltertableContext = {
 };
 
 export type EventPayload =
-  TrackPayload | AdapterTrackPayload | IdentifyPayload | AliasPayload;
+  | TrackPayload
+  | AdapterTrackPayload
+  | IdentifyPayload
+  | AliasPayload;
 
 /** @internal Shared wire context for Altertable and adapter delivery. */
 export type EventContext = {

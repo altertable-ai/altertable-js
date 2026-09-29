@@ -9,11 +9,7 @@ import {
 import React, { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import {
-  AltertableProvider,
-  type FunnelMapping,
-  useAltertable,
-} from '../src';
+import { AltertableProvider, type FunnelMapping, useAltertable } from '../src';
 
 interface SignupFunnelMapping extends FunnelMapping {
   signup: [
@@ -75,9 +71,7 @@ describe('useAltertable()', () => {
     type UseAltertableReturn = ReturnType<typeof useAltertable>;
     type UseAltertableMethod = Extract<keyof UseAltertableReturn, string>;
     type AltertableMethod = Extract<keyof Altertable, string>;
-    const REACT_ONLY_METHODS: UseAltertableMethod[] = [
-      'selectFunnel',
-    ];
+    const REACT_ONLY_METHODS: UseAltertableMethod[] = ['selectFunnel'];
     const CORE_ONLY_METHODS: AltertableMethod[] = [
       'init', // Handled by <AltertableProvider>, not exposed via useAltertable()
     ];
@@ -238,9 +232,8 @@ describe('pre-init behavior', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     // Fresh imports to get uninitialized altertable singleton
-    const { altertable: freshAltertable } = await import(
-      '@altertable/altertable-js'
-    );
+    const { altertable: freshAltertable } =
+      await import('@altertable/altertable-js');
     const {
       AltertableProvider: FreshAltertableProvider,
       useAltertable: useFreshAltertable,

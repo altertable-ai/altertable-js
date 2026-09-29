@@ -137,16 +137,16 @@ Returns an object with tracking methods and funnel utilities.
 
 **Returns:**
 
-| Property             | Type                                                             | Description                                                                                    |
-| -------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `identify`           | `(userId: string, traits?: UserTraits) => void`                  | Identify a user                                                                                |
-| `page`               | `(url: string) => void`                                          | Manually track a page view (use only when `autoCapture` is false)                              |
-| `reset`              | `(options?: { resetDeviceId?: boolean }) => void`                | Resets the current identity context so future events are not associated with the previous user |
-| `alias`              | `(newUserId: string) => void`                                    | Link a new ID to the current identity                                                          |
-| `updateTraits`       | `(traits: UserTraits) => void`                                   | Update user traits                                                                             |
-| `configure`          | `(updates: Partial<AltertableConfig>) => void`                   | Update configuration                                                                           |
-| `getTrackingConsent` | `() => TrackingConsentType`                                      | Get current consent state                                                                      |
-| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { trackStep: (...) => void }` | Get funnel-specific tracker                                                                |
+| Property             | Type                                                                 | Description                                                                                    |
+| -------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `identify`           | `(userId: string, traits?: UserTraits) => void`                      | Identify a user                                                                                |
+| `page`               | `(url: string) => void`                                              | Manually track a page view (use only when `autoCapture` is false)                              |
+| `reset`              | `(options?: { resetDeviceId?: boolean }) => void`                    | Resets the current identity context so future events are not associated with the previous user |
+| `alias`              | `(newUserId: string) => void`                                        | Link a new ID to the current identity                                                          |
+| `updateTraits`       | `(traits: UserTraits) => void`                                       | Update user traits                                                                             |
+| `configure`          | `(updates: Partial<AltertableConfig>) => void`                       | Update configuration                                                                           |
+| `getTrackingConsent` | `() => TrackingConsentType`                                          | Get current consent state                                                                      |
+| `selectFunnel`       | `(funnelName: keyof TFunnelMapping) => { trackStep: (...) => void }` | Get funnel-specific tracker                                                                    |
 
 **Example:**
 
@@ -287,11 +287,11 @@ The hook sends once per screen identity. Properties are captured from the first 
 
 **Options:**
 
-| Property     | Type                      | Description                                                                 |
-| ------------ | ------------------------- | --------------------------------------------------------------------------- |
+| Property     | Type                      | Description                                                                                                                                                                                                      |
+| ------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`         | `string`                  | Stable identifier for this screen instance within `name`. Use when multiple screens share the same name — typically the entity id, e.g. `id: dashboard.id` for each dashboard using the screen name `Dashboard`. |
-| `properties` | `Record<string, unknown>` | Additional properties to include with the screen event.                     |
-| `disabled`   | `boolean`                 | Prevents the screen event from being sent.                                  |
+| `properties` | `Record<string, unknown>` | Additional properties to include with the screen event.                                                                                                                                                          |
+| `disabled`   | `boolean`                 | Prevents the screen event from being sent.                                                                                                                                                                       |
 
 #### `useView(name, options?)`
 
@@ -322,15 +322,15 @@ The hook sends once per view identity when the element becomes visible. Properti
 
 **Options:**
 
-| Property                | Type                        | Description                                                                                                                                                                                                                                                                 |
-| ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                    | `string`                    | Stable identifier for this view instance within `name`. Use when multiple views share the same name — typically the entity id, e.g. `id: insight.id` for each insight card using the view name `Insight`.                                                                                                                                  |
-| `properties`            | `Record<string, unknown>`   | Additional properties to include with the view event.                                                                                                                                                                                                                       |
-| `disabled`              | `boolean`                   | Prevents the view event from being sent.                                                                                                                                                                                                                                    |
-| `visibility`            | `ViewVisibilityOptions`     | Visibility settings for the underlying [`IntersectionObserver`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver).                                                                                                                                           |
-| `visibility.root`       | `Element \| Document \| null` | The element used as the viewport for checking visibility of the target. Defaults to `null`. See [`IntersectionObserver`: `root`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#root).                                              |
-| `visibility.rootMargin` | `string`                    | Offsets applied to the root's bounding box before intersection tests, using the same syntax as the CSS `margin` property. See [`IntersectionObserver`: `rootMargin`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#rootmargin).   |
-| `visibility.threshold`  | `number \| number[]`        | One or more visibility ratios at which the observer callback runs. A value of `0` fires when any pixel becomes visible; `1.0` fires when the target is fully visible. Defaults to `0`. See [`IntersectionObserver`: `threshold`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#threshold). |
+| Property                | Type                          | Description                                                                                                                                                                                                                                                                                                                       |
+| ----------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | `string`                      | Stable identifier for this view instance within `name`. Use when multiple views share the same name — typically the entity id, e.g. `id: insight.id` for each insight card using the view name `Insight`.                                                                                                                         |
+| `properties`            | `Record<string, unknown>`     | Additional properties to include with the view event.                                                                                                                                                                                                                                                                             |
+| `disabled`              | `boolean`                     | Prevents the view event from being sent.                                                                                                                                                                                                                                                                                          |
+| `visibility`            | `ViewVisibilityOptions`       | Visibility settings for the underlying [`IntersectionObserver`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver).                                                                                                                                                                                                 |
+| `visibility.root`       | `Element \| Document \| null` | The element used as the viewport for checking visibility of the target. Defaults to `null`. See [`IntersectionObserver`: `root`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#root).                                                                                                      |
+| `visibility.rootMargin` | `string`                      | Offsets applied to the root's bounding box before intersection tests, using the same syntax as the CSS `margin` property. See [`IntersectionObserver`: `rootMargin`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#rootmargin).                                                            |
+| `visibility.threshold`  | `number \| number[]`          | One or more visibility ratios at which the observer callback runs. A value of `0` fires when any pixel becomes visible; `1.0` fires when the target is fully visible. Defaults to `0`. See [`IntersectionObserver`: `threshold`](https://developer.mozilla.org/docs/Web/API/IntersectionObserver/IntersectionObserver#threshold). |
 
 ## Types
 

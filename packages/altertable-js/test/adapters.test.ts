@@ -51,7 +51,14 @@ function createAdapter() {
 function requests(path = '/track') {
   return vi
     .mocked(global.fetch)
-    .mock.calls.filter(([url]) => String(url).includes(path))
+    .mock.calls.filter(([url]) =>
+      (typeof url === 'string'
+        ? url
+        : url instanceof URL
+          ? url.href
+          : url.url
+      ).includes(path)
+    )
     .flatMap(([, init]) => JSON.parse(init!.body as string));
 }
 

@@ -1,6 +1,5 @@
 import '../../../test-utils/matchers/toRequestApi';
 import '../../../test-utils/setup';
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -89,9 +88,7 @@ describe('Requester', () => {
         apiKey: 'test-api-key with spaces & special chars',
       });
 
-      await customRequester.sendBatch('/track', [
-        createTrackEventPayload(),
-      ]);
+      await customRequester.sendBatch('/track', [createTrackEventPayload()]);
 
       const [url] = mockFetch.mock.calls[0];
       expect(url).toBe(
@@ -159,7 +156,9 @@ describe('Requester', () => {
     it('clamps maxHttpAttempts below 1 to a single attempt', async () => {
       const singleAttemptRequester = createRequester({ maxHttpAttempts: 0 });
 
-      await singleAttemptRequester.sendBatch('/track', [createTrackEventPayload()]);
+      await singleAttemptRequester.sendBatch('/track', [
+        createTrackEventPayload(),
+      ]);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
@@ -435,7 +434,7 @@ describe('Requester', () => {
 
       mockFetch.mockImplementation(() => new Promise(() => {}));
 
-      customRequester.sendBatch('/track', [createTrackEventPayload()]);
+      void customRequester.sendBatch('/track', [createTrackEventPayload()]);
 
       expect(mockSetTimeout).toHaveBeenCalledTimes(1);
       expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 10_000);
@@ -489,9 +488,7 @@ describe('Requester', () => {
 
     it('should handle identify payloads with fetch', async () => {
       const identifyPayload = createIdentifyEventPayload();
-      await requester.sendBatch('/identify', [
-        identifyPayload as EventPayload,
-      ]);
+      await requester.sendBatch('/identify', [identifyPayload as EventPayload]);
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.body).toBe(JSON.stringify([identifyPayload]));

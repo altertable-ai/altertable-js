@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* oxlint-disable no-console */
 
 import {
   PROPERTY_URL,
@@ -200,7 +200,7 @@ export function createLogger(prefix: string) {
           // of the warning that appears in the console by enabling "Pause on exceptions"
           // in your debugger.
           throw new Error(warning);
-        } catch (error) {
+        } catch {
           // Do nothing
         }
       }
