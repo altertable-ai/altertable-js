@@ -380,6 +380,7 @@ export function SignupFunnel({
                     type="button"
                     key={plan}
                     aria-pressed={formData.plan === plan}
+                    aria-label={`Select ${plan} plan`}
                     className={cx(
                       'w-full text-left p-4 border-1 rounded-lg cursor-pointer',
                       formData.plan === plan

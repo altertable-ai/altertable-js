@@ -3,6 +3,7 @@ import {
   cleanup,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
 } from '@testing-library/react';
@@ -77,18 +78,14 @@ describe('useAltertable()', () => {
     ];
 
     test('exposes all Altertable public methods', () => {
-      let exposedApi: UseAltertableReturn | null = null;
-
-      function TestComponent(): null {
-        exposedApi = useAltertable();
-        return null;
-      }
-
-      render(
-        <AltertableProvider client={altertable}>
-          <TestComponent />
-        </AltertableProvider>
-      );
+      const { result } = renderHook(() => useAltertable(), {
+        wrapper: ({ children }) => (
+          <AltertableProvider client={altertable}>
+            {children}
+          </AltertableProvider>
+        ),
+      });
+      const exposedApi = result.current;
 
       const coreMethods = Object.getOwnPropertyNames(
         Object.getPrototypeOf(altertable)
