@@ -69,7 +69,7 @@ export class SessionManager {
           ? parsedData.trackingConsent
           : this._defaultTrackingConsent,
       };
-    } catch (error) {
+    } catch {
       this._logger.warnDev(
         'Failed to parse storage data. Resetting session data.'
       );
@@ -221,7 +221,7 @@ export class SessionManager {
         this._storageKey,
         JSON.stringify(this._sessionData)
       );
-    } catch (error) {
+    } catch {
       this._logger.warnDev('Failed to persist session data to storage.');
     }
   }

@@ -10,10 +10,7 @@
     {
       "type": "linked-versions",
       "groupName": "altertable-sdk",
-      "components": [
-        "altertable-js",
-        "altertable-react"
-      ]
+      "components": ["altertable-js", "altertable-react"]
     }
   ],
   "packages": {

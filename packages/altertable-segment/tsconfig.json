@@ -16,6 +16,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
+    "rootDir": "./src",
     "outDir": "./dist"
   },
   "include": ["src/**/*", "module.d.ts"],

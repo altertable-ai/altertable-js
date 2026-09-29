@@ -1,7 +1,7 @@
 export function isBeaconSupported(): boolean {
   return (
-    typeof window !== 'undefined' &&
-    typeof navigator !== 'undefined' &&
-    typeof navigator.sendBeacon === 'function'
+    typeof globalThis.window !== 'undefined' &&
+    typeof globalThis.navigator !== 'undefined' &&
+    typeof globalThis.navigator.sendBeacon === 'function'
   );
 }

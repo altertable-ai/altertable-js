@@ -38,7 +38,12 @@ describe.each([
     return vi
       .mocked(fetch)
       .mock.calls.filter(([url]) =>
-        String(url).includes(`api.altertable.ai${path}`)
+        (typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.href
+            : url.url
+        ).includes(`api.altertable.ai${path}`)
       )
       .flatMap(([, request]) => JSON.parse(request!.body as string));
   }
@@ -134,7 +139,9 @@ describe.each([
     window.dispatchEvent(new Event('pagehide'));
     const beacons = vi
       .mocked(navigator.sendBeacon)
-      .mock.calls.filter(([url]) => String(url).includes('api.altertable.ai'));
+      .mock.calls.filter(([url]) =>
+        (typeof url === 'string' ? url : url.href).includes('api.altertable.ai')
+      );
     const payloads = (
       await Promise.all(
         beacons.map(async ([, body]) => JSON.parse(await (body as Blob).text()))

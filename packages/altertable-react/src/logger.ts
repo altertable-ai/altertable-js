@@ -12,7 +12,7 @@ export const logger = {
     }
 
     warnedMessages.add(sanitizedMessage);
-    // eslint-disable-next-line no-console
+    // oxlint-disable-next-line no-console
     console.warn(`[Altertable React] ${sanitizedMessage}`);
   },
 };

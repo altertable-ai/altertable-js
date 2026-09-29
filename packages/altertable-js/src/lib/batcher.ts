@@ -77,7 +77,9 @@ export type BatcherApi = {
     sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
   ): void;
   /** Apply runtime config changes and immediately persist/flush if those changes require it. */
-  updateConfig(updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>): void;
+  updateConfig(
+    updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>
+  ): void;
 };
 
 const EVENT_TYPES: EventType[] = ['track', 'identify', 'alias'];
@@ -103,10 +105,7 @@ function resolveBatcherPersistence(
       1,
       persistence.maxEventCount ?? DEFAULT_MAX_PERSISTED_EVENT_COUNT
     ),
-    maxBytes: Math.max(
-      1,
-      persistence.maxBytes ?? DEFAULT_MAX_PERSISTED_BYTES
-    ),
+    maxBytes: Math.max(1, persistence.maxBytes ?? DEFAULT_MAX_PERSISTED_BYTES),
     ttlMs: Math.max(1, persistence.ttlMs ?? DEFAULT_PERSISTED_TTL_MS),
     onFallback: persistence.onFallback,
   };
@@ -565,7 +564,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
           .send(eventType, chunk)
           .then(() => {
             removeInFlightChunk(eventType, chunk, chunkRefs);
-            persistBuffers();
+            return persistBuffers();
           })
           .catch(() => {
             removeInFlightChunk(eventType, chunk, chunkRefs);
@@ -580,7 +579,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       }
     }
     persistBuffers();
-    return Promise.all(sendPromises).then(() => {});
+    return Promise.all(sendPromises).then((): void => undefined);
   }
 
   async function flushUntilDrained(): Promise<void> {
@@ -588,13 +587,14 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       return;
     }
 
-    for (let iteration = 0; iteration < FLUSH_MAX_DRAIN_ITERATIONS; iteration += 1) {
-      await Promise.all([...inFlightOther]);
+    for (
+      let iteration = 0;
+      iteration < FLUSH_MAX_DRAIN_ITERATIONS;
+      iteration += 1
+    ) {
+      await Promise.all(inFlightOther);
       await dispatchFlushFromBuffer(false);
-      if (
-        totalBufferedCount(buffers) === 0 &&
-        inFlightOther.size === 0
-      ) {
+      if (totalBufferedCount(buffers) === 0 && inFlightOther.size === 0) {
         return;
       }
     }

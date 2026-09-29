@@ -1,6 +1,6 @@
 name: Bug Report
 description: Report a bug
-labels: ["bug"]
+labels: ['bug']
 body:
   - type: textarea
     id: description
@@ -37,7 +37,7 @@ body:
   - type: input
     id: runtime
     attributes:
-      label: "JavaScript/TypeScript Version"
+      label: 'JavaScript/TypeScript Version'
     validations:
       required: true
   - type: dropdown

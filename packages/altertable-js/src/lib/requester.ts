@@ -1,7 +1,4 @@
-import {
-  HTTP_REQUEST_MAX_ATTEMPTS,
-  RETRY_BASE_DELAY_MS,
-} from '../constants';
+import { HTTP_REQUEST_MAX_ATTEMPTS, RETRY_BASE_DELAY_MS } from '../constants';
 import type { EventPayload } from '../types';
 import {
   ApiError,
@@ -27,7 +24,10 @@ function sleep(durationMs: number): Promise<void> {
   });
 }
 
-function exponentialBackoffWithJitterMs(baseDelayMs: number, attemptIndex: number): number {
+function exponentialBackoffWithJitterMs(
+  baseDelayMs: number,
+  attemptIndex: number
+): number {
   const exponentialMs = baseDelayMs * 2 ** attemptIndex;
   return exponentialMs * (0.5 + Math.random());
 }
@@ -52,9 +52,7 @@ export class Requester<TPayload extends EventPayload> {
   }
 
   private _constructUrl(path: string): string {
-    return `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(
-      this._config.apiKey
-    )}`;
+    return `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
   }
 
   /**
@@ -82,7 +80,7 @@ export class Requester<TPayload extends EventPayload> {
 
     try {
       if (isBeaconSupported()) {
-        const queued = navigator.sendBeacon(url, blob);
+        const queued = globalThis.navigator.sendBeacon(url, blob);
         if (queued) {
           return;
         }
@@ -103,10 +101,7 @@ export class Requester<TPayload extends EventPayload> {
     });
   }
 
-  private async _sendWithFetchRetry(
-    path: string,
-    body: string
-  ): Promise<void> {
+  private async _sendWithFetchRetry(path: string, body: string): Promise<void> {
     const url = this._constructUrl(path);
     let lastError: unknown;
 

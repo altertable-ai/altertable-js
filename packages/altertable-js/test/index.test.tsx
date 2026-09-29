@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, MockInstance, test, vi } from 'vitest';
 
 describe('altertable-js', () => {

@@ -2,31 +2,27 @@
 
 ## [1.3.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.2.0...altertable-react-v1.3.0) (2026-09-23)
 
-
 ### Features
 
-* **js:** forward PostHog events through Altertable ([29ba658](https://github.com/altertable-ai/altertable-js/commit/29ba658af90ecc57aff1c320c29dd22c2a21ca52))
-
+- **js:** forward PostHog events through Altertable ([29ba658](https://github.com/altertable-ai/altertable-js/commit/29ba658af90ecc57aff1c320c29dd22c2a21ca52))
 
 ### Dependencies
 
-* The following workspace dependencies were updated
-  * dependencies
-    * @altertable/altertable-js bumped from ^1.2.0 to ^1.3.0
+- The following workspace dependencies were updated
+  - dependencies
+    - @altertable/altertable-js bumped from ^1.2.0 to ^1.3.0
 
 ## [1.2.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.1.0...altertable-react-v1.2.0) (2026-07-15)
 
-
 ### Miscellaneous Chores
 
-* **altertable-react:** Synchronize altertable-sdk versions
-
+- **altertable-react:** Synchronize altertable-sdk versions
 
 ### Dependencies
 
-* The following workspace dependencies were updated
-  * dependencies
-    * @altertable/altertable-js bumped from ^1.1.0 to ^1.2.0
+- The following workspace dependencies were updated
+  - dependencies
+    - @altertable/altertable-js bumped from ^1.1.0 to ^1.2.0
 
 ## [1.1.0] - 2026-06-30
 
@@ -48,7 +44,7 @@
 
 ## [1.0.4] - 2025-12-31
 
-- Depends on `@altertable/altertable-js` 1.0.4: `anonymousId` naming (formerly `visitorId`) ([#110](https://github.com/altertable-ai/altertable-js/pull/110))  
+- Depends on `@altertable/altertable-js` 1.0.4: `anonymousId` naming (formerly `visitorId`) ([#110](https://github.com/altertable-ai/altertable-js/pull/110))
 
 ## [1.0.3] - 2025-12-16
 
@@ -104,7 +100,7 @@
 - Identify/session APIs on the React client; consent and `configure()` exposed through hooks ([#49](https://github.com/altertable-ai/altertable-js/pull/49), [#54](https://github.com/altertable-ai/altertable-js/pull/54), [#56](https://github.com/altertable-ai/altertable-js/pull/56))
 - Exclude the core library from the React bundle (consume published `@altertable/altertable-js`) ([#40](https://github.com/altertable-ai/altertable-js/pull/40))
 - Example React app in the monorepo ([#47](https://github.com/altertable-ai/altertable-js/pull/47))
-- Logger, dev setup, metadata, ESLint, and optional event properties aligned with core ([#33](https://github.com/altertable-ai/altertable-js/pull/33)–[#44](https://github.com/altertable-ai/altertable-js/pull/44))
+- Logger, dev setup, metadata, linting, and optional event properties aligned with core ([#33](https://github.com/altertable-ai/altertable-js/pull/33)–[#44](https://github.com/altertable-ai/altertable-js/pull/44))
 
 ## [0.4.0] - 2025-06-27
 

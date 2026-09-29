@@ -1,5 +1,4 @@
 import '../../../test-utils/setup';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -36,18 +35,24 @@ describe('Error Classes', () => {
     });
 
     it('creates an error with errorCode', () => {
-      const error = new ApiError(
-        400,
-        'Bad Request',
-        'environment-not-found'
-      );
+      const error = new ApiError(400, 'Bad Request', 'environment-not-found');
       expect(error.errorCode).toBe('environment-not-found');
-      expect(error.message).toBe('HTTP 400: Bad Request (environment-not-found)');
+      expect(error.message).toBe(
+        'HTTP 400: Bad Request (environment-not-found)'
+      );
     });
 
     it('creates an error with details', () => {
-      const details = { error_code: 'invalid-api-key', message: 'API key is invalid' };
-      const error = new ApiError(401, 'Unauthorized', 'invalid-api-key', details);
+      const details = {
+        error_code: 'invalid-api-key',
+        message: 'API key is invalid',
+      };
+      const error = new ApiError(
+        401,
+        'Unauthorized',
+        'invalid-api-key',
+        details
+      );
       expect(error.details).toEqual(details);
     });
 
@@ -170,9 +175,9 @@ describe('Type Guards', () => {
     });
 
     it('returns true for ApiError with status >= 500', () => {
-      expect(isRetryableHttpDeliveryError(new ApiError(503, 'Unavailable'))).toBe(
-        true
-      );
+      expect(
+        isRetryableHttpDeliveryError(new ApiError(503, 'Unavailable'))
+      ).toBe(true);
     });
 
     it('returns true for ApiError 429 rate limit', () => {
@@ -196,7 +201,7 @@ describe('Type Guards', () => {
   describe('Type narrowing', () => {
     it('allows accessing error-specific properties after type guard', () => {
       const error: unknown = new ApiError(404, 'Not Found', 'invalid-request');
-      
+
       if (isApiError(error)) {
         // TypeScript should allow accessing these properties
         expect(error.status).toBe(404);
@@ -210,7 +215,7 @@ describe('Type Guards', () => {
     it('allows accessing NetworkError properties after type guard', () => {
       const cause = new Error('Timeout');
       const error: unknown = new NetworkError('Connection failed', cause);
-      
+
       if (isNetworkError(error)) {
         // TypeScript should allow accessing these properties
         expect(error.message).toBe('Connection failed');
@@ -221,4 +226,3 @@ describe('Type Guards', () => {
     });
   });
 });
-

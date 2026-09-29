@@ -1,9 +1,12 @@
 import { execSync } from 'child_process';
 
-type PackageJson =
-  | typeof import('@altertable/altertable-js/package.json')
-  | typeof import('@altertable/altertable-react/package.json')
-  | typeof import('@altertable/altertable-snippet/package.json');
+type PackageJson = {
+  name: string;
+  version: string;
+  license: string;
+  author: { name: string };
+  homepage: string;
+};
 
 export function generateBundleBanner(pkg: PackageJson) {
   const lastCommitHash = execSync('git rev-parse --short HEAD')

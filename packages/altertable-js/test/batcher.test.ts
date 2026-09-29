@@ -120,11 +120,9 @@ describe('createBatcher', () => {
         expect.objectContaining({ timestamp: 'b' }),
       ])
     );
-    expect(send).toHaveBeenNthCalledWith(
-      2,
-      'track',
-      [expect.objectContaining({ timestamp: 'c' })]
-    );
+    expect(send).toHaveBeenNthCalledWith(2, 'track', [
+      expect.objectContaining({ timestamp: 'c' }),
+    ]);
   });
 
   it('routes mixed types to separate send calls', async () => {
@@ -183,7 +181,7 @@ describe('createBatcher', () => {
     let rejectSend: (reason: unknown) => void;
     const send = vi.fn().mockImplementation(
       () =>
-        new Promise<void>((_, reject) => {
+        new Promise<void>((_resolve, reject) => {
           rejectSend = reject;
         })
     );
@@ -228,8 +226,9 @@ describe('createBatcher', () => {
     expect(send).toHaveBeenCalledTimes(1);
 
     let flushSettled = false;
-    const flushPromise = batcher.flush().then(() => {
+    const flushPromise = batcher.flush().then((): void => {
       flushSettled = true;
+      return undefined;
     });
 
     await Promise.resolve();
@@ -338,15 +337,27 @@ describe('createBatcher', () => {
     });
 
     for (let index = 1; index <= 21; index += 1) {
-      batcher.add('track', createTrackPayload(`event-${String(index).padStart(2, '0')}`));
+      batcher.add(
+        'track',
+        createTrackPayload(`event-${String(index).padStart(2, '0')}`)
+      );
     }
     await batcher.flush();
 
     const trackSends = send.mock.calls.filter(call => call[0] === 'track');
     expect(trackSends.map(call => call[1])).toHaveLength(2);
-    expect(trackSends.map(call => (call[1] as EventPayload[]).length)).toEqual([20, 1]);
-    expect(trackSends.flatMap(call => (call[1] as TrackPayload[]).map(payload => payload.timestamp))).toEqual(
-      Array.from({ length: 21 }, (_, index) => `event-${String(index + 1).padStart(2, '0')}`)
+    expect(trackSends.map(call => (call[1] as EventPayload[]).length)).toEqual([
+      20, 1,
+    ]);
+    expect(
+      trackSends.flatMap(call =>
+        (call[1] as TrackPayload[]).map(payload => payload.timestamp)
+      )
+    ).toEqual(
+      Array.from(
+        { length: 21 },
+        (_, index) => `event-${String(index + 1).padStart(2, '0')}`
+      )
     );
   });
 
@@ -363,7 +374,9 @@ describe('createBatcher', () => {
     batcher.add('track', createTrackPayload('second'));
     await batcher.flush();
 
-    expect(send.mock.calls.map(call => (call[1] as EventPayload[]).length)).toEqual([1, 1]);
+    expect(
+      send.mock.calls.map(call => (call[1] as EventPayload[]).length)
+    ).toEqual([1, 1]);
   });
 
   it('flushEventThreshold triggers flush while chunk size follows maxBatchSize', async () => {
@@ -936,7 +949,9 @@ describe('createBatcher', () => {
 
     expect(send).toHaveBeenCalledWith(
       'track',
-      expect.arrayContaining([expect.objectContaining({ timestamp: 'offline' })])
+      expect.arrayContaining([
+        expect.objectContaining({ timestamp: 'offline' }),
+      ])
     );
     expect(store.has('pending-events')).toBe(false);
   });

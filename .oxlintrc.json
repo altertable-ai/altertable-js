@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "unicorn",
+    "typescript",
+    "oxc",
+    "react",
+    "import",
+    "jsx-a11y",
+    "promise"
+  ],
+  "ignorePatterns": ["**/generated/**", "**/__generated__/**"],
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "promise/always-return": "error",
+    "promise/no-return-wrap": "error",
+    "promise/param-names": "error",
+    "promise/catch-or-return": "error",
+    "promise/no-new-statics": "error",
+    "promise/no-return-in-finally": "error",
+    "promise/valid-params": "error"
+  },
+  "overrides": [
+    {
+      "files": ["packages/**/src/**/*.{ts,tsx,js,jsx}"],
+      "rules": {
+        "no-console": "error",
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Guard browser API access for non-browser runtimes."
+          },
+          {
+            "name": "document",
+            "message": "Guard browser API access for non-browser runtimes."
+          },
+          {
+            "name": "navigator",
+            "message": "Guard browser API access for non-browser runtimes."
+          },
+          {
+            "name": "location",
+            "message": "Guard browser API access for non-browser runtimes."
+          },
+          {
+            "name": "localStorage",
+            "message": "Guard browser API access for non-browser runtimes."
+          },
+          {
+            "name": "sessionStorage",
+            "message": "Guard browser API access for non-browser runtimes."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/test/**/*.{ts,tsx,js,jsx}"],
+      "rules": {
+        "typescript/unbound-method": "off"
+      }
+    }
+  ]
+}

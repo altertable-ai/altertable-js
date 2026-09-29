@@ -5,8 +5,8 @@ import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { setupBeaconAvailable } from '../../../test-utils/networkMode';
-import { Altertable } from '../../altertable-js/src/core';
 import type { PostHogAdapter } from '../../altertable-js/src/adapters/types';
+import { Altertable } from '../../altertable-js/src/core';
 
 export function testPostHogProvider(
   PostHogProvider: typeof import('posthog-js/react').PostHogProvider,
@@ -39,7 +39,12 @@ export function testPostHogProvider(
     return vi
       .mocked(fetch)
       .mock.calls.filter(([url]) =>
-        String(url).includes('api.altertable.ai/track')
+        (typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.href
+            : url.url
+        ).includes('api.altertable.ai/track')
       )
       .flatMap(([, request]) => JSON.parse(request!.body as string));
   }

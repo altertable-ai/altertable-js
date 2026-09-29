@@ -223,11 +223,15 @@ export function SignupFunnel({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="firstName"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   First Name
                 </label>
                 <input
                   type="text"
+                  id="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange('firstName')}
                   className={cx(
@@ -244,11 +248,15 @@ export function SignupFunnel({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="lastName"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Last Name
                 </label>
                 <input
                   type="text"
+                  id="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange('lastName')}
                   className={cx(
@@ -277,11 +285,15 @@ export function SignupFunnel({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Email Address
                 </label>
                 <input
                   type="email"
+                  id="email"
                   value={formData.email}
                   onChange={handleInputChange('email')}
                   className={cx(
@@ -296,11 +308,15 @@ export function SignupFunnel({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Password
                 </label>
                 <input
                   type="password"
+                  id="password"
                   value={formData.password}
                   onChange={handleInputChange('password')}
                   className={cx(
@@ -315,11 +331,15 @@ export function SignupFunnel({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Confirm Password
                 </label>
                 <input
                   type="password"
+                  id="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange('confirmPassword')}
                   className={cx(
@@ -356,10 +376,13 @@ export function SignupFunnel({
               {Object.entries(PLAN_PRICES).map(([planKey, planData]) => {
                 const plan = planKey as Plan;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={plan}
+                    aria-pressed={formData.plan === plan}
+                    aria-label={`Select ${plan} plan`}
                     className={cx(
-                      'p-4 border-1 rounded-lg cursor-pointer',
+                      'w-full text-left p-4 border-1 rounded-lg cursor-pointer',
                       formData.plan === plan
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -378,7 +401,7 @@ export function SignupFunnel({
                         <p className="text-gray-500">/month</p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -393,13 +416,8 @@ export function SignupFunnel({
               />
               <label htmlFor="terms" className="text-sm text-gray-700">
                 I agree to the{' '}
-                <a href="#" className="text-blue-600 hover:underline">
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="text-blue-600 hover:underline">
-                  Privacy Policy
-                </a>
+                <span className="text-blue-600">Terms of Service</span> and{' '}
+                <span className="text-blue-600">Privacy Policy</span>
               </label>
             </div>
             {errors.agreeToTerms && (

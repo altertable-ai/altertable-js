@@ -5,6 +5,7 @@
     "moduleResolution": "Bundler",
     "declaration": true,
     "noImplicitAny": true,
+    "rootDir": "../..",
     "outDir": ".",
     "target": "esnext",
     "resolveJsonModule": true,
