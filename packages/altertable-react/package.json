@@ -54,7 +54,7 @@
     "@posthog/react": "1.11.2",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
-    "posthog-js": "1.434.14",
+    "posthog-js": "1.434.15",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }
