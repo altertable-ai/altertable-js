@@ -30,7 +30,7 @@
   "devDependencies": {
     "@testing-library/dom": "10.4.2",
     "@types/bun": "1.4.2",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.3",
     "@vitest/coverage-v8": "4.1.11",
     "bundlesize": "0.18.2",
     "jsdom": "27.2.0",
