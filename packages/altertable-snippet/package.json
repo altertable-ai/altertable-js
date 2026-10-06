@@ -20,6 +20,6 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@swc/core": "^1.16.2"
+    "@swc/core": "^1.16.13"
   }
 }
