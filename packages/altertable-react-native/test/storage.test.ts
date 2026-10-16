@@ -39,7 +39,7 @@ it('reports a failed write and retries the latest pending value on flush', async
   const storage = await hydrateStorage(storageMock, [], onError);
   storage.setItem('identity', 'saved');
   await expect(storage.flush()).rejects.toThrow('Disk full');
-  expect(onError).toHaveBeenCalledWith(error);
+  expect(onError).toHaveBeenCalledWith(error, 'write');
   await storage.flush();
   expect(storageMock.values.get('identity')).toBe('saved');
 });
@@ -69,7 +69,7 @@ it.each([new Error('Read failed'), 'Read failed'])(
     const result = hydrateStorage(storageMock, ['identity'], onError);
     await expect(result).rejects.toThrow('Read failed');
     const reportedError = onError.mock.calls[0]![0];
-    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledExactlyOnceWith(reportedError, 'read');
     expect(reportedError).toBeInstanceOf(Error);
     await expect(result).rejects.toBe(reportedError);
     if (failure instanceof Error) {

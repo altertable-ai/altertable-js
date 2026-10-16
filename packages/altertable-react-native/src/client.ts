@@ -7,6 +7,7 @@ import {
 } from '@altertable/altertable-js';
 import { AppState, Platform } from 'react-native';
 
+import { createLogger } from './logger';
 import { type AsyncStorageAdapter, hydrateStorage } from './storage';
 
 /** Structurally compatible with @react-native-community/netinfo. */
@@ -80,6 +81,7 @@ export async function createAltertable(
     eventPersistence = true,
     ...config
   } = options;
+  const logger = createLogger();
   let onError = config.onError;
 
   function reportError(error: Error) {
@@ -94,7 +96,15 @@ export async function createAltertable(
   const storage = await hydrateStorage(
     backend,
     [keys.session, keys.events],
-    reportError
+    (error, operation) => {
+      logger.warnOnce(
+        operation === 'read'
+          ? 'Failed to restore analytics from storage. Retry createAltertable() after storage recovers.'
+          : 'Failed to persist analytics. Recent changes are not durable; call flushPersistence() to retry.',
+        error
+      );
+      reportError(error);
+    }
   );
   if (!eventPersistence) {
     storage.removeItem(keys.events);
@@ -201,7 +211,13 @@ export async function createAltertable(
       try {
         stop();
       } catch (error) {
-        reportError(error instanceof Error ? error : new Error(String(error)));
+        const sourceError =
+          error instanceof Error ? error : new Error(String(error));
+        logger.warnOnce(
+          'Failed to remove a native subscription. Remaining cleanup will continue.',
+          sourceError
+        );
+        reportError(sourceError);
       }
     }
   }

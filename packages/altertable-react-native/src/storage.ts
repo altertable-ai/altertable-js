@@ -11,7 +11,7 @@ export interface AsyncStorageAdapter {
 export async function hydrateStorage(
   backend: AsyncStorageAdapter,
   keys: string[],
-  onError: (error: Error) => void
+  onError: (error: Error, operation: 'read' | 'write') => void
 ): Promise<
   StorageAdapter & {
     hasPendingWrites(): boolean;
@@ -24,7 +24,7 @@ export async function hydrateStorage(
   ).catch(error => {
     const sourceError =
       error instanceof Error ? error : new Error(String(error));
-    onError(sourceError);
+    onError(sourceError, 'read');
     throw sourceError;
   });
   const cachedValues = new Map(entries);
@@ -68,7 +68,10 @@ export async function hydrateStorage(
         }
       });
     void writeTask.catch(error =>
-      onError(error instanceof Error ? error : new Error(String(error)))
+      onError(
+        error instanceof Error ? error : new Error(String(error)),
+        'write'
+      )
     );
   }
 

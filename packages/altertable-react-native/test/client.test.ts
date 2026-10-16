@@ -741,3 +741,26 @@ it('explains how to recover from using a disposed client', async () => {
   expect(() => client.flushPersistence()).toThrow(message);
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it('warns once about repeated native persistence failures without an error callback', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const client = await create();
+  await vi.advanceTimersByTimeAsync(0);
+  const error = new Error('Storage unavailable');
+  storageMock.setItem.mockRejectedValue(error);
+  try {
+    client.track('Not Yet Durable');
+    await expect(client.flushPersistence()).rejects.toBe(error);
+    await expect(client.flushPersistence()).rejects.toBe(error);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      '[Altertable React Native] Failed to persist analytics. Recent changes are not durable; call flushPersistence() to retry.',
+      error
+    );
+  } finally {
+    storageMock.setItem.mockImplementation(async (key, value) => {
+      storageMock.values.set(key, value);
+    });
+    await client.flushPersistence();
+    warn.mockRestore();
+  }
+});
