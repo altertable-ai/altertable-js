@@ -7,7 +7,6 @@ import {
   DEFAULT_FLUSH_INTERVAL_MS,
   DEFAULT_MAX_BATCH_SIZE,
   EVENT_PAGEVIEW,
-  keyBuilder,
   MAX_QUEUE_SIZE,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
@@ -26,6 +25,7 @@ import {
   isNetworkError,
   isRetryableHttpDeliveryError,
 } from './lib/error';
+import { getStorageKeys } from './lib/getStorageKeys';
 import { invariant } from './lib/invariant';
 import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
@@ -39,7 +39,7 @@ import {
   selectEventStorage,
   selectStorage,
   type StorageApi,
-  type StorageType,
+  type Persistence,
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
 import { getViewport } from './lib/viewport';
@@ -91,13 +91,15 @@ export interface AltertableConfig {
    * The persistence strategy for storing IDs.
    * @default "localStorage+cookie"
    */
-  persistence?: StorageType;
+  persistence?: Persistence;
   /**
    * The persistence strategy for unsent event payloads. Defaults to the same
    * value as `persistence`. Set to `false` to keep offline event buffering
    * in memory only.
    */
-  eventPersistence?: StorageType | false;
+  eventPersistence?: Persistence | false;
+  /** Override browser connectivity detection for other runtimes. */
+  isOnline?: () => boolean;
   /**
    * The tracking consent state.
    * @default "granted"
@@ -148,7 +150,7 @@ type ResolvedAltertableConfig = Omit<
   ResolvedAltertableConfigKeys
 > &
   Required<Pick<AltertableConfig, ResolvedAltertableConfigKeys>> & {
-    eventPersistence: StorageType | false;
+    eventPersistence: Persistence | false;
   };
 
 const DEFAULT_CONFIG: ResolvedAltertableConfig = {
@@ -271,12 +273,9 @@ export class Altertable {
     this._requestedAutoCapture = config.autoCapture;
     this._config = resolveAltertableConfig(config);
     this._eventPersistenceConfigured = config.eventPersistence !== undefined;
-    this._storageKey = keyBuilder(apiKey, this._config.environment);
-    this._eventStorageKey = keyBuilder(
-      apiKey,
-      this._config.environment,
-      'events'
-    );
+    const storageKeys = getStorageKeys(apiKey, this._config.environment);
+    this._storageKey = storageKeys.session;
+    this._eventStorageKey = storageKeys.events;
     this._referrer = safelyRunOnBrowser<string | null>(
       ({ window }) => window.document.referrer || null,
       () => null
@@ -410,6 +409,7 @@ export class Altertable {
         onFallback: message => this._logger.warn(message),
       });
       this._storage.migrate(previousStorage, [this._storageKey]);
+      this._sessionManager.setStorage(this._storage);
     }
 
     if (nextConfig.eventPersistence !== this._config.eventPersistence) {
@@ -1109,13 +1109,16 @@ export class Altertable {
   }
 
   private _isOnline(): boolean {
+    if (this._config.isOnline) {
+      return this._config.isOnline();
+    }
     return safelyRunOnBrowser(
       ({ window }) => window.navigator?.onLine !== false,
       () => true
     );
   }
 
-  private _selectEventStorage(eventPersistence: StorageType | false) {
+  private _selectEventStorage(eventPersistence: Persistence | false) {
     if (eventPersistence === false) {
       return undefined;
     }
