@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useContext } from 'react';
 import type { ReactNativeClient } from './client';
 
 const AltertableContext = createContext<ReactNativeClient | null>(null);
+AltertableContext.displayName = 'AltertableContext';
 
 export function AltertableProvider({
   client,
@@ -20,7 +21,11 @@ export function AltertableProvider({
 
 export function useAltertable(): ReactNativeClient {
   const client = useContext(AltertableContext);
-  if (!client)
-    throw new Error('useAltertable() requires an AltertableProvider.');
+  if (!client) {
+    throw new Error(
+      '[Altertable] useAltertable() must be used within <AltertableProvider>.'
+    );
+  }
+
   return client;
 }

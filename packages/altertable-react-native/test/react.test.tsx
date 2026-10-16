@@ -18,5 +18,7 @@ it('shares a ready client without initializing it again', () => {
 });
 
 it('requires a provider instead of silently using an uninitialized singleton', () => {
-  expect(() => renderHook(useAltertable)).toThrow('AltertableProvider');
+  expect(() => renderHook(useAltertable)).toThrow(
+    '[Altertable] useAltertable() must be used within <AltertableProvider>.'
+  );
 });

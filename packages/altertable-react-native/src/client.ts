@@ -19,27 +19,31 @@ export interface Connectivity {
   ): () => void;
 }
 
-type CoreOptions = Omit<
+type CoreOptions = Pick<
   AltertableConfig,
-  'adapters' | 'autoCapture' | 'persistence' | 'eventPersistence' | 'isOnline'
->;
-export type ReactNativeConfig = CoreOptions & {
-  storage: AsyncStorage;
-  /** Persist unsent events. Defaults to true. Identity and consent remain durable. */
-  eventPersistence?: boolean;
-  connectivity?: Connectivity;
-};
-
-export type ReactNativeConfigUpdates = Pick<
-  CoreOptions,
-  | 'trackingConsent'
-  | 'debug'
+  | 'baseUrl'
+  | 'environment'
   | 'release'
+  | 'debug'
+  | 'trackingConsent'
   | 'onError'
   | 'transformEvent'
   | 'flushEventThreshold'
   | 'flushIntervalMs'
   | 'maxBatchSize'
+>;
+export type ReactNativeConfig = CoreOptions & {
+  /** Native async storage backend used to restore and persist identity and events. */
+  storage: AsyncStorage;
+  /** Persist unsent events. Defaults to true. Identity and consent remain durable. */
+  eventPersistence?: boolean;
+  /** Optional connectivity subscription, for example NetInfo. No runtime dependency is required. */
+  connectivity?: Connectivity;
+};
+
+export type ReactNativeConfigUpdates = Omit<
+  CoreOptions,
+  'baseUrl' | 'environment'
 >;
 
 export type ScreenOptions = { id?: string; properties?: EventProperties };
@@ -50,7 +54,10 @@ export async function createAltertable(
   apiKey: string,
   options: ReactNativeConfig
 ) {
-  if (!apiKey) throw new Error('Missing API key');
+  if (!apiKey) {
+    throw new Error('[Altertable] Missing API key');
+  }
+
   const {
     storage: backend,
     connectivity,
@@ -58,6 +65,7 @@ export async function createAltertable(
     ...config
   } = options;
   let onError = config.onError;
+
   function reportError(error: Error) {
     try {
       onError?.(error);
@@ -77,7 +85,10 @@ export async function createAltertable(
     reportError(sourceError);
     throw sourceError;
   });
-  if (!eventPersistence) storage.removeItem(keys.events);
+  if (!eventPersistence) {
+    storage.removeItem(keys.events);
+  }
+
   const core = new Altertable();
   let deliveryEnabled = false;
   let disposed = false;
@@ -103,13 +114,16 @@ export async function createAltertable(
         scheduleFlush();
         return false;
       }
+
       return true;
     },
     onError: reportError,
   });
 
   function assertOpen() {
-    if (disposed) throw new Error('The Altertable client has been disposed.');
+    if (disposed) {
+      throw new Error('[Altertable] The client has been disposed.');
+    }
   }
 
   function track(event: string, properties: EventProperties = {}) {
@@ -127,7 +141,10 @@ export async function createAltertable(
     assertOpen();
     // Persist first: background network attempts must not delay native writes.
     await storage.flush();
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
+
     deliveryEnabled = true;
     await core.flush();
     await storage.flush();
@@ -146,14 +163,21 @@ export async function createAltertable(
     await storage.flush();
     deliveryEnabled = true;
     appStateSubscription = AppState.addEventListener('change', state => {
-      if (state === 'active' || state === 'inactive' || state === 'background')
+      if (
+        state === 'active' ||
+        state === 'inactive' ||
+        state === 'background'
+      ) {
         scheduleFlush();
+      }
     });
     unsubscribeConnectivity = connectivity?.addEventListener(state => {
       const wasOnline = online;
       online =
         state.isConnected !== false && state.isInternetReachable !== false;
-      if (online && !wasOnline) scheduleFlush();
+      if (online && !wasOnline) {
+        scheduleFlush();
+      }
     });
   } catch (error) {
     disposed = true;
@@ -162,6 +186,7 @@ export async function createAltertable(
     await storage.close().catch(() => {});
     throw error;
   }
+
   scheduleFlush();
 
   return {
@@ -198,8 +223,13 @@ export async function createAltertable(
       // core. Keep delivery paused until the updated consent is durable.
       const grantingConsent =
         updates.trackingConsent === TrackingConsent.GRANTED;
-      if (grantingConsent) deliveryEnabled = false;
-      if ('onError' in updates) onError = updates.onError;
+      if (grantingConsent) {
+        deliveryEnabled = false;
+      }
+      if ('onError' in updates) {
+        onError = updates.onError;
+      }
+
       core.configure({ ...updates, onError: reportError });
       await storage.flush();
       if (grantingConsent && !disposed) {
@@ -221,6 +251,7 @@ export async function createAltertable(
         unsubscribeConnectivity?.();
         cleanup();
       }
+
       return storage.close();
     },
   };

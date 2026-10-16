@@ -1,7 +1,8 @@
 import { vi } from 'vitest';
 
-export function createBackend() {
+export function createAsyncStorageMock() {
   const values = new Map<string, string>();
+
   return {
     values,
     getItem: vi.fn(async (key: string) => values.get(key) ?? null),

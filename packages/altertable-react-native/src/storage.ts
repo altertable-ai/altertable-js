@@ -28,7 +28,10 @@ export async function hydrateStorage(
   let closed = false;
 
   function startWriting() {
-    if (writing || pending.size === 0) return;
+    if (writing || pending.size === 0) {
+      return;
+    }
+
     let failed = false;
     writing = Promise.resolve()
       .then(async () => {
@@ -36,11 +39,17 @@ export async function hydrateStorage(
           const [key, value] = pending.entries().next().value!;
           pending.delete(key);
           try {
-            if (value === null) await backend.removeItem(key);
-            else await backend.setItem(key, value);
+            if (value === null) {
+              await backend.removeItem(key);
+            } else {
+              await backend.setItem(key, value);
+            }
           } catch (error) {
             // A newer value always takes priority over a failed older write.
-            if (!pending.has(key)) pending.set(key, value);
+            if (!pending.has(key)) {
+              pending.set(key, value);
+            }
+
             failed = true;
             throw error;
           }
@@ -49,7 +58,9 @@ export async function hydrateStorage(
       })
       .finally(() => {
         writing = undefined;
-        if (!failed) startWriting();
+        if (!failed) {
+          startWriting();
+        }
       });
     void writing.catch(error =>
       onError(error instanceof Error ? error : new Error(String(error)))
@@ -59,7 +70,10 @@ export async function hydrateStorage(
   function update(key: string, value: string | null) {
     // Requests already in flight may finish after disposal. Preserve their
     // durable snapshot rather than letting an old client overwrite a new one.
-    if (closed) return;
+    if (closed) {
+      return;
+    }
+
     values.set(key, value);
     pending.set(key, value);
     startWriting();
@@ -67,13 +81,16 @@ export async function hydrateStorage(
 
   async function flush() {
     startWriting();
-    while (writing) await writing;
+    while (writing) {
+      await writing;
+    }
   }
 
   return {
     getItem: key => values.get(key) ?? null,
     setItem(key, value) {
       update(key, value);
+
       return true;
     },
     removeItem(key) {
@@ -83,6 +100,7 @@ export async function hydrateStorage(
     flush,
     close() {
       closed = true;
+
       return flush();
     },
   };

@@ -6,12 +6,12 @@ import {
   type Connectivity,
   type ReactNativeClient,
 } from '../src';
-import { createBackend, deferred } from './helpers';
+import { createAsyncStorageMock, deferred } from './helpers';
 import { appStateListenerCount, emitAppState } from './reactNativeMock';
 
 const clients: ReactNativeClient[] = [];
 const keys = getStorageKeys('key');
-let backend: ReturnType<typeof createBackend>;
+let storageMock: ReturnType<typeof createAsyncStorageMock>;
 let connectivityListener: (state: {
   isConnected: boolean | null;
   isInternetReachable: boolean | null;
@@ -28,7 +28,7 @@ async function create(
   options: Partial<Parameters<typeof createAltertable>[1]> = {}
 ) {
   const client = await createAltertable('key', {
-    storage: backend,
+    storage: storageMock,
     flushIntervalMs: 1_000_000,
     ...options,
   });
@@ -42,7 +42,7 @@ function payloads() {
 }
 
 beforeEach(() => {
-  backend = createBackend();
+  storageMock = createAsyncStorageMock();
   vi.useFakeTimers();
   vi.stubGlobal('window', globalThis);
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
@@ -59,7 +59,7 @@ it('restores anonymous identity, identified identity, and unsent events across r
   const first = await create({ connectivity });
   first.track('Before Login');
   await first.flushPersistence();
-  const anonymous = JSON.parse(backend.values.get(keys.session)!);
+  const anonymous = JSON.parse(storageMock.values.get(keys.session)!);
   first.identify('user-123');
   first.track('Before Restart');
   await first.dispose();
@@ -85,14 +85,14 @@ it('restores anonymous identity, identified identity, and unsent events across r
       }),
     ])
   );
-  expect(backend.values.has(keys.events)).toBe(false);
+  expect(storageMock.values.has(keys.events)).toBe(false);
 });
 
 it('does not expose a client before identity hydration completes', async () => {
   const read = deferred<string | null>();
-  const isolatedBackend = createBackend();
-  isolatedBackend.getItem.mockReturnValue(read.promise);
-  const result = create({ storage: isolatedBackend });
+  const isolatedStorageMock = createAsyncStorageMock();
+  isolatedStorageMock.getItem.mockReturnValue(read.promise);
+  const result = create({ storage: isolatedStorageMock });
   let ready = false;
   void result.then(() => {
     ready = true;
@@ -111,8 +111,8 @@ it('restores denied consent and removes previously buffered events before sendin
   first.track('Queued Before Denial');
   await first.flushPersistence();
   await first.dispose();
-  const session = JSON.parse(backend.values.get(keys.session)!);
-  backend.values.set(
+  const session = JSON.parse(storageMock.values.get(keys.session)!);
+  storageMock.values.set(
     keys.session,
     JSON.stringify({ ...session, trackingConsent: 'denied' })
   );
@@ -122,7 +122,7 @@ it('restores denied consent and removes previously buffered events before sendin
   await second.flush();
   expect(second.getTrackingConsent()).toBe('denied');
   expect(fetch).not.toHaveBeenCalled();
-  expect(backend.values.has(keys.events)).toBe(false);
+  expect(storageMock.values.has(keys.events)).toBe(false);
   await second.configure({ trackingConsent: 'granted' });
   second.track('Allowed');
   await second.flush();
@@ -137,12 +137,12 @@ it('keeps pending consent events in memory until grant and durably clears on den
   const client = await create({ trackingConsent: 'pending', connectivity });
   client.track('Pending');
   await client.flushPersistence();
-  expect(backend.values.has(keys.events)).toBe(false);
+  expect(storageMock.values.has(keys.events)).toBe(false);
   await client.configure({ trackingConsent: 'granted' });
-  expect(backend.values.get(keys.events)).toContain('Pending');
+  expect(storageMock.values.get(keys.events)).toContain('Pending');
   await client.configure({ trackingConsent: 'denied' });
-  expect(backend.values.has(keys.events)).toBe(false);
-  expect(JSON.parse(backend.values.get(keys.session)!)).toMatchObject({
+  expect(storageMock.values.has(keys.events)).toBe(false);
+  expect(JSON.parse(storageMock.values.get(keys.session)!)).toMatchObject({
     trackingConsent: 'denied',
   });
 });
@@ -154,8 +154,8 @@ it('can disable durable events while retaining identity and consent', async () =
   const second = await create({ connectivity, eventPersistence: false });
   second.track('Memory Only');
   await second.flushPersistence();
-  expect(backend.values.has(keys.events)).toBe(false);
-  expect(backend.values.has(keys.session)).toBe(true);
+  expect(storageMock.values.has(keys.events)).toBe(false);
+  expect(storageMock.values.has(keys.session)).toBe(true);
 });
 
 it('flushes on connectivity recovery and app state transitions, then cleans up', async () => {
@@ -188,17 +188,18 @@ it('persists reset before resolving and keeps device identity and consent', asyn
   client.identify('user-123');
   client.track('Old User');
   await client.flushPersistence();
-  const before = JSON.parse(backend.values.get(keys.session)!);
+  const before = JSON.parse(storageMock.values.get(keys.session)!);
   await client.reset();
-  const after = JSON.parse(backend.values.get(keys.session)!);
+  const after = JSON.parse(storageMock.values.get(keys.session)!);
   expect(after.deviceId).toBe(before.deviceId);
   expect(after.distinctId).not.toBe(before.distinctId);
   expect(after.trackingConsent).toBe(before.trackingConsent);
-  expect(backend.values.has(keys.events)).toBe(false);
+  expect(storageMock.values.has(keys.events)).toBe(false);
 });
 
 it('records native screen properties and metadata', async () => {
   const client = await create();
+  client.screen('Home');
   client.screen('Checkout', { id: 'order-1', properties: { total: 42 } });
   await client.flush();
   expect(payloads()).toEqual(
@@ -217,6 +218,112 @@ it('records native screen properties and metadata', async () => {
   );
 });
 
+it('persists profile updates and identity aliases through an offline restart', async () => {
+  const first = await create({ connectivity });
+  first.identify('user-123', { plan: 'free' });
+  first.updateTraits({ plan: 'pro' });
+  first.alias('customer-456');
+  await first.dispose();
+
+  const second = await create();
+  second.track('After Alias');
+  await second.flush();
+  expect(payloads()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        distinct_id: 'user-123',
+        traits: { plan: 'pro' },
+      }),
+      expect.objectContaining({
+        distinct_id: 'user-123',
+        new_user_id: 'customer-456',
+      }),
+      expect.objectContaining({
+        event: 'After Alias',
+        distinct_id: 'user-123',
+      }),
+    ])
+  );
+});
+
+it('automatically delivers a small batch at the default interval', async () => {
+  const client = await create({ flushIntervalMs: undefined });
+  await vi.advanceTimersByTimeAsync(0);
+  client.track('Periodic Delivery');
+  await vi.advanceTimersByTimeAsync(9_999);
+  expect(fetch).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(payloads()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ event: 'Periodic Delivery' }),
+    ])
+  );
+});
+
+it('does not start delivery when disposed during an awaited native flush', async () => {
+  const client = await create();
+  await vi.advanceTimersByTimeAsync(0);
+  const write = deferred<void>();
+  storageMock.setItem.mockImplementationOnce(async (key, value) => {
+    await write.promise;
+    storageMock.values.set(key, value);
+  });
+  client.track('Save Without Sending');
+  const flushing = client.flush();
+  const disposing = client.dispose();
+  write.resolve();
+  await Promise.all([flushing, disposing]);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(storageMock.values.get(keys.events)).toContain('Save Without Sending');
+});
+
+it('does not resume delivery when disposed during a consent grant', async () => {
+  const client = await create({ trackingConsent: 'pending' });
+  client.track('Granted Before Disposal');
+  const write = deferred<void>();
+  storageMock.setItem.mockImplementationOnce(async (key, value) => {
+    await write.promise;
+    storageMock.values.set(key, value);
+  });
+  const granting = client.configure({ trackingConsent: 'granted' });
+  const disposing = client.dispose();
+  write.resolve();
+  await Promise.all([granting, disposing]);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(JSON.parse(storageMock.values.get(keys.session)!)).toMatchObject({
+    trackingConsent: 'granted',
+  });
+});
+
+it('isolates a throwing error reporter and allows replacing it during recovery', async () => {
+  const initialReporter = vi.fn(() => {
+    throw new Error('Reporter unavailable');
+  });
+  const nextReporter = vi.fn();
+  const client = await create({ connectivity, onError: initialReporter });
+  storageMock.setItem.mockRejectedValueOnce(new Error('Disk full'));
+  client.track('First Attempt');
+  await expect(client.flushPersistence()).rejects.toThrow('Disk full');
+  expect(initialReporter).toHaveBeenCalled();
+
+  await client.configure({ onError: nextReporter });
+  storageMock.setItem.mockRejectedValueOnce('Storage unavailable');
+  client.track('Next Attempt');
+  await expect(client.flushPersistence()).rejects.toBe('Storage unavailable');
+  expect(nextReporter).toHaveBeenCalledWith(
+    expect.objectContaining({ message: 'Storage unavailable' })
+  );
+  await client.flushPersistence();
+});
+
+it('rejects a missing API key with a branded error before accessing storage', async () => {
+  await expect(createAltertable('', { storage: storageMock })).rejects.toThrow(
+    '[Altertable] Missing API key'
+  );
+  expect(storageMock.getItem).not.toHaveBeenCalled();
+  expect(appStateListenerCount()).toBe(0);
+});
+
 it('keeps in-flight events durable when disposed and ignores late request completion', async () => {
   const response = deferred<{ ok: boolean }>();
   vi.mocked(fetch).mockReturnValue(response.promise as Promise<Response>);
@@ -225,19 +332,19 @@ it('keeps in-flight events durable when disposed and ignores late request comple
   await vi.advanceTimersByTimeAsync(0);
   expect(fetch).toHaveBeenCalledOnce();
   await client.dispose();
-  expect(backend.values.get(keys.events)).toContain('In Flight');
+  expect(storageMock.values.get(keys.events)).toContain('In Flight');
   const next = await create({ connectivity });
   next.track('Next Client');
   await next.flushPersistence();
   response.resolve({ ok: true });
   await vi.advanceTimersByTimeAsync(0);
-  expect(backend.values.get(keys.events)).toContain('Next Client');
+  expect(storageMock.values.get(keys.events)).toContain('Next Client');
 });
 
 it('rejects startup on storage failure and leaves no timers or listeners', async () => {
-  const isolatedBackend = createBackend();
-  isolatedBackend.setItem.mockRejectedValue(new Error('Disk full'));
-  await expect(create({ storage: isolatedBackend })).rejects.toThrow(
+  const isolatedStorageMock = createAsyncStorageMock();
+  isolatedStorageMock.setItem.mockRejectedValue(new Error('Disk full'));
+  await expect(create({ storage: isolatedStorageMock })).rejects.toThrow(
     'Disk full'
   );
   expect(vi.getTimerCount()).toBe(0);
@@ -248,9 +355,9 @@ it('waits for durable consent before delivering events queued under pending cons
   const client = await create({ trackingConsent: 'pending' });
   client.track('Pending');
   const write = deferred<void>();
-  backend.setItem.mockImplementationOnce(async (key, value) => {
+  storageMock.setItem.mockImplementationOnce(async (key, value) => {
     await write.promise;
-    backend.values.set(key, value);
+    storageMock.values.set(key, value);
   });
   const grant = client.configure({ trackingConsent: 'granted' });
   await Promise.resolve();
@@ -266,7 +373,7 @@ it('waits for durable consent before delivering events queued under pending cons
 it('does not deliver a consent grant when its native write fails', async () => {
   const client = await create({ trackingConsent: 'pending' });
   client.track('Pending');
-  backend.setItem.mockRejectedValueOnce(new Error('Disk full'));
+  storageMock.setItem.mockRejectedValueOnce(new Error('Disk full'));
   await expect(
     client.configure({ trackingConsent: 'granted' })
   ).rejects.toThrow('Disk full');
@@ -279,31 +386,31 @@ it('does not deliver a consent grant when its native write fails', async () => {
 });
 
 it('reports read failures without generating a replacement identity', async () => {
-  const isolatedBackend = createBackend();
+  const isolatedStorageMock = createAsyncStorageMock();
   const error = new Error('Read failed');
   const onError = vi.fn();
-  isolatedBackend.getItem.mockRejectedValue(error);
-  await expect(create({ storage: isolatedBackend, onError })).rejects.toThrow(
-    'Read failed'
-  );
+  isolatedStorageMock.getItem.mockRejectedValue(error);
+  await expect(
+    create({ storage: isolatedStorageMock, onError })
+  ).rejects.toThrow('Read failed');
   expect(onError).toHaveBeenCalledWith(error);
-  expect(isolatedBackend.setItem).not.toHaveBeenCalled();
+  expect(isolatedStorageMock.setItem).not.toHaveBeenCalled();
   expect(vi.getTimerCount()).toBe(0);
 });
 
 it('can retry a failed final write by disposing again', async () => {
   const client = await create({ connectivity });
-  backend.setItem.mockRejectedValueOnce(new Error('Write failed'));
+  storageMock.setItem.mockRejectedValueOnce(new Error('Write failed'));
   client.track('Save On Dispose');
   await expect(client.dispose()).rejects.toThrow('Write failed');
   await client.dispose();
-  expect(backend.values.get(keys.events)).toContain('Save On Dispose');
+  expect(storageMock.values.get(keys.events)).toContain('Save On Dispose');
   expect(appStateListenerCount()).toBe(0);
 });
 
 it('does not pause existing consent when an unrelated configuration write fails', async () => {
   const client = await create();
-  backend.setItem.mockRejectedValueOnce(new Error('Write failed'));
+  storageMock.setItem.mockRejectedValueOnce(new Error('Write failed'));
   client.track('Queued');
   await expect(client.configure({ release: 'v2' })).rejects.toThrow(
     'Write failed'
@@ -332,8 +439,8 @@ it('persists threshold-triggered events before starting delivery', async () => {
   const client = await create({ flushEventThreshold: 1 });
   await vi.advanceTimersByTimeAsync(0);
   const write = deferred<void>();
-  const setItem = backend.setItem.getMockImplementation()!;
-  backend.setItem.mockImplementation(async (key, value) => {
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
     if (key === keys.events) await write.promise;
     await setItem(key, value);
   });
@@ -357,8 +464,8 @@ it('does not send an automatic batch after native persistence fails and retries 
   const onError = vi.fn();
   const client = await create({ flushEventThreshold: 1, onError });
   await vi.advanceTimersByTimeAsync(0);
-  const setItem = backend.setItem.getMockImplementation()!;
-  backend.setItem.mockImplementation(async (key, value) => {
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
     if (key === keys.events) throw new Error('Event write failed');
     await setItem(key, value);
   });
@@ -368,7 +475,7 @@ it('does not send an automatic batch after native persistence fails and retries 
     expect(onError).toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   } finally {
-    backend.setItem.mockImplementation(setItem);
+    storageMock.setItem.mockImplementation(setItem);
   }
   await vi.advanceTimersByTimeAsync(1_000_000);
   expect(payloads()).toEqual(
@@ -403,12 +510,12 @@ it('recovers persisted offline events after backgrounding and a restart without 
   expect(fetch).not.toHaveBeenCalled();
 
   // Snapshot durable storage before disposal: a killed process cannot run cleanup.
-  const recoveredBackend = createBackend();
-  for (const [key, value] of backend.values)
-    recoveredBackend.values.set(key, value);
+  const recoveredStorageMock = createAsyncStorageMock();
+  for (const [key, value] of storageMock.values)
+    recoveredStorageMock.values.set(key, value);
   await first.dispose();
 
-  const second = await create({ storage: recoveredBackend, connectivity });
+  const second = await create({ storage: recoveredStorageMock, connectivity });
   emitAppState('active');
   await vi.advanceTimersByTimeAsync(0);
   expect(fetch).not.toHaveBeenCalled();
@@ -422,7 +529,7 @@ it('recovers persisted offline events after backgrounding and a restart without 
     distinct_id: 'reference-user',
     properties: { order_id: 'order-1' },
   });
-  expect(recoveredBackend.values.has(keys.events)).toBe(false);
+  expect(recoveredStorageMock.values.has(keys.events)).toBe(false);
   await second.flushPersistence();
 });
 
@@ -433,16 +540,16 @@ it('clears the previous account backlog on an offline account switch and restore
     first.identify('account-a');
     first.track('Account A Event');
     await first.flushPersistence();
-    const accountA = JSON.parse(backend.values.get(keys.session)!);
+    const accountA = JSON.parse(storageMock.values.get(keys.session)!);
 
     first.identify('account-b');
     first.track('Account B Event');
     await first.flushPersistence();
-    const accountB = JSON.parse(backend.values.get(keys.session)!);
+    const accountB = JSON.parse(storageMock.values.get(keys.session)!);
     expect(accountB.distinctId).toBe('account-b');
     expect(accountB.anonymousId).not.toBe(accountA.anonymousId);
     expect(accountB.deviceId).toBe(accountA.deviceId);
-    expect(backend.values.get(keys.events)).not.toContain('account-a');
+    expect(storageMock.values.get(keys.events)).not.toContain('account-a');
     await first.dispose();
 
     const second = await create();
@@ -465,7 +572,7 @@ it('keeps an offline consent revocation effective after restart and never replay
   const first = await create({ connectivity });
   first.track('Before Revocation');
   await first.flushPersistence();
-  expect(backend.values.get(keys.events)).toContain('Before Revocation');
+  expect(storageMock.values.get(keys.events)).toContain('Before Revocation');
   await first.configure({ trackingConsent: 'denied' });
   first.track('While Denied');
   await first.flushPersistence();

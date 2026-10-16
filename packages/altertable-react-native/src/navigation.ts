@@ -13,13 +13,21 @@ export function trackNavigation(
   navigation: NavigationRef
 ): () => void {
   let previousKey: string | undefined;
+
   function trackCurrentRoute() {
-    if (!navigation.isReady()) return;
+    if (!navigation.isReady()) {
+      return;
+    }
+
     const route = navigation.getCurrentRoute();
-    if (!route || route.key === previousKey) return;
+    if (!route || route.key === previousKey) {
+      return;
+    }
+
     previousKey = route.key;
     client.screen(route.name);
   }
+
   const removeReadyListener = navigation.addListener(
     'ready',
     trackCurrentRoute
@@ -29,6 +37,7 @@ export function trackNavigation(
     trackCurrentRoute
   );
   trackCurrentRoute();
+
   return () => {
     removeReadyListener();
     removeStateListener();
