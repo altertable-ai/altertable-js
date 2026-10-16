@@ -28,8 +28,7 @@ function migrateKeys(
 ): void {
   for (const key of keys) {
     const value = fromStorage.getItem(key);
-    if (value !== null) {
-      toStorage.setItem(key, value);
+    if (value !== null && toStorage.setItem(key, value)) {
       fromStorage.removeItem(key);
     }
   }
@@ -140,18 +139,7 @@ class LocalPlusCookieStore implements StorageApi {
     this.cookieStore.removeItem(key);
   }
   migrate(fromStorage: StorageApi, keys: string[]) {
-    // Migrate to both localStorage and cookie without removing from source yet
-    for (const key of keys) {
-      const value = fromStorage.getItem(key);
-      if (value !== null) {
-        this.localStore.setItem(key, value);
-        this.cookieStore.setItem(key, value);
-      }
-    }
-
-    for (const key of keys) {
-      fromStorage.removeItem(key);
-    }
+    migrateKeys(this, fromStorage, keys);
   }
 }
 
