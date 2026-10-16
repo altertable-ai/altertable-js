@@ -27,7 +27,10 @@ npm install @react-native-async-storage/async-storage
 npx pod-install
 ```
 
-Requires React Native 0.81+ and React 19.1+.
+Requires React Native 0.81+ and React 19.1+. CI checks the minimum and example
+versions with packed-package typechecks and iOS/Android bundles. See the
+[runtime qualification results](../../examples/example-react-native/DELIVERY_CHECKS.md#runtime-qualification)
+for device validation status.
 
 ## Quick Start
 
@@ -148,7 +151,8 @@ await client.dispose(); // Stop listeners/timers and persist remaining events.
 
 Keep one active client per API key, environment, and storage backend. Dispose it
 before creating a replacement. Storage failures reach `onError` and reject awaited
-operations; a later flush retries pending writes.
+operations; a later flush retries pending writes. Native storage and subscription
+failures also produce a branded console warning, deduplicated for each client.
 
 ## Types
 

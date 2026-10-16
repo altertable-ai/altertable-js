@@ -88,6 +88,35 @@ Confirm the event remains recoverable with its original identity. Duplicate rece
 is permitted: delivery is at least once. Record this check as untested if response
 interruption cannot be controlled; toggling airplane mode alone is not proof.
 
+## Runtime qualification
+
+CI installs packed core/native SDK artifacts into isolated fixtures, then checks
+TypeScript and Metro bundles for both platforms. Run the same checks from the
+repository root after building both SDK packages:
+
+```sh
+bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native
+bun run check:react-native minimum
+bun run check:react-native current
+```
+
+The minimum fixture uses RN 0.81.0 / React 19.1.0; the current fixture reads the
+example's versions. It uses the actual React Native package, with no native API
+mocks. Temporary installations are removed after each run.
+
+Qualification recorded on 2026-10-16:
+
+| Runtime                  | Types  | iOS Metro | Android Metro | iOS device journeys | Android device journeys |
+| ------------------------ | ------ | --------- | ------------- | ------------------- | ----------------------- |
+| RN 0.81.0 / React 19.1.0 | Passed | Passed    | Passed        | Not run             | Not run                 |
+| RN 0.88.0 / React 19.3.0 | Passed | Passed    | Passed        | Not run             | Not run                 |
+
+Bundling does not execute AppState or native storage. Before release, run the
+journeys above on both platforms, using a cold-start-capable app built against
+each runtime, and replace the device entries with recorded results. The validation
+host had no installed iOS simulator runtime or connected Android device; no native
+journey is claimed by the automated checks.
+
 ## Record results
 
 Record each journey separately for iOS and Android. Attach received event names,
