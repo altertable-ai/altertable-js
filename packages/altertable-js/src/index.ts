@@ -2,9 +2,18 @@ import { TrackingConsent } from './constants';
 import { Altertable, type AltertableConfig } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
-export type { Altertable, AltertableConfig };
+export { Altertable };
+export type { AltertableConfig };
+export { getStorageKeys } from './lib/getStorageKeys';
+export type { Persistence, StorageAdapter } from './lib/storage';
+export type { TrackingConsentType } from './constants';
 export type { Adapters, PostHogAdapter } from './adapters/types';
-export type { EventProperties, TrackPayload, TransformEvent } from './types';
+export type {
+  EventProperties,
+  TrackPayload,
+  TransformEvent,
+  UserTraits,
+} from './types';
 export { TrackingConsent };
 
 declare global {

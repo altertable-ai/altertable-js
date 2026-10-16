@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Altertable React Native Example",
+    "slug": "altertable-react-native-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "ios": { "supportsTablet": true },
+    "android": { "package": "ai.altertable.example" }
+  }
+}

@@ -6,17 +6,19 @@ A modern, type-safe analytics SDK for capturing and sending events to Altertable
 
 ## Packages
 
-| Package                                                           | Description                                                    | NPM                                                                                                                             |
-| ----------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [`@altertable/altertable-js`](./packages/altertable-js)           | Core JavaScript SDK for capturing and sending analytics events | [![npm](https://img.shields.io/npm/v/@altertable/altertable-js)](https://www.npmjs.com/package/@altertable/altertable-js)       |
-| [`@altertable/altertable-react`](./packages/altertable-react)     | React SDK with hooks and type-safe funnel tracking             | [![npm](https://img.shields.io/npm/v/@altertable/altertable-react)](https://www.npmjs.com/package/@altertable/altertable-react) |
-| [`@altertable/altertable-snippet`](./packages/altertable-snippet) | ES5-compatible snippet for legacy browser support              | –                                                                                                                               |
+| Package                                                                     | Description                                                                      | NPM                                                                                                                             |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [`@altertable/altertable-js`](./packages/altertable-js)                     | Core JavaScript SDK for capturing and sending analytics events                   | [![npm](https://img.shields.io/npm/v/@altertable/altertable-js)](https://www.npmjs.com/package/@altertable/altertable-js)       |
+| [`@altertable/altertable-react`](./packages/altertable-react)               | React SDK with hooks and type-safe funnel tracking                               | [![npm](https://img.shields.io/npm/v/@altertable/altertable-react)](https://www.npmjs.com/package/@altertable/altertable-react) |
+| [`@altertable/altertable-react-native`](./packages/altertable-react-native) | React Native SDK with persistent identity, offline delivery, and screen tracking | –                                                                                                                               |
+| [`@altertable/altertable-snippet`](./packages/altertable-snippet)           | ES5-compatible snippet for legacy browser support                                | –                                                                                                                               |
 
 ## Examples
 
-| Example                                     | Description                                  | Port   | Framework                 |
-| ------------------------------------------- | -------------------------------------------- | ------ | ------------------------- |
-| [`example-react`](./examples/example-react) | React application showcasing funnel tracking | `3000` | React + Vite + TypeScript |
+| Example                                                   | Description                                                | Port   | Framework                        |
+| --------------------------------------------------------- | ---------------------------------------------------------- | ------ | -------------------------------- |
+| [`example-react`](./examples/example-react)               | React application showcasing funnel tracking               | `3000` | React + Vite + TypeScript        |
+| [`example-react-native`](./examples/example-react-native) | Native identity, offline delivery, and navigation tracking | `8081` | Expo + React Native + TypeScript |
 
 ## Quick Start
 
@@ -24,6 +26,7 @@ For detailed installation and usage instructions, see the package-specific docum
 
 - **[Core JavaScript SDK](./packages/altertable-js/README.md)** – Installation, API reference, and examples
 - **[React SDK](./packages/altertable-react/README.md)** – React hooks, providers, and type-safe funnel tracking
+- **[React Native SDK](./packages/altertable-react-native/README.md)** – AsyncStorage, app lifecycle, and screen tracking
 
 ## Development
 
@@ -94,11 +97,11 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 1. Merge conventional commits into `main` (`fix:` for patch, `feat:` for minor, `feat!:` for major)
 2. release-please opens/updates a release PR with version and changelog updates
 3. Merge the release PR
-4. The `release-please.yml` workflow publishes both packages to npm through trusted publishing
+4. The `release-please.yml` workflow publishes the SDK packages to npm through trusted publishing
 
-`@altertable/altertable-js` and `@altertable/altertable-react` share one version and are always published together. The workflow fails before publishing if their versions differ or if GitHub OIDC is unavailable. It does not use an `NPM_TOKEN`.
+`@altertable/altertable-js`, `@altertable/altertable-react`, and `@altertable/altertable-react-native` share one version and are published together. The workflow fails before publishing if their versions differ or if GitHub OIDC is unavailable. It does not use an `NPM_TOKEN`.
 
-Configure the npm trusted publisher for both packages with the GitHub organization `altertable-ai`, repository `altertable-js`, workflow filename `release-please.yml`, and the `npm publish` action. To recover an existing release, manually run the **Release Please** workflow from `main`. Recovery is retry-safe: versions already present on npm are skipped before both packages are attempted.
+Configure the npm trusted publisher for all three packages with the GitHub organization `altertable-ai`, repository `altertable-js`, workflow filename `release-please.yml`, and the `npm publish` action. The React Native package requires its initial npm package and trusted publisher setup before its first automated release. To recover an existing release, manually run the **Release Please** workflow from `main`. Recovery is retry-safe: versions already present on npm are skipped before each package is attempted.
 
 ## Documentation
 

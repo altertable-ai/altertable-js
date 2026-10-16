@@ -1,0 +1,58 @@
+{
+  "name": "@altertable/altertable-react-native",
+  "description": "React Native SDK to capture and send events to Altertable.",
+  "version": "1.3.0",
+  "license": "MIT",
+  "author": {
+    "name": "Altertable",
+    "url": "https://altertable.ai"
+  },
+  "homepage": "https://github.com/altertable-ai/altertable-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/altertable-ai/altertable-js.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "react-native": "dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./dist/index.mjs",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup --env.mode production",
+    "dev": "tsup --watch --env.mode development",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@altertable/altertable-js": "^1.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19.1",
+    "react-native": ">=0.81 <1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "react-native": "0.88.0",
+    "@testing-library/react": "^16.3.3",
+    "react-dom": "^19.3.0"
+  }
+}

@@ -23,6 +23,7 @@
     "test:watch": "lerna run test:watch --parallel",
     "coverage": "lerna run coverage --parallel",
     "bundlesize": "bundlesize",
+    "check:react-native": "bun run scripts/react-native/check-runtime.ts",
     "test:integration": "vitest run --config scripts/integration/vitest.config.ts",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."

@@ -8,10 +8,16 @@ export type StorageType =
   | 'memory'
   | 'localStorage+cookie';
 
-export interface StorageApi {
+/** Synchronous storage contract. Async backends must be hydrated before init. */
+export interface StorageAdapter {
   getItem(key: string): string | null;
   setItem(key: string, value: string): boolean;
   removeItem(key: string): void;
+}
+
+export type Persistence = StorageType | StorageAdapter;
+
+export interface StorageApi extends StorageAdapter {
   migrate(fromStorage: StorageApi, keys: string[]): void;
 }
 
@@ -163,10 +169,21 @@ function testStorageSupport(
 }
 
 export function selectStorage(
-  type: StorageType | 'unknown',
+  type: Persistence | 'unknown',
   params: { onFallback: (message: string) => void }
 ): StorageApi {
   const { onFallback } = params;
+
+  if (typeof type === 'object' && type !== null) {
+    return {
+      getItem: key => type.getItem(key),
+      setItem: (key, value) => type.setItem(key, value),
+      removeItem: key => type.removeItem(key),
+      migrate(fromStorage, keys) {
+        migrateKeys(this, fromStorage, keys);
+      },
+    };
+  }
 
   switch (type) {
     case 'localStorage': {
@@ -230,10 +247,14 @@ export function selectStorage(
 }
 
 export function selectEventStorage(
-  type: StorageType | 'unknown',
+  type: Persistence | 'unknown',
   params: { onFallback: (message: string) => void }
 ): StorageApi {
   const { onFallback } = params;
+
+  if (typeof type === 'object' && type !== null) {
+    return selectStorage(type, params);
+  }
 
   switch (type) {
     case 'localStorage':

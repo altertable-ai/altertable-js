@@ -83,6 +83,10 @@ export class SessionManager {
     return this._sessionData.sessionId;
   }
 
+  setStorage(storage: StorageApi): void {
+    this._storage = storage;
+  }
+
   getDeviceId(): DeviceId {
     return this._sessionData.deviceId;
   }

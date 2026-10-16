@@ -2,11 +2,11 @@
   "files": [
     {
       "path": "./packages/altertable-js/dist/index.js",
-      "maxSize": "11 kB"
+      "maxSize": "11.5 kB"
     },
     {
       "path": "./packages/altertable-js/dist/index.mjs",
-      "maxSize": "11 kB"
+      "maxSize": "11.5 kB"
     },
     {
       "path": "./packages/altertable-react/dist/index.js",
@@ -14,6 +14,14 @@
     },
     {
       "path": "./packages/altertable-react/dist/index.mjs",
+      "maxSize": "3 kB"
+    },
+    {
+      "path": "./packages/altertable-react-native/dist/index.js",
+      "maxSize": "3 kB"
+    },
+    {
+      "path": "./packages/altertable-react-native/dist/index.mjs",
       "maxSize": "3 kB"
     }
   ]

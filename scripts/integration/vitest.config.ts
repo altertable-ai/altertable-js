@@ -1,6 +1,6 @@
 /**
- * Integration tests import `packages/altertable-js/dist`. Build that package first
- * locally (`cd packages/altertable-js && bun run build`). CI runs the same build
+ * Integration tests import built core and React Native packages. Build both first
+ * locally (`bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native`). CI runs the same build
  * before `test:integration`.
  */
 import path from 'node:path';
@@ -13,6 +13,14 @@ const repoRoot = path.dirname(path.dirname(configDir));
 
 export default defineConfig({
   root: repoRoot,
+  resolve: {
+    alias: {
+      'react-native': path.join(
+        repoRoot,
+        'packages/altertable-react-native/test/reactNativeMock.ts'
+      ),
+    },
+  },
   test: {
     environment: 'node',
     include: ['scripts/integration/*.integration.test.ts'],
