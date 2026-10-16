@@ -503,25 +503,25 @@ export class Altertable {
     this._cleanupAutoCapture?.();
 
     if (enableAutoCapture) {
-      if (this._lastUrl) {
-        this.page(this._lastUrl);
-      }
+      this._cleanupAutoCapture = safelyRunOnBrowser(({ window }) => {
+        if (this._lastUrl) {
+          this.page(this._lastUrl);
+        }
 
-      const checkForChanges = this._checkForChanges.bind(this);
-      const intervalId = setInterval(checkForChanges, AUTO_CAPTURE_INTERVAL_MS);
-
-      safelyRunOnBrowser(({ window }) => {
+        const checkForChanges = this._checkForChanges.bind(this);
+        const intervalId = setInterval(
+          checkForChanges,
+          AUTO_CAPTURE_INTERVAL_MS
+        );
         window.addEventListener('popstate', checkForChanges);
         window.addEventListener('hashchange', checkForChanges);
-      });
 
-      this._cleanupAutoCapture = () => {
-        clearInterval(intervalId);
-        safelyRunOnBrowser(({ window }) => {
+        return () => {
+          clearInterval(intervalId);
           window.removeEventListener('popstate', checkForChanges);
           window.removeEventListener('hashchange', checkForChanges);
-        });
-      };
+        };
+      });
     } else {
       this._cleanupAutoCapture = undefined;
     }

@@ -93,6 +93,7 @@ describe('Storage API', () => {
       configurable: true,
     });
     mockWindow = {
+      location: originalWindow.location,
       localStorage: mockLocalStorage as unknown as Storage,
       sessionStorage: mockSessionStorage as unknown as Storage,
       document: mockDocument as Document,
