@@ -322,7 +322,7 @@ it('isolates a throwing error reporter and allows replacing it during recovery',
 
 it('rejects a missing API key with a branded error before accessing storage', async () => {
   await expect(createAltertable('', { storage: storageMock })).rejects.toThrow(
-    '[Altertable] Missing API key'
+    '[Altertable] Missing API key. Pass your API key to createAltertable().'
   );
   expect(storageMock.getItem).not.toHaveBeenCalled();
   expect(appStateListenerCount()).toBe(0);
@@ -715,4 +715,29 @@ it('delivers new threshold events collected during an automatic request', async 
   await vi.advanceTimersByTimeAsync(0);
   expect(payloads().map(payload => payload.event)).toEqual(['First', 'Second']);
   expect(storageMock.values.has(keys.events)).toBe(false);
+});
+
+it('explains how to supply storage before starting the client', async () => {
+  // JavaScript callers can omit required configuration despite the TypeScript contract.
+  // @ts-expect-error Validate runtime behavior when storage is missing.
+  await expect(createAltertable('key', {})).rejects.toThrow(
+    '[Altertable] Missing storage. Pass an async storage backend, such as AsyncStorage, to createAltertable().'
+  );
+  expect(appStateListenerCount()).toBe(0);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('explains how to recover from using a disposed client', async () => {
+  const client = await create();
+  await client.dispose();
+  const message =
+    '[Altertable] This client has been disposed. Create a new client with createAltertable() to continue.';
+  expect(() => client.track('Late Callback')).toThrow(message);
+  expect(() => client.identify('user')).toThrow(message);
+  await expect(
+    client.configure({ trackingConsent: 'granted' })
+  ).rejects.toThrow(message);
+  await expect(client.flush()).rejects.toThrow(message);
+  expect(() => client.flushPersistence()).toThrow(message);
+  expect(fetch).not.toHaveBeenCalled();
 });

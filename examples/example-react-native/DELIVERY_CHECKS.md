@@ -28,7 +28,8 @@ event names, received identities, and pass/fail for each journey.
 2. Disable all connectivity. Enter a unique event name and press **Track and save
    event**. Wait for completion.
 3. Force-terminate the application without logging out or disposing the client.
-4. Reopen while offline, then restore connectivity.
+4. Reopen while offline, then restore connectivity. Allow the next 10-second batch
+   interval to attempt delivery.
 5. Confirm the named event arrives under `delivery-user-a`. Repeat with an
    anonymous event after **Logout and save**; confirm anonymous and device identity
    remain the same across the restart.

@@ -9,7 +9,7 @@ import { AppState, Platform } from 'react-native';
 
 import { type AsyncStorage, hydrateStorage } from './storage';
 
-/** Structurally compatible with @react-native-community/netinfo. */
+/** Optional network status subscription supplied by the app. */
 export interface Connectivity {
   addEventListener(
     listener: (state: {
@@ -37,7 +37,7 @@ export type ReactNativeConfig = CoreOptions & {
   storage: AsyncStorage;
   /** Persist unsent events. Defaults to true. Identity and consent remain durable. */
   eventPersistence?: boolean;
-  /** Optional connectivity subscription, for example NetInfo. No runtime dependency is required. */
+  /** Retry on reconnection and skip delivery while known offline. */
   connectivity?: Connectivity;
 };
 
@@ -55,7 +55,15 @@ export async function createAltertable(
   options: ReactNativeConfig
 ) {
   if (!apiKey) {
-    throw new Error('[Altertable] Missing API key');
+    throw new Error(
+      '[Altertable] Missing API key. Pass your API key to createAltertable().'
+    );
+  }
+
+  if (!options?.storage) {
+    throw new Error(
+      '[Altertable] Missing storage. Pass an async storage backend, such as AsyncStorage, to createAltertable().'
+    );
   }
 
   const {
@@ -123,14 +131,16 @@ export async function createAltertable(
     onError: reportError,
   });
 
-  function assertOpen() {
+  function assertNotDisposed() {
     if (disposed) {
-      throw new Error('[Altertable] The client has been disposed.');
+      throw new Error(
+        '[Altertable] This client has been disposed. Create a new client with createAltertable() to continue.'
+      );
     }
   }
 
   function track(event: string, properties: EventProperties = {}) {
-    assertOpen();
+    assertNotDisposed();
     core.track(event, {
       $os: Platform.OS,
       $os_version: String(Platform.Version),
@@ -141,7 +151,7 @@ export async function createAltertable(
   }
 
   async function flush({ drain = true } = {}) {
-    assertOpen();
+    assertNotDisposed();
     // Persist first: background network attempts must not delay native writes.
     await storage.flush();
     if (disposed) {
@@ -233,25 +243,25 @@ export async function createAltertable(
       });
     },
     identify(...args: Parameters<Altertable['identify']>) {
-      assertOpen();
+      assertNotDisposed();
       core.identify(...args);
     },
     alias(...args: Parameters<Altertable['alias']>) {
-      assertOpen();
+      assertNotDisposed();
       core.alias(...args);
     },
     updateTraits(...args: Parameters<Altertable['updateTraits']>) {
-      assertOpen();
+      assertNotDisposed();
       core.updateTraits(...args);
     },
     getTrackingConsent: () => core.getTrackingConsent(),
     async reset(...args: Parameters<Altertable['reset']>) {
-      assertOpen();
+      assertNotDisposed();
       core.reset(...args);
       await storage.flush();
     },
     async configure(updates: ReactNativeConfigUpdates) {
-      assertOpen();
+      assertNotDisposed();
       // A consent grant can synchronously replay and flush queued events in
       // core. Keep delivery paused until the updated consent is durable.
       const grantingConsent =
@@ -273,7 +283,7 @@ export async function createAltertable(
     flush: () => flush(),
     /** Wait for identity, consent, and event writes without making network requests. */
     flushPersistence() {
-      assertOpen();
+      assertNotDisposed();
       return storage.flush();
     },
     /** Stop timers/listeners and persist remaining events. Does not wait for network delivery. */

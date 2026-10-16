@@ -1,7 +1,7 @@
 import type { ReactNativeClient } from './client';
 
-/** The public subset shared by React Navigation's static and dynamic refs. */
-export interface NavigationRef {
+/** Navigation methods used for screen tracking; accepts React Navigation container refs. */
+export interface NavigationSource {
   isReady(): boolean;
   getCurrentRoute(): { key: string; name: string } | undefined;
   addListener(event: 'ready' | 'state', listener: () => void): () => void;
@@ -12,14 +12,14 @@ type ScreenClient = Pick<ReactNativeClient, 'screen'>;
 // Effect cleanup removes listeners, but replay must retain the last visit.
 // Weak keys keep this state scoped to the client and navigator lifetimes.
 const lastRouteKeys = new WeakMap<
-  NavigationRef,
+  NavigationSource,
   WeakMap<ScreenClient, string>
 >();
 
 /** Track the initial route and subsequent visits. Returns listener cleanup. */
 export function trackNavigation(
   client: ScreenClient,
-  navigation: NavigationRef
+  navigation: NavigationSource
 ): () => void {
   const routeKeys =
     lastRouteKeys.get(navigation) ?? new WeakMap<ScreenClient, string>();

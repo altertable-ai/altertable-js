@@ -6,7 +6,6 @@ import {
   useAltertable,
 } from '@altertable/altertable-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import {
   NavigationContainer,
   useNavigationContainerRef,
@@ -46,7 +45,6 @@ function initialize() {
 
   initialization ??= createAltertable(apiKey, {
     storage: deliveryChecksEnabled ? deliveryCheckStorage : AsyncStorage,
-    connectivity: NetInfo,
     environment: 'development',
     trackingConsent: deliveryChecksEnabled ? 'pending' : 'granted',
     onError: console.error,
@@ -61,7 +59,7 @@ function initialize() {
 export default function App() {
   const [client, setClient] = useState<ReactNativeClient>();
   const [error, setError] = useState<string>();
-  const [attempt, retry] = useReducer((value: number) => value + 1, 0);
+  const [attempt, retry] = useReducer(value => value + 1, 0);
 
   useEffect(() => {
     let mounted = true;

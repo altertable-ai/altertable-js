@@ -121,7 +121,9 @@ client.screen('Checkout', {
 
 It sends `$screen` with `$view_name`, `$view_type`, and optional `$view_id`.
 For React Navigation, attach `trackNavigation(client, navigationRef)` inside an
-effect and return its cleanup. It tracks the initial route and subsequent active
+effect and return its cleanup. Pass the object returned by
+`useNavigationContainerRef()` directly. The `NavigationSource` type describes the
+required navigation methods. It tracks the initial route and subsequent active
 route changes. The [Expo example](../../examples/example-react-native/App.tsx)
 shows the full integration. Use either manual or navigation tracking to avoid
 duplicates.
@@ -132,24 +134,9 @@ Events persist by default and retry after restart. The SDK attempts delivery eve
 10 seconds, at 20 buffered payloads, and on app state changes. Delivery is at least
 once; OS suspension can interrupt background writes or requests.
 
-Optionally install NetInfo and pass it as `connectivity` to retry immediately on
-reconnection. The SDK does not require NetInfo at runtime:
-
-```sh
-npx expo install @react-native-community/netinfo
-```
-
-For bare React Native, use `npm install @react-native-community/netinfo` and run
-`npx pod-install` for iOS.
-
-```tsx
-import NetInfo from '@react-native-community/netinfo';
-
-const client = await createAltertable('YOUR_API_KEY', {
-  storage: AsyncStorage,
-  connectivity: NetInfo,
-});
-```
+No connectivity dependency is required. Failed requests retry on the next batch
+interval or app state change. Apps that already observe network status can pass an
+optional `connectivity` subscription to retry immediately on reconnection.
 
 ```tsx
 await client.flushPersistence(); // Wait for native writes without sending.
@@ -172,7 +159,7 @@ error handling, and batching, plus:
 | ------------------ | -------- | ------- | ----------------------------------------------------------------- |
 | `storage`          | Yes      | —       | Async backend with `getItem`, `setItem`, and `removeItem`.        |
 | `eventPersistence` | No       | `true`  | Persist unsent events. Identity and consent are always persisted. |
-| `connectivity`     | No       | —       | Connectivity subscription, such as NetInfo.                       |
+| `connectivity`     | No       | —       | Optional app-provided network status subscription.                |
 
 `configure()` updates consent, release, debug, transformation, error handling, and
 batch settings. API key, environment, storage, and connectivity are fixed for a

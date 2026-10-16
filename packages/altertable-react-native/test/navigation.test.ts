@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { StrictMode, useEffect } from 'react';
 import { expect, it, vi } from 'vitest';
 
-import { trackNavigation, type NavigationRef } from '../src/navigation';
+import { trackNavigation, type NavigationSource } from '../src/navigation';
 
 function createNavigation(ready = true) {
   let route: { key: string; name: string } | undefined = {
@@ -15,7 +15,7 @@ function createNavigation(ready = true) {
     ready: new Set<() => void>(),
     state: new Set<() => void>(),
   };
-  const navigation: NavigationRef = {
+  const navigation: NavigationSource = {
     isReady: () => ready,
     getCurrentRoute: () => route,
     addListener(event, listener) {
