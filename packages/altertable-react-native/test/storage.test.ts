@@ -60,14 +60,24 @@ it('does not retry a failed stale snapshot over a newer deletion', async () => {
   expect(storageMock.setItem).toHaveBeenCalledTimes(1);
 });
 
-it('fails hydration without creating a replacement identity', async () => {
-  const storageMock = createAsyncStorageMock();
-  storageMock.getItem.mockRejectedValue(new Error('Read failed'));
-  await expect(
-    hydrateStorage(storageMock, ['identity'], vi.fn())
-  ).rejects.toThrow('Read failed');
-  expect(storageMock.setItem).not.toHaveBeenCalled();
-});
+it.each([new Error('Read failed'), 'Read failed'])(
+  'reports hydration failure and rejects with the same normalized error: %s',
+  async failure => {
+    const storageMock = createAsyncStorageMock();
+    const onError = vi.fn();
+    storageMock.getItem.mockRejectedValue(failure);
+    const result = hydrateStorage(storageMock, ['identity'], onError);
+    await expect(result).rejects.toThrow('Read failed');
+    const reportedError = onError.mock.calls[0]![0];
+    expect(onError).toHaveBeenCalledOnce();
+    expect(reportedError).toBeInstanceOf(Error);
+    await expect(result).rejects.toBe(reportedError);
+    if (failure instanceof Error) {
+      expect(reportedError).toBe(failure);
+    }
+    expect(storageMock.setItem).not.toHaveBeenCalled();
+  }
+);
 
 it('ignores late writes from disposed clients', async () => {
   const storageMock = createAsyncStorageMock();

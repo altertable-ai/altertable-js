@@ -9,7 +9,7 @@ export type {
 export { AltertableProvider, useAltertable } from './react';
 export { trackNavigation } from './navigation';
 export type { NavigationSource } from './navigation';
-export type { AsyncStorage } from './storage';
+export type { AsyncStorageAdapter } from './storage';
 export { TrackingConsent } from '@altertable/altertable-js';
 export type {
   EventProperties,

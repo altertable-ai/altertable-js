@@ -7,7 +7,7 @@ import {
 } from '@altertable/altertable-js';
 import { AppState, Platform } from 'react-native';
 
-import { type AsyncStorage, hydrateStorage } from './storage';
+import { type AsyncStorageAdapter, hydrateStorage } from './storage';
 
 /** Structurally compatible with @react-native-community/netinfo. */
 export interface Connectivity {
@@ -34,7 +34,7 @@ type CoreOptions = Pick<
 >;
 export type ReactNativeConfig = CoreOptions & {
   /** Native async storage backend used to restore and persist identity and events. */
-  storage: AsyncStorage;
+  storage: AsyncStorageAdapter;
   /** Persist unsent events. Defaults to true. Identity and consent remain durable. */
   eventPersistence?: boolean;
   /** Retry on reconnection and skip delivery while known offline. */
@@ -87,12 +87,7 @@ export async function createAltertable(
     backend,
     [keys.session, keys.events],
     reportError
-  ).catch(error => {
-    const sourceError =
-      error instanceof Error ? error : new Error(String(error));
-    reportError(sourceError);
-    throw sourceError;
-  });
+  );
   if (!eventPersistence) {
     storage.removeItem(keys.events);
   }
@@ -101,9 +96,9 @@ export async function createAltertable(
   let deliveryEnabled = false;
   let disposed = false;
   let online = true;
-  let automaticFlush: Promise<void> | undefined;
-  let deferredDelivery = false;
-  const cleanup = core.init(apiKey, {
+  let automaticFlushTask: Promise<void> | undefined;
+  let flushDeferredByStorage = false;
+  const cleanupCore = core.init(apiKey, {
     ...config,
     autoCapture: false,
     persistence: storage,
@@ -121,7 +116,7 @@ export async function createAltertable(
       // Automatic threshold/timer dispatch uses core's synchronous storage API.
       // Defer that attempt through the native flush so its writes finish first.
       if (storage.hasPendingWrites()) {
-        deferredDelivery = true;
+        flushDeferredByStorage = true;
         scheduleFlush();
         return false;
       }
@@ -159,26 +154,26 @@ export async function createAltertable(
     }
 
     deliveryEnabled = true;
-    deferredDelivery = false;
+    flushDeferredByStorage = false;
     await core.flush({ drain });
     await storage.flush();
   }
 
   function scheduleFlush() {
-    if (disposed || automaticFlush) {
+    if (disposed || automaticFlushTask) {
       return;
     }
 
     // One snapshot per automatic attempt: failed batches wait for the next
     // interval, lifecycle transition, or connectivity recovery.
-    automaticFlush = flush({ drain: false })
+    automaticFlushTask = flush({ drain: false })
       .catch(() => {
         // Core delivery and storage already report errors through onError.
-        deferredDelivery = false;
+        flushDeferredByStorage = false;
       })
       .finally(() => {
-        automaticFlush = undefined;
-        if (deferredDelivery) {
+        automaticFlushTask = undefined;
+        if (flushDeferredByStorage) {
           scheduleFlush();
         }
       });
@@ -189,11 +184,11 @@ export async function createAltertable(
     | undefined;
   let unsubscribeConnectivity: (() => void) | undefined;
 
-  function stopSubscriptions() {
+  function stopListenersAndTimers() {
     for (const stop of [
       () => appStateSubscription?.remove(),
       () => unsubscribeConnectivity?.(),
-      cleanup,
+      cleanupCore,
     ]) {
       try {
         stop();
@@ -225,7 +220,7 @@ export async function createAltertable(
     });
   } catch (error) {
     disposed = true;
-    stopSubscriptions();
+    stopListenersAndTimers();
     await storage.close().catch(() => {});
     throw error;
   }
@@ -290,7 +285,7 @@ export async function createAltertable(
     dispose(): Promise<void> {
       if (!disposed) {
         disposed = true;
-        stopSubscriptions();
+        stopListenersAndTimers();
       }
 
       return storage.close();
