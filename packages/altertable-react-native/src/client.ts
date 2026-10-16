@@ -32,6 +32,7 @@ type CoreOptions = Pick<
   | 'flushIntervalMs'
   | 'maxBatchSize'
 >;
+/** Core event options plus the native storage and optional connectivity adapters. */
 export type ReactNativeConfig = CoreOptions & {
   /** Native async storage backend used to restore and persist identity and events. */
   storage: AsyncStorageAdapter;
@@ -41,15 +42,22 @@ export type ReactNativeConfig = CoreOptions & {
   connectivity?: Connectivity;
 };
 
+/** Mutable options. API key, environment, storage, and connectivity are fixed at creation. */
 export type ReactNativeConfigUpdates = Omit<
   CoreOptions,
   'baseUrl' | 'environment'
 >;
 
 export type ScreenOptions = { id?: string; properties?: EventProperties };
+/** A hydrated client. Keep one active instance per API key, environment, and storage backend. */
 export type ReactNativeClient = Awaited<ReturnType<typeof createAltertable>>;
 
-/** Restore identity, consent, and buffered events before exposing a ready client. */
+/**
+ * Restore identity, consent, and unsent events before returning a ready client.
+ * Initialize once during app startup, then share it through AltertableProvider.
+ * Rejects on storage read or initial write failure; calling again retries startup.
+ * Dispose the previous client before creating a replacement with the same storage.
+ */
 export async function createAltertable(
   apiKey: string,
   options: ReactNativeConfig
@@ -228,7 +236,9 @@ export async function createAltertable(
   scheduleFlush();
 
   return {
+    /** Queue an event synchronously. Use flushPersistence() to await native writes. */
     track,
+    /** Record a screen visit with native metadata. Call on navigation or focus changes. */
     screen(name: string, { id, properties }: ScreenOptions = {}) {
       track('$screen', {
         ...properties,
@@ -250,11 +260,13 @@ export async function createAltertable(
       core.updateTraits(...args);
     },
     getTrackingConsent: () => core.getTrackingConsent(),
+    /** Clear unsent events and persist a new anonymous identity, preserving consent and device ID by default. */
     async reset(...args: Parameters<Altertable['reset']>) {
       assertNotDisposed();
       core.reset(...args);
       await storage.flush();
     },
+    /** Update mutable options and await native writes. Consent grants are persisted before delivery. */
     async configure(updates: ReactNativeConfigUpdates) {
       assertNotDisposed();
       // A consent grant can synchronously replay and flush queued events in
@@ -275,13 +287,18 @@ export async function createAltertable(
         scheduleFlush();
       }
     },
+    /** Persist, drain deliverable events, and persist the result. Offline events remain queued. */
     flush: () => flush(),
     /** Wait for identity, consent, and event writes without making network requests. */
     flushPersistence() {
       assertNotDisposed();
       return storage.flush();
     },
-    /** Stop timers/listeners and persist remaining events. Does not wait for network delivery. */
+    /**
+     * Permanently stop listeners/timers and persist remaining events, without waiting for network.
+     * Await before replacing the client. Repeat to retry failed final writes.
+     * Subsequent tracking, configuration, and flush calls reject or throw.
+     */
     dispose(): Promise<void> {
       if (!disposed) {
         disposed = true;
