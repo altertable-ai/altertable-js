@@ -71,3 +71,21 @@ it('ignores a ready navigator without a current route', () => {
   expect(screen).not.toHaveBeenCalled();
   cleanup();
 });
+
+it('preserves the last visit across effect replay without suppressing revisits', () => {
+  const ref = createNavigation();
+  const client = { screen: vi.fn() };
+  const cleanup = trackNavigation(client, ref.navigation);
+  cleanup();
+  const replayCleanup = trackNavigation(client, ref.navigation);
+  expect(client.screen.mock.calls).toEqual([['Home']]);
+
+  ref.setRoute({ key: 'checkout-1', name: 'Checkout' });
+  ref.setRoute({ key: 'home-1', name: 'Home' });
+  expect(client.screen.mock.calls).toEqual([['Home'], ['Checkout'], ['Home']]);
+  replayCleanup();
+
+  const otherClient = { screen: vi.fn() };
+  trackNavigation(otherClient, ref.navigation)();
+  expect(otherClient.screen).toHaveBeenCalledWith('Home');
+});

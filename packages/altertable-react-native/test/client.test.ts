@@ -592,3 +592,52 @@ it('keeps an offline consent revocation effective after restart and never replay
       .map(payload => payload.event)
   ).toEqual(['After New Grant']);
 });
+
+it('bounds automatic outage retries and resumes on the next interval', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  vi.mocked(fetch).mockRejectedValue(new Error('Offline'));
+
+  client.track('Retry Later');
+  // Repeated lifecycle requests during delivery must share the same attempt.
+  emitAppState('background');
+  emitAppState('active');
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(storageMock.values.get(keys.events)).toContain('Retry Later');
+
+  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+  await vi.advanceTimersByTimeAsync(940_000);
+  expect(fetch).toHaveBeenCalledTimes(5);
+  expect(storageMock.values.has(keys.events)).toBe(false);
+});
+
+it('closes storage and stops timers when connectivity cleanup throws', async () => {
+  const onError = vi.fn();
+  const cleanupError = new Error('Connectivity cleanup failed');
+  const client = await create({
+    onError,
+    connectivity: {
+      addEventListener() {
+        return () => { throw cleanupError; };
+      },
+    },
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  const request = deferred<Response>();
+  vi.mocked(fetch).mockReturnValue(request.promise);
+  client.track('In Flight');
+  const flushing = client.flush();
+  await vi.advanceTimersByTimeAsync(0);
+
+  await expect(client.dispose()).resolves.toBeUndefined();
+  expect(onError).toHaveBeenCalledWith(cleanupError);
+  expect(appStateListenerCount()).toBe(0);
+  // The only remaining timer belongs to the HTTP request, not the batcher.
+  request.resolve({ ok: true } as Response);
+  await flushing;
+  expect(vi.getTimerCount()).toBe(0);
+  expect(storageMock.values.get(keys.events)).toContain('In Flight');
+  await client.dispose();
+  expect(onError).toHaveBeenCalledTimes(1);
+});
