@@ -135,6 +135,8 @@ Identity and consent are always persisted. Unsent events are persisted by defaul
 including requests in flight, and replayed on restart. Writes are ordered and
 coalesced so an old write cannot overwrite a newer deletion. Failed writes are
 reported through `onError`; pending values remain available for a later retry.
+Automatic batch delivery waits for native writes to finish. A failed write keeps
+the batch queued until persistence succeeds on a later flush attempt.
 
 The batcher flushes every 10 seconds, at 20 buffered payloads, and on app state
 changes. It retains the core queue limits: 1,000 events, 512 KiB, and seven days.

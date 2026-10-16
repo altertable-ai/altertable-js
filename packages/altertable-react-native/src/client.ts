@@ -88,11 +88,23 @@ export async function createAltertable(
     persistence: storage,
     eventPersistence: eventPersistence ? storage : false,
     flushIntervalMs: config.flushIntervalMs ?? 10_000,
-    isOnline: () =>
-      deliveryEnabled &&
-      !disposed &&
-      online &&
-      core.getTrackingConsent() === TrackingConsent.GRANTED,
+    isOnline: () => {
+      if (
+        !deliveryEnabled ||
+        disposed ||
+        !online ||
+        core.getTrackingConsent() !== TrackingConsent.GRANTED
+      ) {
+        return false;
+      }
+      // Automatic threshold/timer dispatch uses core's synchronous storage API.
+      // Defer that attempt through the native flush so its writes finish first.
+      if (storage.hasPendingWrites()) {
+        scheduleFlush();
+        return false;
+      }
+      return true;
+    },
     onError: reportError,
   });
 

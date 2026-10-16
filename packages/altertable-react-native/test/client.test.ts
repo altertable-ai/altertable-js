@@ -11,7 +11,7 @@ import { appStateListenerCount, emitAppState } from './reactNativeMock';
 
 const clients: ReactNativeClient[] = [];
 const keys = getStorageKeys('key');
-const backend = createBackend();
+let backend: ReturnType<typeof createBackend>;
 let connectivityListener: (state: {
   isConnected: boolean | null;
   isInternetReachable: boolean | null;
@@ -42,10 +42,10 @@ function payloads() {
 }
 
 beforeEach(() => {
+  backend = createBackend();
   vi.useFakeTimers();
   vi.stubGlobal('window', globalThis);
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
-  backend.values.clear();
   vi.clearAllMocks();
 });
 afterEach(async () => {
@@ -222,6 +222,8 @@ it('keeps in-flight events durable when disposed and ignores late request comple
   vi.mocked(fetch).mockReturnValue(response.promise as Promise<Response>);
   const client = await create({ flushEventThreshold: 1 });
   client.track('In Flight');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
   await client.dispose();
   expect(backend.values.get(keys.events)).toContain('In Flight');
   const next = await create({ connectivity });
@@ -324,6 +326,72 @@ it('cleans up partially initialized native subscriptions if connectivity setup f
   ).rejects.toThrow('Native module unavailable');
   expect(appStateListenerCount()).toBe(0);
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it('persists threshold-triggered events before starting delivery', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  const write = deferred<void>();
+  const setItem = backend.setItem.getMockImplementation()!;
+  backend.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events) await write.promise;
+    await setItem(key, value);
+  });
+
+  try {
+    client.track('Durable Before Delivery');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    write.resolve();
+  }
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ event: 'Durable Before Delivery' }),
+    ])
+  );
+});
+
+it('does not send an automatic batch after native persistence fails and retries on a later interval', async () => {
+  const onError = vi.fn();
+  const client = await create({ flushEventThreshold: 1, onError });
+  await vi.advanceTimersByTimeAsync(0);
+  const setItem = backend.setItem.getMockImplementation()!;
+  backend.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events) throw new Error('Event write failed');
+    await setItem(key, value);
+  });
+  try {
+    client.track('Retry After Persistence');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onError).toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    backend.setItem.mockImplementation(setItem);
+  }
+  await vi.advanceTimersByTimeAsync(1_000_000);
+  expect(payloads()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ event: 'Retry After Persistence' }),
+    ])
+  );
+});
+
+it('keeps events below the threshold batched after native writes complete', async () => {
+  const client = await create({ flushEventThreshold: 3 });
+  await vi.advanceTimersByTimeAsync(0);
+  client.track('First');
+  client.track('Second');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).not.toHaveBeenCalled();
+  client.track('Third');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual([
+    'First',
+    'Second',
+    'Third',
+  ]);
 });
 
 it('recovers persisted offline events after backgrounding and a restart without a final flush', async () => {

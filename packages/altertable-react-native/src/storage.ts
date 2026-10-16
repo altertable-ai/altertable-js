@@ -13,7 +13,11 @@ export async function hydrateStorage(
   keys: string[],
   onError: (error: Error) => void
 ): Promise<
-  StorageAdapter & { flush(): Promise<void>; close(): Promise<void> }
+  StorageAdapter & {
+    hasPendingWrites(): boolean;
+    flush(): Promise<void>;
+    close(): Promise<void>;
+  }
 > {
   const entries = await Promise.all(
     keys.map(async key => [key, await backend.getItem(key)] as const)
@@ -75,6 +79,7 @@ export async function hydrateStorage(
     removeItem(key) {
       update(key, null);
     },
+    hasPendingWrites: () => pending.size > 0 || writing !== undefined,
     flush,
     close() {
       closed = true;
