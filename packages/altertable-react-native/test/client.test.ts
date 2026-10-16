@@ -7,7 +7,11 @@ import {
   type ReactNativeClient,
 } from '../src';
 import { createAsyncStorageMock, deferred } from './helpers';
-import { appStateListenerCount, emitAppState } from './reactNativeMock';
+import {
+  AppState,
+  appStateListenerCount,
+  emitAppState,
+} from './reactNativeMock';
 
 const clients: ReactNativeClient[] = [];
 const keys = getStorageKeys('key');
@@ -593,24 +597,36 @@ it('keeps an offline consent revocation effective after restart and never replay
   ).toEqual(['After New Grant']);
 });
 
-it('bounds automatic outage retries and resumes on the next interval', async () => {
-  const client = await create({ flushEventThreshold: 1 });
-  await vi.advanceTimersByTimeAsync(0);
-  vi.mocked(fetch).mockRejectedValue(new Error('Offline'));
+it.each(['network', 'server'])(
+  'bounds automatic %s outage retries and resumes on the next interval',
+  async failure => {
+    const client = await create({ flushEventThreshold: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    if (failure === 'network') {
+      vi.mocked(fetch).mockRejectedValue(new Error('Offline'));
+    } else {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: async () => ({}),
+      } as Response);
+    }
 
-  client.track('Retry Later');
-  // Repeated lifecycle requests during delivery must share the same attempt.
-  emitAppState('background');
-  emitAppState('active');
-  await vi.advanceTimersByTimeAsync(60_000);
-  expect(fetch).toHaveBeenCalledTimes(4);
-  expect(storageMock.values.get(keys.events)).toContain('Retry Later');
+    client.track('Retry Later');
+    // Repeated lifecycle requests during delivery must share the same attempt.
+    emitAppState('background');
+    emitAppState('active');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(storageMock.values.get(keys.events)).toContain('Retry Later');
 
-  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
-  await vi.advanceTimersByTimeAsync(940_000);
-  expect(fetch).toHaveBeenCalledTimes(5);
-  expect(storageMock.values.has(keys.events)).toBe(false);
-});
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+    await vi.advanceTimersByTimeAsync(940_000);
+    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(storageMock.values.has(keys.events)).toBe(false);
+  }
+);
 
 it('closes storage and stops timers when connectivity cleanup throws', async () => {
   const onError = vi.fn();
@@ -619,7 +635,9 @@ it('closes storage and stops timers when connectivity cleanup throws', async () 
     onError,
     connectivity: {
       addEventListener() {
-        return () => { throw cleanupError; };
+        return () => {
+          throw cleanupError;
+        };
       },
     },
   });
@@ -640,4 +658,61 @@ it('closes storage and stops timers when connectivity cleanup throws', async () 
   expect(storageMock.values.get(keys.events)).toContain('In Flight');
   await client.dispose();
   expect(onError).toHaveBeenCalledTimes(1);
+});
+
+it('continues disposal when app state cleanup throws', async () => {
+  const error = new Error('App state cleanup failed');
+  const subscribe = AppState.addEventListener.getMockImplementation()!;
+  AppState.addEventListener.mockImplementationOnce((event, listener) => {
+    const subscription = subscribe(event, listener);
+    return {
+      remove() {
+        subscription.remove();
+        throw error;
+      },
+    };
+  });
+  const onError = vi.fn();
+  const client = await create({ connectivity, onError });
+  client.track('Persist On Disposal');
+  await client.dispose();
+  expect(onError).toHaveBeenCalledWith(error);
+  expect(unsubscribeConnectivity).toHaveBeenCalledOnce();
+  expect(appStateListenerCount()).toBe(0);
+  expect(vi.getTimerCount()).toBe(0);
+  expect(storageMock.values.get(keys.events)).toContain('Persist On Disposal');
+});
+
+it('still drains retryable failures when explicitly flushed', async () => {
+  const client = await create();
+  await vi.advanceTimersByTimeAsync(0);
+  client.track('Explicit Recovery');
+  vi.mocked(fetch)
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockRejectedValueOnce(new Error('Offline'));
+  const flushing = client.flush();
+  await vi.advanceTimersByTimeAsync(60_000);
+  await flushing;
+  expect(fetch).toHaveBeenCalledTimes(5);
+  expect(storageMock.values.has(keys.events)).toBe(false);
+});
+
+it('delivers new threshold events collected during an automatic request', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  const request = deferred<Response>();
+  vi.mocked(fetch).mockReturnValueOnce(request.promise);
+  client.track('First');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+
+  client.track('Second');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+  request.resolve({ ok: true } as Response);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual(['First', 'Second']);
+  expect(storageMock.values.has(keys.events)).toBe(false);
 });

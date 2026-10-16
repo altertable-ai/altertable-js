@@ -65,7 +65,7 @@ export type BatcherApi = {
   /** Add one payload to the in-memory buffer and persist the updated buffer if configured. */
   add(eventType: EventType, payload: EventPayload): void;
   /** Send buffered payloads now when online; resolves without sending while offline. */
-  flush(): Promise<void>;
+  flush(options?: { drain?: boolean }): Promise<void>;
   /** Drop buffered and in-flight payloads, including persisted copies. */
   clear(): void;
   /** Start periodic flushing with the configured interval. */
@@ -617,8 +617,8 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       }
     },
 
-    flush(): Promise<void> {
-      return flushUntilDrained();
+    flush({ drain = true } = {}): Promise<void> {
+      return drain ? flushUntilDrained() : dispatchFlushFromBuffer(false);
     },
 
     clear(): void {

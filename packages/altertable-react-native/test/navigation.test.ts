@@ -1,3 +1,7 @@
+// @vitest-environment jsdom
+
+import { renderHook } from '@testing-library/react';
+import { StrictMode, useEffect } from 'react';
 import { expect, it, vi } from 'vitest';
 
 import { trackNavigation, type NavigationRef } from '../src/navigation';
@@ -88,4 +92,23 @@ it('preserves the last visit across effect replay without suppressing revisits',
   const otherClient = { screen: vi.fn() };
   trackNavigation(otherClient, ref.navigation)();
   expect(otherClient.screen).toHaveBeenCalledWith('Home');
+});
+
+it('tracks a single initial visit when React Strict Mode replays the effect', () => {
+  const ref = createNavigation();
+  const client = { screen: vi.fn() };
+  const { unmount } = renderHook(
+    () => {
+      useEffect(() => trackNavigation(client, ref.navigation), []);
+    },
+    { wrapper: StrictMode }
+  );
+
+  expect(client.screen.mock.calls).toEqual([['Home']]);
+  ref.setRoute({ key: 'checkout-1', name: 'Checkout' });
+  ref.setRoute({ key: 'home-1', name: 'Home' });
+  expect(client.screen.mock.calls).toEqual([['Home'], ['Checkout'], ['Home']]);
+  unmount();
+  ref.setRoute({ key: 'another', name: 'Another' });
+  expect(client.screen).toHaveBeenCalledTimes(3);
 });

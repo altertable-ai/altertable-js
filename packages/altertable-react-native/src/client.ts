@@ -93,6 +93,8 @@ export async function createAltertable(
   let deliveryEnabled = false;
   let disposed = false;
   let online = true;
+  let automaticFlush: Promise<void> | undefined;
+  let deferredDelivery = false;
   const cleanup = core.init(apiKey, {
     ...config,
     autoCapture: false,
@@ -111,6 +113,7 @@ export async function createAltertable(
       // Automatic threshold/timer dispatch uses core's synchronous storage API.
       // Defer that attempt through the native flush so its writes finish first.
       if (storage.hasPendingWrites()) {
+        deferredDelivery = true;
         scheduleFlush();
         return false;
       }
@@ -137,7 +140,7 @@ export async function createAltertable(
     });
   }
 
-  async function flush() {
+  async function flush({ drain = true } = {}) {
     assertOpen();
     // Persist first: background network attempts must not delay native writes.
     await storage.flush();
@@ -146,19 +149,50 @@ export async function createAltertable(
     }
 
     deliveryEnabled = true;
-    await core.flush();
+    deferredDelivery = false;
+    await core.flush({ drain });
     await storage.flush();
   }
 
   function scheduleFlush() {
-    // Core delivery and storage already report their errors through onError.
-    void flush().catch(() => {});
+    if (disposed || automaticFlush) {
+      return;
+    }
+
+    // One snapshot per automatic attempt: failed batches wait for the next
+    // interval, lifecycle transition, or connectivity recovery.
+    automaticFlush = flush({ drain: false })
+      .catch(() => {
+        // Core delivery and storage already report errors through onError.
+        deferredDelivery = false;
+      })
+      .finally(() => {
+        automaticFlush = undefined;
+        if (deferredDelivery) {
+          scheduleFlush();
+        }
+      });
   }
 
   let appStateSubscription:
     | ReturnType<typeof AppState.addEventListener>
     | undefined;
   let unsubscribeConnectivity: (() => void) | undefined;
+
+  function stopSubscriptions() {
+    for (const stop of [
+      () => appStateSubscription?.remove(),
+      () => unsubscribeConnectivity?.(),
+      cleanup,
+    ]) {
+      try {
+        stop();
+      } catch (error) {
+        reportError(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+  }
+
   try {
     await storage.flush();
     deliveryEnabled = true;
@@ -181,8 +215,7 @@ export async function createAltertable(
     });
   } catch (error) {
     disposed = true;
-    appStateSubscription?.remove();
-    cleanup();
+    stopSubscriptions();
     await storage.close().catch(() => {});
     throw error;
   }
@@ -237,7 +270,7 @@ export async function createAltertable(
         scheduleFlush();
       }
     },
-    flush,
+    flush: () => flush(),
     /** Wait for identity, consent, and event writes without making network requests. */
     flushPersistence() {
       assertOpen();
@@ -247,9 +280,7 @@ export async function createAltertable(
     dispose(): Promise<void> {
       if (!disposed) {
         disposed = true;
-        appStateSubscription?.remove();
-        unsubscribeConnectivity?.();
-        cleanup();
+        stopSubscriptions();
       }
 
       return storage.close();

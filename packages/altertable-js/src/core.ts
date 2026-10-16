@@ -966,18 +966,21 @@ export class Altertable {
    * (for example a manual `flush()` while the interval timer also flushes) are independent: each
    * call only waits on its own requests, not on sends from other concurrent flushes.
    *
+   * Pass `drain: false` to send one snapshot, leaving requeued failures and new
+   * events for a later attempt. The default keeps draining until the buffer is empty.
+   *
    * @example
    * ```javascript
    * await altertable.flush();
    * ```
    */
-  flush(): Promise<void> {
+  flush(options?: { drain?: boolean }): Promise<void> {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before calling flush().'
     );
     invariant(this._batcher, 'Batcher is not available.');
-    return this._batcher.flush();
+    return this._batcher.flush(options);
   }
 
   private _flushQueue() {

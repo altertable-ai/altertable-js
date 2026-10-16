@@ -1114,6 +1114,28 @@ describe('createBatcher', () => {
     await flush;
   });
 
+  it('sends one snapshot without draining requeued failures or newly added events', async () => {
+    const send = vi.fn().mockRejectedValue(new Error('Server unavailable'));
+    const batcher = createBatcher({
+      flushEventThreshold: 20,
+      flushIntervalMs: 60_000,
+      maxBatchSize: 50,
+      send,
+    });
+    const first = createTrackPayload('first');
+    const second = createTrackPayload('second');
+    batcher.add('track', first);
+    const attempt = batcher.flush({ drain: false });
+    batcher.add('track', second);
+    await attempt;
+    expect(send).toHaveBeenCalledExactlyOnceWith('track', [first]);
+
+    send.mockResolvedValue(undefined);
+    await batcher.flush();
+    expect(send).toHaveBeenLastCalledWith('track', [first, second]);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
   it('throws when flush cannot drain a permanently failing sender', async () => {
     const batcher = createBatcher({
       flushEventThreshold: 20,
