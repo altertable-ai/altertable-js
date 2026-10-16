@@ -15,7 +15,7 @@ import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
 } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import {
   Button,
   SafeAreaView,
@@ -61,7 +61,7 @@ function initialize() {
 export default function App() {
   const [client, setClient] = useState<ReactNativeClient>();
   const [error, setError] = useState<string>();
-  const [attempt, setAttempt] = useState(0);
+  const [attempt, retry] = useReducer((value: number) => value + 1, 0);
 
   useEffect(() => {
     let mounted = true;
@@ -93,7 +93,7 @@ export default function App() {
             title="Retry"
             onPress={() => {
               setError(undefined);
-              setAttempt(value => value + 1);
+              retry();
             }}
           />
         )}
