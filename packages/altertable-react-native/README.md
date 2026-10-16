@@ -29,8 +29,8 @@ npx pod-install
 
 Requires React Native 0.81+ and React 19.1+. CI checks the minimum and example
 versions with packed-package typechecks and iOS/Android bundles. See the
-[runtime qualification results](../../examples/example-react-native/DELIVERY_CHECKS.md#runtime-qualification)
-for device validation status.
+[runtime qualification checks](../../examples/example-react-native/DELIVERY_CHECKS.md#runtime-qualification)
+for device validation instructions.
 
 ## Quick Start
 

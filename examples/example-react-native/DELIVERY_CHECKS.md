@@ -104,18 +104,9 @@ The minimum fixture uses RN 0.81.0 / React 19.1.0; the current fixture reads the
 example's versions. It uses the actual React Native package, with no native API
 mocks. Temporary installations are removed after each run.
 
-Qualification recorded on 2026-10-16:
-
-| Runtime                  | Types  | iOS Metro | Android Metro | iOS device journeys | Android device journeys |
-| ------------------------ | ------ | --------- | ------------- | ------------------- | ----------------------- |
-| RN 0.81.0 / React 19.1.0 | Passed | Passed    | Passed        | Not run             | Not run                 |
-| RN 0.88.0 / React 19.3.0 | Passed | Passed    | Passed        | Not run             | Not run                 |
-
 Bundling does not execute AppState or native storage. Before release, run the
-journeys above on both platforms, using a cold-start-capable app built against
-each runtime, and replace the device entries with recorded results. The validation
-host had no installed iOS simulator runtime or connected Android device; no native
-journey is claimed by the automated checks.
+journeys above on both platforms using a cold-start-capable app built against
+each runtime.
 
 ## Record results
 
