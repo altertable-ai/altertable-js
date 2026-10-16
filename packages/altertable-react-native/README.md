@@ -136,7 +136,9 @@ once; OS suspension can interrupt background writes or requests.
 
 No connectivity dependency is required. Failed requests retry on the next batch
 interval or app state change. Apps that already observe network status can pass an
-optional `connectivity` subscription to retry immediately on reconnection.
+optional `connectivity` subscription to retry immediately on reconnection. The
+[Expo example](../../examples/example-react-native/App.tsx) demonstrates this with
+NetInfo, which is an example dependency only.
 
 ```tsx
 await client.flushPersistence(); // Wait for native writes without sending.

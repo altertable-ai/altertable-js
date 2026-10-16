@@ -9,7 +9,7 @@ import { AppState, Platform } from 'react-native';
 
 import { type AsyncStorage, hydrateStorage } from './storage';
 
-/** Optional network status subscription supplied by the app. */
+/** Structurally compatible with @react-native-community/netinfo. */
 export interface Connectivity {
   addEventListener(
     listener: (state: {
