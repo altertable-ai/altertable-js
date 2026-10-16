@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.0...altertable-js-v1.3.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **core:** avoid browser integrations in React Native runtimes ([#208](https://github.com/altertable-ai/altertable-js/issues/208)) ([c3a9e71](https://github.com/altertable-ai/altertable-js/commit/c3a9e71ff1edf573f90cbb9b6ea4b2dfa6397771))
+* **storage:** preserve source data after rejected migration writes ([#210](https://github.com/altertable-ai/altertable-js/issues/210)) ([44999e5](https://github.com/altertable-ai/altertable-js/commit/44999e59a21e76bc76a6130546d26208d5f40d6b))
+
 ## [Unreleased]
 
 ### Bug Fixes
