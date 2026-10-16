@@ -20,7 +20,13 @@ Install an async storage backend. For Expo:
 npx expo install @react-native-async-storage/async-storage
 ```
 
-For bare React Native, follow AsyncStorage's native installation instructions.
+For bare React Native:
+
+```sh
+npm install @react-native-async-storage/async-storage
+npx pod-install
+```
+
 Requires React Native 0.81+ and React 19.1+.
 
 ## Quick Start
@@ -46,12 +52,13 @@ async function initializeAnalytics() {
 Await initialization before rendering components that use analytics. It restores
 identity, consent, and unsent events, and rejects if storage cannot be read or
 initialized. See the [Expo example](../../examples/example-react-native) for a
-complete app with loading and error states.
+complete app with loading, error, and retry states. Failed initialization can be
+retried by calling `createAltertable()` again with the same storage.
 
 ## Features
 
 - Persistent identity and offline event delivery
-- Automatic app lifecycle handling and optional connectivity recovery
+- Delivery on background/resume and optional connectivity recovery
 - React provider and tracking hook
 - Screen tracking with optional React Navigation integration
 
@@ -131,6 +138,9 @@ reconnection. The SDK does not require NetInfo at runtime:
 ```sh
 npx expo install @react-native-community/netinfo
 ```
+
+For bare React Native, use `npm install @react-native-community/netinfo` and run
+`npx pod-install` for iOS.
 
 ```tsx
 import NetInfo from '@react-native-community/netinfo';
