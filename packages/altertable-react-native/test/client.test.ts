@@ -325,3 +325,95 @@ it('cleans up partially initialized native subscriptions if connectivity setup f
   expect(appStateListenerCount()).toBe(0);
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it('recovers persisted offline events after backgrounding and a restart without a final flush', async () => {
+  const first = await create({ connectivity });
+  first.identify('reference-user');
+  first.track('Offline Purchase', { order_id: 'order-1' });
+  emitAppState('background');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).not.toHaveBeenCalled();
+
+  // Snapshot durable storage before disposal: a killed process cannot run cleanup.
+  const recoveredBackend = createBackend();
+  for (const [key, value] of backend.values)
+    recoveredBackend.values.set(key, value);
+  await first.dispose();
+
+  const second = await create({ storage: recoveredBackend, connectivity });
+  emitAppState('active');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).not.toHaveBeenCalled();
+  connectivityListener({ isConnected: true, isInternetReachable: true });
+  await vi.advanceTimersByTimeAsync(0);
+  const recovered = payloads().filter(
+    payload => payload.event === 'Offline Purchase'
+  );
+  expect(recovered).toHaveLength(1);
+  expect(recovered[0]).toMatchObject({
+    distinct_id: 'reference-user',
+    properties: { order_id: 'order-1' },
+  });
+  expect(recoveredBackend.values.has(keys.events)).toBe(false);
+  await second.flushPersistence();
+});
+
+it('clears the previous account backlog on an offline account switch and restores the new owner', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    const first = await create({ connectivity });
+    first.identify('account-a');
+    first.track('Account A Event');
+    await first.flushPersistence();
+    const accountA = JSON.parse(backend.values.get(keys.session)!);
+
+    first.identify('account-b');
+    first.track('Account B Event');
+    await first.flushPersistence();
+    const accountB = JSON.parse(backend.values.get(keys.session)!);
+    expect(accountB.distinctId).toBe('account-b');
+    expect(accountB.anonymousId).not.toBe(accountA.anonymousId);
+    expect(accountB.deviceId).toBe(accountA.deviceId);
+    expect(backend.values.get(keys.events)).not.toContain('account-a');
+    await first.dispose();
+
+    const second = await create();
+    second.track('Account B After Restart');
+    await second.flush();
+    expect(
+      payloads().every(payload => payload.distinct_id === 'account-b')
+    ).toBe(true);
+    expect(
+      payloads()
+        .filter(payload => payload.event)
+        .map(payload => payload.event)
+    ).toEqual(['Account B Event', 'Account B After Restart']);
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+it('keeps an offline consent revocation effective after restart and never replays cleared events', async () => {
+  const first = await create({ connectivity });
+  first.track('Before Revocation');
+  await first.flushPersistence();
+  expect(backend.values.get(keys.events)).toContain('Before Revocation');
+  await first.configure({ trackingConsent: 'denied' });
+  first.track('While Denied');
+  await first.flushPersistence();
+  await first.dispose();
+
+  const second = await create();
+  expect(second.getTrackingConsent()).toBe('denied');
+  emitAppState('active');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).not.toHaveBeenCalled();
+  await second.configure({ trackingConsent: 'granted' });
+  second.track('After New Grant');
+  await second.flush();
+  expect(
+    payloads()
+      .filter(payload => payload.event)
+      .map(payload => payload.event)
+  ).toEqual(['After New Grant']);
+});
