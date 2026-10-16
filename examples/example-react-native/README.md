@@ -6,7 +6,7 @@ events, and demonstrates identity reset.
 
 From the repository root:
 
-```fish
+```sh
 bun install
 bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native
 cd examples/example-react-native

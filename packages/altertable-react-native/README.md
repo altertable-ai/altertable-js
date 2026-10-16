@@ -1,62 +1,73 @@
 # @altertable/altertable-react-native
 
-Altertable analytics for React Native and Expo. Restores identity, consent, and
-unsent events before initialization; handles app state changes and offline replay;
-provides React hooks and optional React Navigation screen tracking.
+React Native SDK for capturing and sending analytics events to Altertable.
 
 ## Installation
 
-```fish
+```sh
 npm install @altertable/altertable-react-native
+# or
+pnpm add @altertable/altertable-react-native
+# or
+yarn add @altertable/altertable-react-native
+# or
+bun add @altertable/altertable-react-native
 ```
 
-Pass an async storage backend when creating a client. For Expo, install the
-compatible AsyncStorage version:
+Install an async storage backend. For Expo:
 
-```fish
+```sh
 npx expo install @react-native-async-storage/async-storage
 ```
 
-For bare React Native, install AsyncStorage and follow its native installation
-instructions. React Native 0.81+ and React 19.1+ are supported; the included example
-uses Expo SDK 58, React Native 0.88, and React 19.3.
+For bare React Native, follow AsyncStorage's native installation instructions.
+Requires React Native 0.81+ and React 19.1+.
 
-## Initialize once
+## Quick Start
+
+Initialize once from your app's async startup, then share the ready client:
 
 ```tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAltertable } from '@altertable/altertable-react-native';
 
-const client = await createAltertable('YOUR_KEY', {
-  storage: AsyncStorage,
-  environment: 'production',
-  onError: error => console.error(error),
-});
+async function initializeAnalytics() {
+  const client = await createAltertable('YOUR_API_KEY', {
+    storage: AsyncStorage,
+    onError: error => console.error(error),
+  });
 
-client.track('Signup Started', { source: 'welcome' });
-client.identify('user-123', { plan: 'pro' });
+  client.identify('user-123', { plan: 'pro' });
+
+  return client;
+}
 ```
 
-The factory resolves after restoring and saving identity and consent. Read or
-initial write failures reject initialization; they do not silently create a new
-identity. Render a loading/error state until the client is ready, as shown in the
-[Expo example](../../examples/example-react-native).
+Await initialization before rendering components that use analytics. It restores
+identity, consent, and unsent events, and rejects if storage cannot be read or
+initialized. See the [Expo example](../../examples/example-react-native) for a
+complete app with loading and error states.
 
-Keep one active client per API key and environment for a given storage backend.
-Create the client outside individual screen lifecycles. The SDK manages its own
-AppState subscription; app foregrounding, backgrounding, and iOS inactivity trigger
-best-effort flushes.
+## Features
 
-## React
+- Persistent identity and offline event delivery
+- Automatic app lifecycle handling and optional connectivity recovery
+- React provider and tracking hook
+- Screen tracking with optional React Navigation integration
+
+## API Reference
+
+### React integration
 
 ```tsx
+import { Button } from 'react-native';
 import {
   AltertableProvider,
+  type ReactNativeClient,
   useAltertable,
 } from '@altertable/altertable-react-native';
-import { Button } from 'react-native';
 
-function App() {
+function App({ client }: { client: ReactNativeClient }) {
   return (
     <AltertableProvider client={client}>
       <Checkout />
@@ -65,22 +76,34 @@ function App() {
 }
 
 function Checkout() {
-  const analytics = useAltertable();
+  const client = useAltertable();
+
   return (
     <Button
       title="Purchase"
-      onPress={() => analytics.track('Purchase Completed', { amount: 42 })}
+      onPress={() => client.track('Purchase Completed', { amount: 42 })}
     />
   );
 }
 ```
 
-The provider shares a ready client. It does not initialize or dispose it, so
-remounting a subtree does not reset identity or remove application listeners.
+The provider shares the client without reinitializing it. Tracking and identity
+methods follow the [core SDK API](../altertable-js/README.md#api-reference).
+`reset()` and `configure()` also wait for native writes:
 
-## Screens and navigation
+```tsx
+await client.configure({ trackingConsent: 'granted' });
+await client.reset(); // Logout: clear unsent events and save a new identity.
+```
 
-Track screens explicitly when your router reports a visit:
+Saved consent takes precedence over the creation default (`granted`). Use
+`trackingConsent: 'pending'` to wait for a decision on first initialization.
+Pending events stay in memory until granted; denial clears queued events. Reset
+and account switching clear unsent events while preserving device ID and consent.
+
+### Screen tracking
+
+Call `screen()` when a screen becomes active:
 
 ```tsx
 client.screen('Checkout', {
@@ -89,121 +112,63 @@ client.screen('Checkout', {
 });
 ```
 
-This sends `$screen` with `$view_name`, `$view_type: 'screen'`, and optional
-`$view_id`. Each call represents a visit. Track screen focus or navigation changes
-rather than component mount: native navigators often keep screens mounted.
+It sends `$screen` with `$view_name`, `$view_type`, and optional `$view_id`.
+For React Navigation, attach `trackNavigation(client, navigationRef)` inside an
+effect and return its cleanup. It tracks the initial route and subsequent active
+route changes. The [Expo example](../../examples/example-react-native/App.tsx)
+shows the full integration. Use either manual or navigation tracking to avoid
+duplicates.
 
-For React Navigation, attach the helper to your container ref:
+### Offline delivery and cleanup
 
-```tsx
-import { useEffect } from 'react';
-import {
-  NavigationContainer,
-  useNavigationContainerRef,
-} from '@react-navigation/native';
-import {
-  trackNavigation,
-  useAltertable,
-} from '@altertable/altertable-react-native';
+Events persist by default and retry after restart. The SDK attempts delivery every
+10 seconds, at 20 buffered payloads, and on app state changes. Delivery is at least
+once; OS suspension can interrupt background writes or requests.
 
-function Navigation() {
-  const client = useAltertable();
-  const navigation = useNavigationContainerRef();
+Optionally install NetInfo and pass it as `connectivity` to retry immediately on
+reconnection. The SDK does not require NetInfo at runtime:
 
-  useEffect(() => trackNavigation(client, navigation), [client, navigation]);
-
-  return (
-    <NavigationContainer ref={navigation}>
-      {/* Your navigators */}
-    </NavigationContainer>
-  );
-}
+```sh
+npx expo install @react-native-community/netinfo
 ```
-
-The helper subscribes to `ready` and `state` events and returns cleanup. It tracks
-the initial route, a change to the active route key, and a return to a previous
-screen. Parameter changes on the same route do not create another visit. Route
-parameters are not collected. The same ref interface works with React
-Navigation's static API. React Navigation is not a package dependency.
-
-Other routers, including Expo Router, can call `screen()` from their own route
-change integration. Choose one screen tracking integration to avoid duplicates.
-
-## Offline delivery
-
-Identity and consent are always persisted. Unsent events are persisted by default,
-including requests in flight, and replayed on restart. Writes are ordered and
-coalesced so an old write cannot overwrite a newer deletion. Failed writes are
-reported through `onError`; pending values remain available for a later retry.
-Automatic batch delivery waits for native writes to finish. A failed write keeps
-the batch queued until persistence succeeds on a later flush attempt.
-
-The batcher flushes every 10 seconds, at 20 buffered payloads, and on app state
-changes. It retains the core queue limits: 1,000 events, 512 KiB, and seven days.
-Delivery is at least once; interruptions before acknowledgment can cause replay.
-Native writes and background requests can be interrupted by process termination.
-
-Optionally provide NetInfo for immediate retries when connectivity returns and to
-suppress sends while known offline:
 
 ```tsx
 import NetInfo from '@react-native-community/netinfo';
 
-const client = await createAltertable('YOUR_KEY', {
+const client = await createAltertable('YOUR_API_KEY', {
   storage: AsyncStorage,
   connectivity: NetInfo,
 });
 ```
 
-Without a connectivity adapter, requests are attempted using the core retry logic.
-The backend only needs `getItem`, `setItem`, and `removeItem` methods returning
-promises. Neither AsyncStorage nor NetInfo is imported by the SDK.
-
 ```tsx
-await client.flushPersistence(); // Wait for native writes; no network request.
-await client.flush(); // Persist, attempt delivery, and persist the result.
+await client.flushPersistence(); // Wait for native writes without sending.
+await client.flush(); // Persist and attempt delivery; events stay queued offline.
+await client.dispose(); // Stop listeners/timers and persist remaining events.
 ```
 
-An offline `flush()` resolves with events still queued. A storage failure rejects
-these methods; calling them again retries pending writes. `track`, `identify`,
-`alias`, and `updateTraits` remain synchronous. To keep events only in memory, set
-`eventPersistence: false` at creation; this removes any previously persisted event
-buffer while retaining identity and consent.
+Keep one active client per API key, environment, and storage backend. Dispose it
+before creating a replacement. Storage failures reach `onError` and reject awaited
+operations; a later flush retries pending writes.
 
-## Consent and logout
+## Types
 
-```tsx
-await client.configure({ trackingConsent: 'granted' });
-await client.configure({ trackingConsent: 'denied' });
-await client.reset(); // Logout: clear buffered events and save a new identity.
-```
+### `ReactNativeConfig`
 
-Saved consent takes precedence over the initial default, which is `granted`.
-Use `trackingConsent: 'pending'` at creation if your app must wait for a decision.
-Events collected while pending or dismissed stay in memory until consent is
-granted and do not survive restart. A grant is persisted before queued events can
-be delivered. Denial removes queued events; await `configure()` to confirm native
-storage has caught up. `reset()` preserves device ID and consent unless
-`resetDeviceId: true` is passed.
+Accepts the core event options for environment, release, consent, transformation,
+error handling, and batching, plus:
 
-## Configuration and disposal
-
-Creation accepts core options for `baseUrl`, `environment`, `release`, `debug`,
-`trackingConsent`, `transformEvent`, `onError`, `flushEventThreshold`,
-`flushIntervalMs`, and `maxBatchSize`. Browser autocapture and browser storage
-options are omitted. Track/screen events carry native `$lib`, `$lib_version`,
-`$os`, and `$os_version` properties. Set `release` to include your app version.
+| Option             | Required | Default | Description                                                       |
+| ------------------ | -------- | ------- | ----------------------------------------------------------------- |
+| `storage`          | Yes      | —       | Async backend with `getItem`, `setItem`, and `removeItem`.        |
+| `eventPersistence` | No       | `true`  | Persist unsent events. Identity and consent are always persisted. |
+| `connectivity`     | No       | —       | Connectivity subscription, such as NetInfo.                       |
 
 `configure()` updates consent, release, debug, transformation, error handling, and
-batch settings. It waits for native writes. API key, environment, backend, and
-connectivity are fixed for a client's lifetime.
+batch settings. API key, environment, storage, and connectivity are fixed for a
+client's lifetime. See the [core configuration reference](../altertable-js/README.md#altertableconfig)
+for shared options.
 
-```tsx
-await client.dispose();
-```
+## License
 
-Disposal removes native subscriptions, stops the batch timer, and saves outstanding
-events without waiting for network delivery. Late requests from the disposed
-client cannot overwrite a replacement client's storage. Calls to mutate or flush
-a disposed client throw. Disposal is repeatable, including retrying failed final
-writes; call it before replacing a client.
+[MIT](./LICENSE)
