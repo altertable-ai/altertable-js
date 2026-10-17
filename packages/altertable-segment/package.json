@@ -24,6 +24,6 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@swc/core": "^1.16.2"
+    "@swc/core": "^1.16.18"
   }
 }
