@@ -80,7 +80,7 @@ export type BatcherApi = {
   start(): void;
   /** Stop periodic flushing without clearing queued payloads. */
   stop(): void;
-  /** Permanently stop delivery and relinquish persistence ownership. */
+  /** Stop new dispatches and relinquish persistence ownership; in-flight requests may settle. */
   retire(): void;
   /** Best-effort page-unload delivery. Payloads remain persisted until normal send succeeds. */
   flushUnload(
@@ -667,7 +667,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     flush({ drain = true, prepare, onSnapshot } = {}): Promise<void> {
       return drain
         ? flushUntilDrained(prepare)
-        : flushSnapshot(false, prepare, onSnapshot).then(() => undefined);
+        : flushSnapshot(false, prepare, onSnapshot).then((): void => undefined);
     },
 
     clear(): void {

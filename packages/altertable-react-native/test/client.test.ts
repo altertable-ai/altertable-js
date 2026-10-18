@@ -1,6 +1,7 @@
 import { getStorageKeys } from '@altertable/altertable-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+import { lifecycleOwnershipConformanceTests } from '../../../test-utils/platformLifecycleConformance';
 import {
   createAltertable,
   type Connectivity,
@@ -845,4 +846,40 @@ it('prepares a fixed snapshot when another event arrives after native persistenc
   }
   await vi.advanceTimersByTimeAsync(0);
   expect(payloads().map(payload => payload.event)).toEqual(['First', 'Second']);
+});
+
+// Native replacement creates a new core, so this verifies disposal isolation.
+// The core platform suite also exercises replacement on the same instance.
+lifecycleOwnershipConformanceTests(async () => {
+  const addEventListener = AppState.addEventListener.getMockImplementation()!;
+  const listeners: Array<Parameters<typeof AppState.addEventListener>[1]> = [];
+  const removals: Array<() => void> = [];
+  let staleListeners: typeof listeners = [];
+  let cleanupError: Error | undefined;
+  AppState.addEventListener.mockImplementation((event, listener) => {
+    listeners.push(listener);
+    const subscription = addEventListener(event, listener);
+    removals.push(subscription.remove);
+    return {
+      remove() {
+        if (cleanupError) throw cleanupError;
+        subscription.remove();
+      },
+    };
+  });
+  const first = await create();
+  return {
+    retire: () => first.dispose(),
+    replace: () => create(),
+    setCleanupError(error) {
+      staleListeners = [...listeners];
+      cleanupError = error;
+    },
+    emitStale: () => staleListeners.forEach(listener => listener('active')),
+    cleanup() {
+      cleanupError = undefined;
+      removals.forEach(remove => remove());
+      AppState.addEventListener.mockImplementation(addEventListener);
+    },
+  };
 });

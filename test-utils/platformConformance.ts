@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  Altertable,
-  type Platform,
-  type PlatformLifecycleEvent,
-} from '../packages/altertable-js/src';
+import type { Altertable } from '../packages/altertable-js/src/core';
+import type {
+  Platform,
+  PlatformLifecycleEvent,
+} from '../packages/altertable-js/src/platform/types';
+import { lifecycleOwnershipConformanceTests } from './platformLifecycleConformance';
 
 export interface PlatformConformanceDriver {
   platform: Platform;
@@ -18,11 +19,14 @@ export interface PlatformConformanceDriver {
 /** Reusable platform conformance tests for subscription ownership through SDK APIs. */
 export function platformConformanceTests(
   name: string,
-  createDriver: () => PlatformConformanceDriver
+  createDriver: () => PlatformConformanceDriver,
+  createClient: (
+    platform: Platform
+  ) => Pick<Altertable, 'init' | 'configure' | 'track' | 'flush'>
 ) {
   describe(`${name} platform conformance`, () => {
     let driver: PlatformConformanceDriver;
-    let client: Altertable;
+    let client: Pick<Altertable, 'init' | 'configure' | 'track' | 'flush'>;
     let cleanup: (() => void) | undefined;
     const errors: Error[] = [];
     const config = {
@@ -42,7 +46,7 @@ export function platformConformanceTests(
       errors.length = 0;
       driver = createDriver();
       driver.navigate(driver.homeUrl);
-      client = new Altertable(driver.platform);
+      client = createClient(driver.platform);
     });
     afterEach(() => {
       driver.setCleanupError();
@@ -104,21 +108,17 @@ export function platformConformanceTests(
       }
     );
 
-    it.each([false, true])(
-      'ignores late lifecycle callbacks from a retired subscription (cleanup fails=%s)',
-      async fails => {
-        cleanup = client.init('key', { ...config, autoCapture: false });
-        driver.setCleanupError(
-          fails ? new Error('Removal failed before detaching') : undefined
-        );
-        cleanup = client.init('key', { ...config, autoCapture: false });
-        client.track('New Owner');
-        driver.emitStale('online');
-        await vi.advanceTimersByTimeAsync(0);
-        expect(fetch).not.toHaveBeenCalled();
-        await client.flush();
-        expect(events().map(event => event.event)).toEqual(['New Owner']);
-      }
-    );
+    lifecycleOwnershipConformanceTests(async () => {
+      cleanup = client.init('key', { ...config, autoCapture: false });
+      return {
+        retire: () => cleanup!(),
+        replace() {
+          cleanup = client.init('key', { ...config, autoCapture: false });
+          return client;
+        },
+        setCleanupError: error => driver.setCleanupError(error),
+        emitStale: () => driver.emitStale('online'),
+      };
+    });
   });
 }

@@ -113,3 +113,33 @@ it.each([true, false])(
     ]);
   }
 );
+
+it('ignores retry exhaustion from a retired batcher without changing the replacement buffer', async () => {
+  const response = Promise.withResolvers<Response>();
+  vi.mocked(fetch).mockReturnValueOnce(response.promise);
+  const { storage, values } = createStorage();
+  const client = new Altertable({ getContext: () => ({}) });
+  const config = { persistence: storage, flushIntervalMs: 1_000_000 };
+  cleanup = client.init('key', config);
+  client.track('Retired Event');
+  const sending = client.flush({ drain: false });
+  cleanup = client.init('key', config);
+  client.track('Replacement Event');
+  const unavailable = {
+    ok: false,
+    status: 503,
+    statusText: 'Unavailable',
+    json: async () => ({}),
+  } as Response;
+  vi.mocked(fetch).mockResolvedValue(unavailable);
+  response.resolve(unavailable);
+  await vi.advanceTimersByTimeAsync(60_000);
+  await sending;
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(values.get(getStorageKeys('key').events)).toContain(
+    'Replacement Event'
+  );
+  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+  await client.flush();
+  expect(values.has(getStorageKeys('key').events)).toBe(false);
+});

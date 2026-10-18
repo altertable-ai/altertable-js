@@ -519,8 +519,11 @@ every new snapshot. `flush({ drain: false })` shares the automatic delivery task
 platforms. Preparation failures reach `onError` for automatic attempts and reject
 explicit flushes.
 
-Cleanup stops platform subscriptions, timers, and further delivery. Cleanup and
-reinitialization prevent a pending preparation from starting stale delivery.
+Cleanup stops platform subscriptions, timers, and further delivery. Subscription
+ownership is revoked before cleanup runs, so queued callbacks and callbacks
+retained by failed cleanup are ignored. Retired batchers cannot modify storage
+when old requests finish. Cleanup and reinitialization also prevent a pending
+preparation from starting stale delivery.
 Reinitialize before continuing to use a cleaned-up client.
 
 To extend browser behavior, compose the exported implementation directly:

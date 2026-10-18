@@ -2,7 +2,7 @@ import type {
   Platform,
   PlatformContext,
   PlatformLifecycleEvent,
-} from '../packages/altertable-js/src';
+} from '../packages/altertable-js/src/platform/types';
 
 /** A controllable external runtime for public platform behavior tests. */
 export function createPlatformRuntime() {

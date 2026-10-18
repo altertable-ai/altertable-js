@@ -205,6 +205,8 @@ export class Altertable {
   private _deliveryActive = false;
   private _automaticFlushTask: Promise<void> | undefined;
   private _automaticFlushRequested = false;
+  private _autoCaptureOwner: object | undefined;
+  private _lifecycleOwner: object | undefined;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _cleanupLifecycleFlush: (() => void) | undefined;
   private _config: ResolvedAltertableConfig;
@@ -508,19 +510,34 @@ export class Altertable {
   }
 
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
-    this._cleanupAutoCapture?.();
+    this._autoCaptureOwner = undefined;
+    const cleanup = this._cleanupAutoCapture;
+    this._cleanupAutoCapture = undefined;
+    try {
+      cleanup?.();
+    } catch (error) {
+      this._notifyError(
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
 
     if (enableAutoCapture && this._platform.subscribeUrlChanges) {
+      const owner = {};
+      this._autoCaptureOwner = owner;
+      try {
+        this._cleanupAutoCapture = this._platform.subscribeUrlChanges(url => {
+          if (this._autoCaptureOwner !== owner) return;
+          this._referrer = this._lastUrl;
+          this._lastUrl = url;
+          this.page(url);
+        });
+      } catch (error) {
+        this._autoCaptureOwner = undefined;
+        throw error;
+      }
       if (this._deliveryActive && this._lastUrl) {
         this.page(this._lastUrl);
       }
-      this._cleanupAutoCapture = this._platform.subscribeUrlChanges(url => {
-        this._referrer = this._lastUrl;
-        this._lastUrl = url;
-        this.page(url);
-      });
-    } else {
-      this._cleanupAutoCapture = undefined;
     }
   }
 
@@ -1056,6 +1073,8 @@ export class Altertable {
   }
 
   private _stopRuntime() {
+    this._autoCaptureOwner = undefined;
+    this._lifecycleOwner = undefined;
     this._deliveryActive = false;
     this._batcher?.retire();
     const cleanups = [
@@ -1077,8 +1096,11 @@ export class Altertable {
   }
 
   private _subscribeLifecycle(): () => void {
+    const owner = {};
+    this._lifecycleOwner = owner;
     return (
       this._platform.subscribeLifecycle?.(event => {
+        if (this._lifecycleOwner !== owner) return;
         this._exiting = event === 'exit' && !!this._platform.sendOnExit;
         if (this._exiting) {
           this._flushUnload();
