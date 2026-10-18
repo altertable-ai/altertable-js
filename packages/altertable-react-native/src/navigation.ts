@@ -16,7 +16,7 @@ const lastRouteKeys = new WeakMap<
   WeakMap<ScreenClient, string>
 >();
 
-/** Track the initial route and subsequent visits. Returns listener cleanup. */
+/** Track initial and subsequent visits. Cleanup invalidates callbacks before removing listeners. */
 export function trackNavigation(
   client: ScreenClient,
   navigation: NavigationSource
@@ -25,8 +25,12 @@ export function trackNavigation(
     lastRouteKeys.get(navigation) ?? new WeakMap<ScreenClient, string>();
   lastRouteKeys.set(navigation, routeKeys);
 
+  let active = true;
+  let removeReadyListener: (() => void) | undefined;
+  let removeStateListener: (() => void) | undefined;
+
   function trackCurrentRoute() {
-    if (!navigation.isReady()) {
+    if (!active || !navigation.isReady()) {
       return;
     }
 
@@ -39,18 +43,28 @@ export function trackNavigation(
     routeKeys.set(client, route.key);
   }
 
-  const removeReadyListener = navigation.addListener(
-    'ready',
-    trackCurrentRoute
-  );
-  const removeStateListener = navigation.addListener(
-    'state',
-    trackCurrentRoute
-  );
-  trackCurrentRoute();
+  function cleanup() {
+    if (!active) return;
+    active = false;
+    try {
+      removeReadyListener?.();
+    } finally {
+      removeStateListener?.();
+    }
+  }
 
-  return () => {
-    removeReadyListener();
-    removeStateListener();
-  };
+  try {
+    removeReadyListener = navigation.addListener('ready', trackCurrentRoute);
+    removeStateListener = navigation.addListener('state', trackCurrentRoute);
+    trackCurrentRoute();
+  } catch (error) {
+    try {
+      cleanup();
+    } catch {
+      // Preserve the setup failure after attempting every available removal.
+    }
+    throw error;
+  }
+
+  return cleanup;
 }
