@@ -41,7 +41,7 @@ export const browserPlatform: Platform = {
       () => true
     );
   },
-  subscribePageViews(listener) {
+  subscribeUrlChanges(listener) {
     return safelyRunOnBrowser(
       ({ window }) => {
         let lastUrl = window.location.href;

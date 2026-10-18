@@ -27,7 +27,7 @@ function runtime() {
         lifecycle.delete(listener);
       };
     },
-    subscribePageViews(listener) {
+    subscribeUrlChanges(listener) {
       navigation.add(listener);
       return () => {
         navigation.delete(listener);
@@ -349,9 +349,9 @@ it('retains queued calls and permits retry after a platform subscription fails',
 it('continues cleanup and stops delivery when a platform cleanup throws', async () => {
   const host = runtime();
   host.setContext({ url: 'https://example.com/home' });
-  const subscribe = host.platform.subscribePageViews!;
+  const subscribe = host.platform.subscribeUrlChanges!;
   const error = new Error('Navigation cleanup failed');
-  host.platform.subscribePageViews = listener => {
+  host.platform.subscribeUrlChanges = listener => {
     const unsubscribe = subscribe(listener);
     return () => {
       unsubscribe();

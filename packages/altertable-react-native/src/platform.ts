@@ -1,5 +1,5 @@
-import type { Platform as RuntimePlatform } from '@altertable/altertable-js';
-import { AppState, Platform } from 'react-native';
+import type { Platform } from '@altertable/altertable-js';
+import { AppState, Platform as ReactNativePlatform } from 'react-native';
 
 import { createLogger } from './logger';
 
@@ -13,7 +13,8 @@ export interface Connectivity {
   ): () => void;
 }
 
-export function createNativePlatform({
+/** @internal Compose React Native runtime capabilities for createAltertable. */
+export function createReactNativePlatform({
   connectivity,
   prepareDelivery,
   onError,
@@ -21,14 +22,14 @@ export function createNativePlatform({
   connectivity?: Connectivity;
   prepareDelivery: () => Promise<boolean>;
   onError: (error: Error) => void;
-}): RuntimePlatform {
+}): Platform {
   const logger = createLogger();
   let online = true;
   return {
     getContext: () => ({
       properties: {
-        $os: Platform.OS,
-        $os_version: String(Platform.Version),
+        $os: ReactNativePlatform.OS,
+        $os_version: String(ReactNativePlatform.Version),
         $lib: __LIB__,
         $lib_version: __LIB_VERSION__,
       },

@@ -1,10 +1,14 @@
 import type { EventProperties } from '../types';
 
+export type PropertyUrl = string | null;
+export type PropertyReferrer = string | null;
+export type PropertyViewport = string | null;
+
 /** Event-time values. Missing browser concepts remain null in other runtimes. */
 export interface PlatformContext {
-  url?: string | null;
-  referrer?: string | null;
-  viewport?: string | null;
+  url?: PropertyUrl;
+  referrer?: PropertyReferrer;
+  viewport?: PropertyViewport;
   properties?: EventProperties;
 }
 
@@ -20,8 +24,19 @@ export interface Platform {
   subscribeLifecycle?(
     listener: (event: PlatformLifecycleEvent) => void
   ): () => void;
-  /** Report subsequent URL changes; the core records the initial page separately. */
-  subscribePageViews?(listener: (url: string) => void): () => void;
-  /** Complete required persistence before normal delivery. Return false to defer delivery; rejection prevents sending. */
+  /**
+   * Report URL changes after subscription; return a function that unsubscribes.
+   * The core records the initial URL and turns changes into page views when
+   * autoCapture is enabled. Runtimes without URLs can omit this capability.
+   */
+  subscribeUrlChanges?(listener: (url: string) => void): () => void;
+  /**
+   * Await prerequisites, such as durable writes, before each normal delivery
+   * snapshot. This runs before taking events from the buffer, not before each
+   * HTTP request or retry, and does not run for sendOnExit delivery.
+   * Resolve with true or undefined to proceed, or false to leave events buffered
+   * until a later trigger. Rejection also leaves events buffered: automatic
+   * attempts report it through onError, and explicit flush calls reject.
+   */
   prepareDelivery?(): Promise<void | boolean>;
 }

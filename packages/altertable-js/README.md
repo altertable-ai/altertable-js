@@ -495,14 +495,14 @@ await client.flush();
 cleanup();
 ```
 
-| Capability                     | Contract                                                                                                                                                                                                        |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getContext()`                 | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                       |
-| `isOnline()`                   | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                       |
-| `subscribeLifecycle(listener)` | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                       |
-| `subscribePageViews(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                     |
-| `prepareDelivery()`            | Optionally await required persistence before each normal delivery snapshot. Return `false` to defer delivery, or reject to prevent that attempt. A later flush, lifecycle event, or batching trigger can retry. |
-| `sendOnExit({ url, body })`    | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                              |
+| Capability                      | Contract                                                                                                                                                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext()`                  | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                             |
+| `isOnline()`                    | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                             |
+| `subscribeLifecycle(listener)`  | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                             |
+| `subscribeUrlChanges(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                           |
+| `prepareDelivery()`             | Await prerequisites before each normal delivery snapshot. Resolve with `true` or `undefined` to proceed, `false` to defer, or reject to prevent the attempt. This does not run for exit transport or each HTTP retry. |
+| `sendOnExit({ url, body })`     | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                                    |
 
 Only `getContext()` is required. Missing subscriptions disable those integrations;
 the SDK does not substitute browser implementations for an explicitly supplied

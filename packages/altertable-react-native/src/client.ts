@@ -7,7 +7,7 @@ import {
 } from '@altertable/altertable-js';
 
 import { createLogger } from './logger';
-import { createNativePlatform, type Connectivity } from './platform';
+import { createReactNativePlatform, type Connectivity } from './platform';
 import { type AsyncStorageAdapter, hydrateStorage } from './storage';
 
 export type { Connectivity } from './platform';
@@ -108,7 +108,7 @@ export async function createAltertable(
 
   let disposed = false;
   let deliveryEnabled = false;
-  const platform = createNativePlatform({
+  const platform = createReactNativePlatform({
     connectivity,
     async prepareDelivery() {
       await storage.flush();

@@ -356,7 +356,7 @@ export class Altertable {
     }
     if (
       this._config.autoCapture &&
-      this._platform.subscribePageViews &&
+      this._platform.subscribeUrlChanges &&
       this._lastUrl
     ) {
       this.page(this._lastUrl);
@@ -510,11 +510,11 @@ export class Altertable {
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
     this._cleanupAutoCapture?.();
 
-    if (enableAutoCapture && this._platform.subscribePageViews) {
+    if (enableAutoCapture && this._platform.subscribeUrlChanges) {
       if (this._deliveryActive && this._lastUrl) {
         this.page(this._lastUrl);
       }
-      this._cleanupAutoCapture = this._platform.subscribePageViews(url => {
+      this._cleanupAutoCapture = this._platform.subscribeUrlChanges(url => {
         this._referrer = this._lastUrl;
         this._lastUrl = url;
         this.page(url);

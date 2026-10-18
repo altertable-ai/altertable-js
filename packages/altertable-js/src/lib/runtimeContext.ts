@@ -1,4 +1,10 @@
-import type { Platform } from '../platform/types';
+import type {
+  Platform,
+  PropertyUrl,
+  PropertyReferrer,
+  PropertyViewport,
+} from '../platform/types';
+import type { EventProperties } from '../types';
 
 /**
  * Runtime context captured at event time.
@@ -10,10 +16,10 @@ import type { Platform } from '../platform/types';
  */
 export type RuntimeContext = {
   timestamp: string;
-  url: string | null;
-  referrer: string | null;
-  viewport: string | null;
-  properties: Record<string, unknown>;
+  url: PropertyUrl;
+  referrer: PropertyReferrer;
+  viewport: PropertyViewport;
+  properties: EventProperties;
 };
 
 export function captureRuntimeContext(platform: Platform): RuntimeContext {
