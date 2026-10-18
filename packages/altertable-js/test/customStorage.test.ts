@@ -348,3 +348,104 @@ it('detaches persistence despite deletion failure and can enable and disable it 
   client.track('Memory Again');
   expect(values.has(key)).toBe(false);
 });
+
+it('keeps acknowledged events removed when persisting the remaining buffer throws', async () => {
+  const response = Promise.withResolvers<Response>();
+  vi.mocked(fetch).mockReturnValueOnce(response.promise);
+  const { storage, values } = createStorage();
+  const failure = new Error('Write failed');
+  const onError = vi.fn();
+  const client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', {
+    persistence: storage,
+    onError,
+    flushIntervalMs: 1_000_000,
+  });
+  client.track('Acknowledged');
+  const sending = client.flush({ drain: false });
+  client.track('Later');
+  const setItem = storage.setItem;
+  storage.setItem = () => {
+    throw failure;
+  };
+  response.resolve({ ok: true } as Response);
+  await expect(sending).resolves.toBeUndefined();
+  expect(onError).toHaveBeenCalledWith(failure);
+  storage.setItem = setItem;
+  await client.flush();
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.map(([, options]) =>
+        JSON.parse(options!.body as string).map(
+          (event: { event: string }) => event.event
+        )
+      )
+  ).toEqual([['Acknowledged'], ['Later']]);
+  expect(values.has(getStorageKeys('key').events)).toBe(false);
+});
+
+it('keeps events available for delivery when custom event storage writes throw', async () => {
+  const { storage } = createStorage();
+  const failure = new Error('Write failed');
+  const onError = vi.fn();
+  const client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', {
+    persistence: 'memory',
+    eventPersistence: storage,
+    onError,
+  });
+  storage.setItem = () => {
+    throw failure;
+  };
+  expect(() => client.track('Memory Fallback')).not.toThrow();
+  expect(onError).toHaveBeenCalledWith(failure);
+  await client.flush();
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string))
+      .map(event => event.event)
+  ).toEqual(['Memory Fallback']);
+});
+
+it('retains undelivered events when HTTP failure and a storage write failure coincide', async () => {
+  const { storage, values } = createStorage();
+  const failure = new Error('Write failed');
+  const onError = vi.fn();
+  const client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', {
+    persistence: storage,
+    onError,
+    flushIntervalMs: 1_000_000,
+  });
+  vi.mocked(fetch).mockResolvedValue({
+    ok: false,
+    status: 503,
+    statusText: 'Unavailable',
+    json: async () => ({}),
+  } as Response);
+  client.track('Undelivered');
+  const sending = client.flush({ drain: false });
+  client.track('Later');
+  const setItem = storage.setItem;
+  storage.setItem = () => {
+    throw failure;
+  };
+  await vi.advanceTimersByTimeAsync(60_000);
+  await expect(sending).resolves.toBeUndefined();
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(onError).toHaveBeenCalledWith(
+    expect.objectContaining({ status: 503 })
+  );
+  expect(onError).toHaveBeenCalledWith(failure);
+  storage.setItem = setItem;
+  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+  await client.flush();
+  expect(
+    JSON.parse(vi.mocked(fetch).mock.calls.at(-1)![1]!.body as string).map(
+      (event: { event: string }) => event.event
+    )
+  ).toEqual(['Undelivered', 'Later']);
+  expect(values.has(getStorageKeys('key').events)).toBe(false);
+});

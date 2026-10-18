@@ -491,7 +491,6 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     buffers.set(eventType, [...items, ...existing]);
     bufferOrder = [...refs, ...bufferOrder];
     markUnloadDirty();
-    persistBuffers();
   }
 
   function addInFlightChunk(eventType: EventType, chunk: EventPayload[]): void {
@@ -526,9 +525,10 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   ): void {
     const bucket = fromTimer ? inFlightTimer : inFlightOther;
     bucket.add(chunkPromise);
-    void chunkPromise.finally(() => {
+    const release = () => {
       bucket.delete(chunkPromise);
-    });
+    };
+    void chunkPromise.then(release, release);
   }
 
   /**
@@ -579,18 +579,17 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
         addInFlightChunk(eventType, chunk);
         const chunkPromise = config
           .send(eventType, chunk, signal)
-          .then(() => {
-            removeInFlightChunk(eventType, chunk, chunkRefs);
-            return persistBuffers();
-          })
-          .catch(() => {
-            removeInFlightChunk(eventType, chunk, chunkRefs);
-            if (dispatchGeneration === bufferGeneration) {
-              prependToBuffer(eventType, chunk, chunkRefs);
-            } else {
-              persistBuffers();
+          .then(
+            () => removeInFlightChunk(eventType, chunk, chunkRefs),
+            () => {
+              removeInFlightChunk(eventType, chunk, chunkRefs);
+              if (dispatchGeneration === bufferGeneration) {
+                prependToBuffer(eventType, chunk, chunkRefs);
+              }
+              return;
             }
-          });
+          )
+          .then(() => persistBuffers());
         registerInFlight(chunkPromise, fromTimer);
         sendPromises.push(chunkPromise);
       }
