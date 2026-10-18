@@ -764,3 +764,59 @@ it('warns once about repeated native persistence failures without an error callb
     warn.mockRestore();
   }
 });
+
+it('coalesces restored startup delivery with newly collected threshold events', async () => {
+  const first = await create({ connectivity });
+  first.track('Restored Event');
+  await first.dispose();
+  const response = deferred<Response>();
+  vi.mocked(fetch).mockReturnValueOnce(response.promise);
+  const second = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+  second.track('New Event');
+  emitAppState('active');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+  response.resolve({ ok: true } as Response);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual([
+    'Restored Event',
+    'New Event',
+  ]);
+});
+
+it('reports a native write failure once when automatic preparation observes it', async () => {
+  const errors: Error[] = [];
+  const client = await create({
+    flushEventThreshold: 1,
+    onError: error => errors.push(error),
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  const error = new Error('Write failed');
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events) throw error;
+    await setItem(key, value);
+  });
+  try {
+    client.track('Not Yet Durable');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(errors).toEqual([error]);
+  } finally {
+    storageMock.setItem.mockImplementation(setItem);
+  }
+});
+
+it('does not retry a failed startup snapshot for events already included during preparation', async () => {
+  const onError = vi.fn();
+  const client = await create({ flushEventThreshold: 1, onError });
+  // Track before startup's automatic preparation has completed.
+  vi.mocked(fetch).mockRejectedValue(new Error('Offline'));
+  client.track('Joined Startup Snapshot');
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(onError).toHaveBeenCalledOnce();
+  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+});

@@ -6,7 +6,6 @@ import {
   isRetryableHttpDeliveryError,
   NetworkError,
 } from './error';
-import { isBeaconSupported } from './isBeaconSupported';
 
 export type RequesterConfig = {
   baseUrl: string;
@@ -65,40 +64,15 @@ export class Requester<TPayload extends EventPayload> {
     await this._sendWithFetchRetry(path, JSON.stringify(payloads));
   }
 
-  /**
-   * Best-effort delivery during page unload (sendBeacon when available).
-   */
-  sendUnload(path: string, payloads: TPayload[]): void {
-    if (payloads.length === 0) {
-      return;
+  /** Format a request for a platform-owned best-effort exit transport. */
+  sendUnload(
+    path: string,
+    payloads: TPayload[],
+    send: (request: { url: string; body: string }) => void
+  ): void {
+    if (payloads.length > 0) {
+      send({ url: this._constructUrl(path), body: JSON.stringify(payloads) });
     }
-    const url = this._constructUrl(path);
-    const body = JSON.stringify(payloads);
-    const blob = new Blob([body], {
-      type: 'application/json',
-    });
-
-    try {
-      if (isBeaconSupported()) {
-        const queued = globalThis.navigator.sendBeacon(url, blob);
-        if (queued) {
-          return;
-        }
-      }
-    } catch {
-      // Fall through to fetch keepalive.
-    }
-
-    void fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body,
-      keepalive: true,
-    }).catch(() => {
-      // Unload path: swallow errors.
-    });
   }
 
   private async _sendWithFetchRetry(path: string, body: string): Promise<void> {

@@ -64,11 +64,11 @@ it('uses the migrated identity store for future identity mutations', () => {
 
 it('uses custom connectivity detection for delivery and retries when online', async () => {
   let online = false;
-  const client = new Altertable();
-  cleanup = client.init('key', {
-    persistence: 'memory',
+  const client = new Altertable({
+    getContext: () => ({}),
     isOnline: () => online,
   });
+  cleanup = client.init('key', { persistence: 'memory' });
   client.track('Offline');
   await client.flush();
   expect(fetch).not.toHaveBeenCalled();

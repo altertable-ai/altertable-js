@@ -441,8 +441,9 @@ storage API directly.
 
 Use the exported `getStorageKeys(apiKey, environment?)` to resolve the `session`
 and `events` keys before hydration. The environment defaults to `production`.
-For custom runtimes, `isOnline: () => boolean` overrides browser connectivity
-detection. Returning `false` retains buffered events until a later flush.
+For custom runtimes, supply a [platform](#runtime-platforms) to the constructor.
+Its `isOnline()` method reads connectivity; returning `false` retains buffered
+events until a later flush.
 
 The `Altertable` constructor is exported for applications that need separate
 client instances. Call the cleanup function returned by `init()` when disposing
@@ -472,3 +473,72 @@ Available tracking consent states.
 ## License
 
 [MIT](./LICENSE)
+
+## Runtime platforms
+
+`new Altertable()` uses `browserPlatform` by default. Supply a `Platform` to the
+constructor when hosting the core SDK in another runtime. The platform is fixed
+for the client's lifetime and is available before `init()`, so queued events keep
+the context captured when they were recorded.
+
+```typescript
+import { Altertable, type Platform } from '@altertable/altertable-js';
+
+const platform: Platform = {
+  getContext: () => ({ properties: { runtime: 'worker' } }),
+};
+
+const client = new Altertable(platform);
+client.track('Started');
+const cleanup = client.init('YOUR_API_KEY', { persistence: 'memory' });
+await client.flush();
+cleanup();
+```
+
+| Capability                     | Contract                                                                                                                                                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext()`                 | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                       |
+| `isOnline()`                   | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                       |
+| `subscribeLifecycle(listener)` | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                       |
+| `subscribePageViews(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                     |
+| `prepareDelivery()`            | Optionally await required persistence before each normal delivery snapshot. Return `false` to defer delivery, or reject to prevent that attempt. A later flush, lifecycle event, or batching trigger can retry. |
+| `sendOnExit({ url, body })`    | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                              |
+
+Only `getContext()` is required. Missing subscriptions disable those integrations;
+the SDK does not substitute browser implementations for an explicitly supplied
+platform. Storage remains a separate dependency through `persistence` and
+`eventPersistence`, which accept a `StorageAdapter`.
+
+Normal delivery respects tracking consent and connectivity. For platforms with
+asynchronous delivery preparation, overlapping automatic requests are coalesced;
+new threshold events trigger a subsequent snapshot, while failed requests wait
+for a later trigger. Overlapping lifecycle or interval requests share the current
+snapshot; events below the threshold remain batched until the next trigger. Explicit `flush()` continues draining, preparing every new
+snapshot. `flush({ drain: false })` shares the automatic delivery task on these
+platforms. Preparation failures reach `onError` for automatic attempts and reject
+explicit flushes.
+
+Cleanup stops platform subscriptions, timers, and further delivery. Cleanup and
+reinitialization prevent a pending preparation from starting stale delivery.
+Reinitialize before continuing to use a cleaned-up client.
+
+To extend browser behavior, compose the exported implementation directly:
+
+```typescript
+import { Altertable, browserPlatform } from '@altertable/altertable-js';
+
+const client = new Altertable({
+  ...browserPlatform,
+  getContext() {
+    return {
+      ...browserPlatform.getContext(),
+      properties: { application: 'dashboard' },
+    };
+  },
+});
+```
+
+The React Native package supplies native context, AppState lifecycle handling,
+optional connectivity, and asynchronous storage preparation through this same
+contract. Analytics-provider subscriptions are independent of browser detection;
+a configured provider must satisfy its own adapter contract.

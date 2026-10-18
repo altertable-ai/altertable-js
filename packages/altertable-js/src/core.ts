@@ -2,7 +2,6 @@ import { connectAdapters, hasConfiguredAdapter } from './adapters/providers';
 import type { AdapterSubscription } from './adapters/subscription';
 import type { AdapterEvent, Adapters, SourceMetadata } from './adapters/types';
 import {
-  AUTO_CAPTURE_INTERVAL_MS,
   DEFAULT_FLUSH_EVENT_THRESHOLD,
   DEFAULT_FLUSH_INTERVAL_MS,
   DEFAULT_MAX_BATCH_SIZE,
@@ -33,7 +32,6 @@ import { parseUrl } from './lib/parseUrl';
 import { Queue } from './lib/queue';
 import { Requester } from './lib/requester';
 import { captureRuntimeContext, RuntimeContext } from './lib/runtimeContext';
-import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 import { SessionManager } from './lib/sessionManager';
 import {
   selectEventStorage,
@@ -42,7 +40,8 @@ import {
   type Persistence,
 } from './lib/storage';
 import { validateUserId } from './lib/validateUserId';
-import { getViewport } from './lib/viewport';
+import { browserPlatform } from './platform/browser';
+import type { Platform } from './platform/types';
 import {
   AdapterTrackPayload,
   AliasPayload,
@@ -98,8 +97,6 @@ export interface AltertableConfig {
    * in memory only.
    */
   eventPersistence?: Persistence | false;
-  /** Override browser connectivity detection for other runtimes. */
-  isOnline?: () => boolean;
   /**
    * The tracking consent state.
    * @default "granted"
@@ -204,7 +201,10 @@ export class Altertable {
   private _requestedAutoCapture: boolean | undefined;
   private _adapterSubscription: AdapterSubscription | undefined;
   private _generation = 0;
-  private _pageHidden = false;
+  private _exiting = false;
+  private _deliveryActive = false;
+  private _automaticFlushTask: Promise<void> | undefined;
+  private _automaticFlushRequested = false;
   private _cleanupAutoCapture: (() => void) | undefined;
   private _cleanupLifecycleFlush: (() => void) | undefined;
   private _config: ResolvedAltertableConfig;
@@ -221,7 +221,10 @@ export class Altertable {
   private _eventStorageKey: string | undefined;
   private _storageKey: string | undefined;
 
-  constructor() {
+  private readonly _platform: Platform;
+
+  constructor(platform: Platform = browserPlatform) {
+    this._platform = platform;
     this._lastUrl = null;
     this._referrer = null;
     this._queue = new Queue<QueueItem>({
@@ -260,15 +263,15 @@ export class Altertable {
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
     const generation = ++this._generation;
-    this._adapterSubscription?.dispose();
-    this._pageHidden = false;
-    this._cleanupLifecycleFlush?.();
-    this._cleanupAutoCapture?.();
-    this._batcher?.stop();
-    this._batcher?.clear();
+    this._stopRuntime();
+    this._automaticFlushTask = undefined;
+    this._automaticFlushRequested = false;
+    this._exiting = false;
     if (this._isInitialized) {
+      this._batcher?.clear();
       this._queue.clear();
     }
+    this._isInitialized = false;
 
     this._requestedAutoCapture = config.autoCapture;
     this._config = resolveAltertableConfig(config);
@@ -276,14 +279,9 @@ export class Altertable {
     const storageKeys = getStorageKeys(apiKey, this._config.environment);
     this._storageKey = storageKeys.session;
     this._eventStorageKey = storageKeys.events;
-    this._referrer = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.document.referrer || null,
-      () => null
-    );
-    this._lastUrl = safelyRunOnBrowser<string | null>(
-      ({ window }) => window.location.href || null,
-      () => null
-    );
+    const context = this._platform.getContext();
+    this._referrer = context.referrer ?? null;
+    this._lastUrl = context.url ?? null;
     this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
     });
@@ -303,7 +301,10 @@ export class Altertable {
       flushIntervalMs: this._config.flushIntervalMs,
       maxBatchSize: this._config.maxBatchSize,
       persistence: this._getBatcherPersistence(),
-      isOnline: () => this._isOnline(),
+      isOnline: () => this._canDeliver(),
+      requestFlush: this._platform.prepareDelivery
+        ? fromTimer => this._requestAutomaticFlush(!fromTimer)
+        : undefined,
       send: async (eventType, payloads) => {
         try {
           await this._requester.sendBatch(`/${eventType}`, payloads);
@@ -315,9 +316,6 @@ export class Altertable {
         }
       },
     });
-    this._batcher.start();
-    this._cleanupLifecycleFlush = this._setupLifecycleFlush();
-
     this._sessionManager = new SessionManager({
       storage: this._storage,
       storageKey: this._storageKey,
@@ -332,24 +330,37 @@ export class Altertable {
       this._logger.logHeader();
     }
 
-    const trackingConsent = this._sessionManager.getTrackingConsent();
-    if (trackingConsent === TrackingConsent.GRANTED) {
-      this._flushQueue();
-    } else if (trackingConsent === TrackingConsent.DENIED) {
-      this._queue.clear();
-      this._batcher.clear();
-      this._batcher.stop();
-    }
-
-    this._handleAutoCaptureChange(this._config.autoCapture);
-    this._adapterSubscription = safelyRunOnBrowser(() =>
-      connectAdapters({
+    try {
+      this._handleAutoCaptureChange(this._config.autoCapture);
+      this._adapterSubscription = connectAdapters({
         getEnvironment: () => this._config.environment,
         emit: event => this._ingestAdapterEvent(event),
         onError: error => this._reportAdapterError(error),
-      })
-    );
-    this._adapterSubscription?.update(this._config.adapters);
+      });
+      this._adapterSubscription.update(this._config.adapters);
+      this._cleanupLifecycleFlush = this._subscribeLifecycle();
+    } catch (error) {
+      this._stopRuntime();
+      this._isInitialized = false;
+      throw error;
+    }
+
+    this._deliveryActive = true;
+    const trackingConsent = this._sessionManager.getTrackingConsent();
+    if (trackingConsent === TrackingConsent.DENIED) {
+      this._queue.clear();
+      this._batcher.clear();
+    } else {
+      this._batcher.start();
+      if (trackingConsent === TrackingConsent.GRANTED) this._flushQueue();
+    }
+    if (
+      this._config.autoCapture &&
+      this._platform.subscribePageViews &&
+      this._lastUrl
+    ) {
+      this.page(this._lastUrl);
+    }
 
     let cleanedUp = false;
     return () => {
@@ -357,10 +368,7 @@ export class Altertable {
         return;
       }
       cleanedUp = true;
-      this._adapterSubscription?.dispose();
-      this._cleanupAutoCapture?.();
-      this._cleanupLifecycleFlush?.();
-      this._batcher.stop();
+      this._stopRuntime();
     };
   }
 
@@ -479,7 +487,7 @@ export class Altertable {
     } else {
       this._processEvent(record.type, record.payload);
     }
-    if (this._pageHidden) {
+    if (this._exiting) {
       this._flushUnload();
     }
   }
@@ -502,25 +510,14 @@ export class Altertable {
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
     this._cleanupAutoCapture?.();
 
-    if (enableAutoCapture) {
-      this._cleanupAutoCapture = safelyRunOnBrowser(({ window }) => {
-        if (this._lastUrl) {
-          this.page(this._lastUrl);
-        }
-
-        const checkForChanges = this._checkForChanges.bind(this);
-        const intervalId = setInterval(
-          checkForChanges,
-          AUTO_CAPTURE_INTERVAL_MS
-        );
-        window.addEventListener('popstate', checkForChanges);
-        window.addEventListener('hashchange', checkForChanges);
-
-        return () => {
-          clearInterval(intervalId);
-          window.removeEventListener('popstate', checkForChanges);
-          window.removeEventListener('hashchange', checkForChanges);
-        };
+    if (enableAutoCapture && this._platform.subscribePageViews) {
+      if (this._deliveryActive && this._lastUrl) {
+        this.page(this._lastUrl);
+      }
+      this._cleanupAutoCapture = this._platform.subscribePageViews(url => {
+        this._referrer = this._lastUrl;
+        this._lastUrl = url;
+        this.page(url);
       });
     } else {
       this._cleanupAutoCapture = undefined;
@@ -792,7 +789,7 @@ export class Altertable {
       this._queue.enqueue({
         type: 'command',
         method: 'page',
-        runtimeContext: captureRuntimeContext(),
+        runtimeContext: captureRuntimeContext(this._platform),
         args: [url],
       });
       return;
@@ -805,8 +802,9 @@ export class Altertable {
     const parsedUrl = parseUrl(url);
     const baseUrl = parsedUrl ? parsedUrl.baseUrl : url;
 
-    const viewport = runtimeContext?.viewport ?? getViewport();
-    const referrer = runtimeContext?.referrer ?? this._referrer;
+    const context = runtimeContext ?? captureRuntimeContext(this._platform);
+    const viewport = context.viewport;
+    const referrer = runtimeContext ? runtimeContext.referrer : this._referrer;
 
     this._track(
       EVENT_PAGEVIEW,
@@ -816,7 +814,7 @@ export class Altertable {
         [PROPERTY_REFERER]: referrer,
         ...parsedUrl?.searchParams,
       },
-      runtimeContext
+      context
     );
   }
 
@@ -840,7 +838,7 @@ export class Altertable {
       this._queue.enqueue({
         type: 'command',
         method: 'track',
-        runtimeContext: captureRuntimeContext(),
+        runtimeContext: captureRuntimeContext(this._platform),
         args: [event, { ...properties }],
       });
       return;
@@ -852,7 +850,7 @@ export class Altertable {
   private _track(
     event: string,
     properties: EventProperties,
-    runtimeContext: RuntimeContext = captureRuntimeContext()
+    runtimeContext: RuntimeContext = captureRuntimeContext(this._platform)
   ) {
     if (this._rejectAltertableCall()) {
       return;
@@ -885,6 +883,7 @@ export class Altertable {
         [PROPERTY_URL]: hasUrl ? userUrl : baseUrl,
         // The above properties might be overridden by user-provided fields
         // and the React library
+        ...runtimeContext.properties,
         ...restProperties,
       },
     };
@@ -960,14 +959,15 @@ export class Altertable {
   }
 
   /**
-   * Flushes buffered events to the API when the browser is online. If the browser reports offline,
+   * Flushes buffered events to the API when the platform is ready. If it reports offline,
    * this resolves without sending and keeps the durable buffer queued for the next online retry.
    * Resolves when every HTTP request **started by this flush** has finished. Overlapping flushes
    * (for example a manual `flush()` while the interval timer also flushes) are independent: each
    * call only waits on its own requests, not on sends from other concurrent flushes.
    *
    * Pass `drain: false` to send one snapshot, leaving requeued failures and new
-   * events for a later attempt. The default keeps draining until the buffer is empty.
+   * events for a later attempt. Platforms with asynchronous preparation share the
+   * automatic delivery task for this option. The default keeps draining until the buffer is empty.
    *
    * @example
    * ```javascript
@@ -980,7 +980,17 @@ export class Altertable {
       'The client must be initialized with init() before calling flush().'
     );
     invariant(this._batcher, 'Batcher is not available.');
-    return this._batcher.flush(options);
+    if (!this._platform.prepareDelivery) {
+      return this._batcher.flush(options);
+    }
+    if (options?.drain === false) {
+      return this._flushAutomatically(true);
+    }
+    const generation = this._generation;
+    return this._batcher.flush({
+      ...options,
+      prepare: () => this._prepareDelivery(generation),
+    });
   }
 
   private _flushQueue() {
@@ -1003,7 +1013,7 @@ export class Altertable {
     // Replay pushes into the batcher; flush immediately so consent/pre-init
     // delivery is not delayed until flushEventThreshold or the interval timer.
     if (items.length > 0) {
-      void this._batcher.flush();
+      this._requestAutomaticFlush(true);
     }
   }
 
@@ -1045,80 +1055,115 @@ export class Altertable {
     }
   }
 
-  private _checkForChanges() {
-    safelyRunOnBrowser(({ window }) => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== this._lastUrl) {
-        this._referrer = this._lastUrl;
-        this._lastUrl = currentUrl;
-        this.page(currentUrl);
+  private _stopRuntime() {
+    this._deliveryActive = false;
+    const cleanups = [
+      () => this._adapterSubscription?.dispose(),
+      this._cleanupAutoCapture,
+      this._cleanupLifecycleFlush,
+      () => this._batcher?.stop(),
+    ];
+    this._cleanupAutoCapture = undefined;
+    this._cleanupLifecycleFlush = undefined;
+    for (const cleanup of cleanups) {
+      try {
+        cleanup?.();
+      } catch (error) {
+        this._notifyError(
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
+    }
+  }
+
+  private _subscribeLifecycle(): () => void {
+    return (
+      this._platform.subscribeLifecycle?.(event => {
+        this._exiting = event === 'exit' && !!this._platform.sendOnExit;
+        if (this._exiting) {
+          this._flushUnload();
+        } else {
+          this._requestAutomaticFlush();
+        }
+      }) ?? (() => {})
+    );
+  }
+
+  private _canDeliver(): boolean {
+    return (
+      this._deliveryActive &&
+      (this._platform.isOnline?.() ?? true) &&
+      (!this._isInitialized ||
+        this.getTrackingConsent() === TrackingConsent.GRANTED)
+    );
+  }
+
+  private async _prepareDelivery(generation: number): Promise<boolean> {
+    const ready = await this._platform.prepareDelivery!();
+    return (
+      ready !== false && generation === this._generation && this._canDeliver()
+    );
+  }
+
+  private _requestAutomaticFlush(replayIfRunning = false) {
+    void this._flushAutomatically(replayIfRunning).catch(() => {
+      // The shared automatic task reports preparation errors once.
     });
   }
 
-  private _setupLifecycleFlush(): () => void {
-    return safelyRunOnBrowser(
-      ({ window }) => {
-        const flushUnload = () => this._flushUnload();
-
-        const flushOnline = () => {
-          void this._batcher.flush();
-        };
-
-        const onVisibilityChange = () => {
-          this._pageHidden = window.document.visibilityState === 'hidden';
-          if (!this._pageHidden) {
-            return;
-          }
-          flushUnload();
-        };
-
-        const onPageHide = () => {
-          this._pageHidden = true;
-          flushUnload();
-        };
-        const onPageShow = () => {
-          this._pageHidden = false;
-        };
-
-        window.document.addEventListener(
-          'visibilitychange',
-          onVisibilityChange
-        );
-        window.addEventListener('online', flushOnline);
-        window.addEventListener('pagehide', onPageHide);
-        window.addEventListener('pageshow', onPageShow);
-
-        return () => {
-          window.document.removeEventListener(
-            'visibilitychange',
-            onVisibilityChange
-          );
-          window.removeEventListener('online', flushOnline);
-          window.removeEventListener('pagehide', onPageHide);
-          window.removeEventListener('pageshow', onPageShow);
-        };
-      },
-      () => () => {
-        // No-op cleanup when not in a browser environment.
+  private _flushAutomatically(replayIfRunning: boolean): Promise<void> {
+    if (!this._canDeliver()) return Promise.resolve();
+    if (!this._platform.prepareDelivery) return this._batcher!.flush();
+    if (this._automaticFlushTask) {
+      this._automaticFlushRequested ||= replayIfRunning;
+      return this._automaticFlushTask;
+    }
+    this._automaticFlushRequested = true;
+    const generation = this._generation;
+    const flush = async () => {
+      while (
+        this._automaticFlushRequested &&
+        generation === this._generation &&
+        this._canDeliver()
+      ) {
+        this._automaticFlushRequested = false;
+        await this._batcher!.flush({
+          drain: false,
+          prepare: () => this._prepareDelivery(generation),
+          onDispatch: () => {
+            // Requests received during preparation belong to this snapshot.
+            this._automaticFlushRequested = false;
+          },
+        });
       }
-    );
+    };
+    this._automaticFlushTask = flush()
+      .catch(error => {
+        if (generation === this._generation) {
+          this._automaticFlushRequested = false;
+          this._notifyError(
+            error instanceof Error ? error : new Error(String(error))
+          );
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (generation === this._generation) {
+          this._automaticFlushTask = undefined;
+          if (this._automaticFlushRequested) this._requestAutomaticFlush();
+        }
+      });
+    return this._automaticFlushTask;
   }
 
   private _flushUnload() {
     this._batcher.flushUnload((eventType, payloads) => {
-      this._requester.sendUnload(`/${eventType}`, payloads);
+      if (this._platform.sendOnExit) {
+        this._requester.sendUnload(`/${eventType}`, payloads, request =>
+          this._platform.sendOnExit!(request)
+        );
+      }
     });
-  }
-
-  private _isOnline(): boolean {
-    if (this._config.isOnline) {
-      return this._config.isOnline();
-    }
-    return safelyRunOnBrowser(
-      ({ window }) => window.navigator?.onLine !== false,
-      () => true
-    );
   }
 
   private _selectEventStorage(eventPersistence: Persistence | false) {

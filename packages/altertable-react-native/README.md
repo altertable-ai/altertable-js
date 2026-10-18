@@ -175,3 +175,15 @@ for shared options.
 ## License
 
 [MIT](./LICENSE)
+
+### Runtime integration
+
+The native SDK supplies the core SDK's `Platform` capabilities for event context,
+AppState lifecycle events, connectivity, and delivery preparation. Connectivity
+reads have no scheduling side effects. Backgrounding uses normal delivery after
+native writes complete; browser page-unload transport is not used.
+
+The core owns automatic flush coalescing, consent checks, and subscription
+cleanup. The native package owns asynchronous storage hydration and persistence
+barriers. For other runtime integrations, see the core SDK's
+[runtime platform API](../altertable-js/README.md#runtime-platforms).

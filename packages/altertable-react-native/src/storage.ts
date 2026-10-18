@@ -14,7 +14,6 @@ export async function hydrateStorage(
   onError: (error: Error, operation: 'read' | 'write') => void
 ): Promise<
   StorageAdapter & {
-    hasPendingWrites(): boolean;
     flush(): Promise<void>;
     close(): Promise<void>;
   }
@@ -104,7 +103,6 @@ export async function hydrateStorage(
     removeItem(key) {
       update(key, null);
     },
-    hasPendingWrites: () => pendingWrites.size > 0 || writeTask !== undefined,
     flush,
     close() {
       closed = true;
