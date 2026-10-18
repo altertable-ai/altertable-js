@@ -820,3 +820,29 @@ it('does not retry a failed startup snapshot for events already included during 
   expect(onError).toHaveBeenCalledOnce();
   vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
 });
+
+it('prepares a fixed snapshot when another event arrives after native persistence completes', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  const secondWrite = deferred<void>();
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events && value.includes('Second'))
+      await secondWrite.promise;
+    await setItem(key, value);
+  });
+  try {
+    client.track('First');
+    const arrival = client
+      .flushPersistence()
+      .then(() => client.track('Second'));
+    await vi.advanceTimersByTimeAsync(0);
+    await arrival;
+    expect(payloads().map(payload => payload.event)).toEqual(['First']);
+    expect(storageMock.values.get(keys.events)).not.toContain('Second');
+  } finally {
+    secondWrite.resolve();
+  }
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual(['First', 'Second']);
+});

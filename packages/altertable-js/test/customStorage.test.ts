@@ -76,3 +76,40 @@ it('uses custom connectivity detection for delivery and retries when online', as
   await client.flush();
   expect(fetch).toHaveBeenCalledOnce();
 });
+
+it.each([true, false])(
+  'retains replacement events after an old request completes (ok=%s)',
+  async ok => {
+    const response = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(response.promise);
+    const { storage, values } = createStorage();
+    const client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', { persistence: storage });
+    client.track('Old Event');
+    const sending = client.flush({ drain: false });
+    expect(fetch).toHaveBeenCalledOnce();
+    cleanup = client.init('key', { persistence: storage });
+    client.track('Replacement Event');
+    const key = getStorageKeys('key').events;
+    expect(values.get(key)).toContain('Replacement Event');
+    response.resolve({
+      ok,
+      status: ok ? 200 : 400,
+      statusText: 'Bad Request',
+      json: async () => ({}),
+    } as Response);
+    await sending;
+    expect(values.get(key)).toContain('Replacement Event');
+    cleanup();
+    const restored = new Altertable({ getContext: () => ({}) });
+    cleanup = restored.init('key', { persistence: storage });
+    await restored.flush();
+    const events = vi
+      .mocked(fetch)
+      .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
+    expect(events.map(event => event.event)).toEqual([
+      'Old Event',
+      'Replacement Event',
+    ]);
+  }
+);
