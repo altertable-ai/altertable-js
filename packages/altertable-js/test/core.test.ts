@@ -1319,27 +1319,18 @@ describe('Altertable', () => {
   describe('alias() method', () => {
     it('aliases user to a new ID', () => {
       setupAltertable();
-      const requesterSendBatchSpy = vi.spyOn(
-        altertable['_requester'],
-        'sendBatch'
-      );
-
       altertable.alias('user456');
-
-      expect(requesterSendBatchSpy).toHaveBeenCalledWith(
-        '/alias',
-        expect.arrayContaining([
-          expect.objectContaining({
-            environment: expect.any(String),
-            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            new_user_id: 'user456',
-            distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
-            anonymous_id: null,
-          }),
-        ])
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/alias?'),
+        expect.objectContaining({ method: 'POST' })
       );
-
-      requesterSendBatchSpy.mockRestore();
+      expect(getFetchCallBodyParsed(0)).toMatchObject({
+        environment: expect.any(String),
+        device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+        new_user_id: 'user456',
+        distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
+        anonymous_id: null,
+      });
     });
 
     it('logs alias when debug is enabled', () => {

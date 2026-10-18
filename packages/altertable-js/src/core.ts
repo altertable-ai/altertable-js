@@ -307,9 +307,9 @@ export class Altertable {
       requestFlush: this._platform.prepareDelivery
         ? fromTimer => this._requestAutomaticFlush(!fromTimer)
         : undefined,
-      send: async (eventType, payloads) => {
+      send: async (eventType, payloads, signal) => {
         try {
-          await this._requester.sendBatch(`/${eventType}`, payloads);
+          await this._requester.sendBatch(`/${eventType}`, payloads, signal);
         } catch (error) {
           this._handleSendError(eventType, error, payloads);
           if (isRetryableHttpDeliveryError(error)) {

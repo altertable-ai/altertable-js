@@ -883,3 +883,32 @@ lifecycleOwnershipConformanceTests(async () => {
     },
   };
 });
+
+it.each(['denial', 'reset', 'disposal'] as const)(
+  'cancels native HTTP retry backoff on %s',
+  async action => {
+    const onError = vi.fn();
+    const client = await create({ flushEventThreshold: 1, onError });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Unavailable',
+      json: async () => ({}),
+    } as Response);
+    client.track('Withdrawn');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledOnce();
+    if (action === 'denial')
+      await client.configure({ trackingConsent: 'denied' });
+    else if (action === 'reset') await client.reset();
+    else await client.dispose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(onError).not.toHaveBeenCalled();
+    if (action === 'disposal') {
+      expect(storageMock.values.get(keys.events)).toContain('Withdrawn');
+    } else {
+      expect(storageMock.values.has(keys.events)).toBe(false);
+    }
+  }
+);

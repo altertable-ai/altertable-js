@@ -4,7 +4,8 @@ import type { StorageApi } from './storage';
 
 export type BatcherSendFn = (
   eventType: EventType,
-  payloads: EventPayload[]
+  payloads: EventPayload[],
+  signal: AbortSignal
 ) => Promise<void>;
 
 export type BatcherConfig = {
@@ -74,13 +75,13 @@ export type BatcherApi = {
     /** Runs synchronously when events are selected, before preparation starts. */
     onSnapshot?: () => void;
   }): Promise<void>;
-  /** Drop buffered and in-flight payloads, including persisted copies. */
+  /** Cancel delivery and drop buffered and in-flight payloads, including persisted copies. */
   clear(): void;
   /** Start periodic flushing with the configured interval. */
   start(): void;
   /** Stop periodic flushing without clearing queued payloads. */
   stop(): void;
-  /** Stop new dispatches and relinquish persistence ownership; in-flight requests may settle. */
+  /** Cancel delivery and relinquish persistence ownership; in-flight requests may settle. */
   retire(): void;
   /** Best-effort page-unload delivery. Payloads remain persisted until normal send succeeds. */
   flushUnload(
@@ -349,6 +350,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let inFlightOrder: BufferedEventRef[] = [];
   let intervalId: ReturnType<typeof setInterval> | undefined;
   let retired = false;
+  let deliveryController = new AbortController();
   /** Bumped on authoritative clear / unload so stale send failures do not requeue. */
   let bufferGeneration = 0;
   let unloadFlushVersion = 0;
@@ -556,6 +558,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     if (snapshotOrder.length === 0) return Promise.resolve();
 
     const dispatchGeneration = bufferGeneration;
+    const signal = deliveryController.signal;
     const snapshotRefsByType = new Map(
       EVENT_TYPES.map(eventType => [
         eventType,
@@ -575,7 +578,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
           .splice(0, chunk.length);
         addInFlightChunk(eventType, chunk);
         const chunkPromise = config
-          .send(eventType, chunk)
+          .send(eventType, chunk, signal)
           .then(() => {
             removeInFlightChunk(eventType, chunk, chunkRefs);
             return persistBuffers();
@@ -672,12 +675,15 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
 
     clear(): void {
       bufferGeneration += 1;
+      const cancelledDelivery = deliveryController;
+      deliveryController = new AbortController();
       buffers = createEmptyBuffers();
       bufferOrder = [];
       inFlightChunks = createEmptyChunkBuffers();
       inFlightOrder = [];
       markUnloadDirty();
       persistBuffers();
+      cancelledDelivery.abort();
     },
 
     start(): void {
@@ -699,6 +705,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     retire(): void {
       retired = true;
       bufferGeneration += 1;
+      deliveryController.abort();
       if (intervalId !== undefined) {
         clearInterval(intervalId);
         intervalId = undefined;

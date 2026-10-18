@@ -17,9 +17,16 @@ export type RequesterConfig = {
   retryBaseDelayMs?: number;
 };
 
-function sleep(durationMs: number): Promise<void> {
+function sleep(durationMs: number, signal?: AbortSignal): Promise<void> {
   return new Promise(resolve => {
-    setTimeout(resolve, durationMs);
+    const finish = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timeoutId = setTimeout(finish, durationMs);
+    signal?.addEventListener('abort', finish, { once: true });
+    if (signal?.aborted) finish();
   });
 }
 
@@ -56,12 +63,17 @@ export class Requester<TPayload extends EventPayload> {
 
   /**
    * Sends a batch (JSON array body) with fetch + keepalive and retries transient failures.
+   * Cancellation aborts the current attempt, clears backoff, and resolves without retrying.
    */
-  async sendBatch(path: string, payloads: TPayload[]): Promise<void> {
+  async sendBatch(
+    path: string,
+    payloads: TPayload[],
+    signal?: AbortSignal
+  ): Promise<void> {
     if (payloads.length === 0) {
       return;
     }
-    await this._sendWithFetchRetry(path, JSON.stringify(payloads));
+    await this._sendWithFetchRetry(path, JSON.stringify(payloads), signal);
   }
 
   /** Format a request for a platform-owned best-effort exit transport. */
@@ -75,7 +87,11 @@ export class Requester<TPayload extends EventPayload> {
     }
   }
 
-  private async _sendWithFetchRetry(path: string, body: string): Promise<void> {
+  private async _sendWithFetchRetry(
+    path: string,
+    body: string,
+    signal?: AbortSignal
+  ): Promise<void> {
     const url = this._constructUrl(path);
     let lastError: unknown;
 
@@ -85,13 +101,16 @@ export class Requester<TPayload extends EventPayload> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         const waitMs = exponentialBackoffWithJitterMs(baseDelay, attempt - 1);
-        await sleep(waitMs);
+        await sleep(waitMs, signal);
       }
 
+      if (signal?.aborted) return;
+
       try {
-        await this._sendOnceWithFetch(url, body);
+        await this._sendOnceWithFetch(url, body, signal);
         return;
       } catch (error) {
+        if (signal?.aborted) return;
         lastError = error;
         if (!isRetryableHttpDeliveryError(error)) {
           throw error;
@@ -105,8 +124,15 @@ export class Requester<TPayload extends EventPayload> {
     throw lastError;
   }
 
-  private async _sendOnceWithFetch(url: string, body: string): Promise<void> {
+  private async _sendOnceWithFetch(
+    url: string,
+    body: string,
+    signal?: AbortSignal
+  ): Promise<void> {
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
     const timeoutId = setTimeout(
       () => controller.abort(),
       this._config.requestTimeout
@@ -162,6 +188,7 @@ export class Requester<TPayload extends EventPayload> {
       );
     } finally {
       clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', abort);
     }
   }
 }

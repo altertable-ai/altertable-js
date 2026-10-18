@@ -114,7 +114,7 @@ it.each([true, false])(
   }
 );
 
-it('ignores retry exhaustion from a retired batcher without changing the replacement buffer', async () => {
+it('cancels retries from a retired batcher without changing the replacement buffer', async () => {
   const response = Promise.withResolvers<Response>();
   vi.mocked(fetch).mockReturnValueOnce(response.promise);
   const { storage, values } = createStorage();
@@ -135,7 +135,7 @@ it('ignores retry exhaustion from a retired batcher without changing the replace
   response.resolve(unavailable);
   await vi.advanceTimersByTimeAsync(60_000);
   await sending;
-  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(fetch).toHaveBeenCalledOnce();
   expect(values.get(getStorageKeys('key').events)).toContain(
     'Replacement Event'
   );
@@ -143,6 +143,67 @@ it('ignores retry exhaustion from a retired batcher without changing the replace
   await client.flush();
   expect(values.has(getStorageKeys('key').events)).toBe(false);
 });
+
+it.each(['denial', 'reset', 'cleanup'] as const)(
+  'cancels retries after %s, both during a request and its backoff',
+  async action => {
+    for (const phase of ['request', 'backoff']) {
+      const response = Promise.withResolvers<Response>();
+      const unavailable = {
+        ok: false,
+        status: 503,
+        statusText: 'Unavailable',
+        json: async () => ({}),
+      } as Response;
+      vi.mocked(fetch).mockClear().mockReturnValueOnce(response.promise);
+      const onError = vi.fn();
+      const client = new Altertable({ getContext: () => ({}) });
+      const config = {
+        persistence: 'memory' as const,
+        flushIntervalMs: 1_000_000,
+        onError,
+      };
+      cleanup = client.init('key', config);
+      client.track('Withdrawn');
+      const sending = client.flush({ drain: false });
+      let settled = false;
+      void sending.then(() => {
+        settled = true;
+        return;
+      });
+      const signal = vi.mocked(fetch).mock.calls[0]![1]!.signal!;
+      if (phase === 'backoff') {
+        response.resolve(unavailable);
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      if (action === 'denial') client.configure({ trackingConsent: 'denied' });
+      else if (action === 'reset') client.reset();
+      else cleanup();
+      response.resolve(unavailable);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      await vi.advanceTimersByTimeAsync(60_000);
+      await sending;
+      expect(fetch).toHaveBeenCalledOnce();
+      if (phase === 'request') expect(signal.aborted).toBe(true);
+      expect(onError).not.toHaveBeenCalled();
+      if (action === 'denial') client.configure({ trackingConsent: 'granted' });
+      else if (action === 'cleanup') cleanup = client.init('key', config);
+      client.track('Current');
+      await client.flush();
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.map(([, options]) =>
+            JSON.parse(options!.body as string).map(
+              (event: { event: string }) => event.event
+            )
+          )
+      ).toEqual([['Withdrawn'], ['Current']]);
+      cleanup();
+    }
+  }
+);
 
 it.each([true, false])(
   'keeps persistence disabled through writes and late completion (ok=%s), then restores it when enabled',
