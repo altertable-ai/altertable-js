@@ -809,7 +809,7 @@ it('reports a native write failure once when automatic preparation observes it',
   }
 });
 
-it('does not retry a failed startup snapshot for events already included during preparation', async () => {
+it('does not immediately retry a failed automatic snapshot after startup', async () => {
   const onError = vi.fn();
   const client = await create({ flushEventThreshold: 1, onError });
   // Track before startup's automatic preparation has completed.

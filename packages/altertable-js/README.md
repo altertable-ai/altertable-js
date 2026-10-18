@@ -495,14 +495,14 @@ await client.flush();
 cleanup();
 ```
 
-| Capability                      | Contract                                                                                                                                                                                                              |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getContext()`                  | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                             |
-| `isOnline()`                    | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                             |
-| `subscribeLifecycle(listener)`  | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                             |
-| `subscribeUrlChanges(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                           |
-| `prepareDelivery()`             | Await prerequisites before each normal delivery snapshot. Resolve with `true` or `undefined` to proceed, `false` to defer, or reject to prevent the attempt. This does not run for exit transport or each HTTP retry. |
-| `sendOnExit({ url, body })`     | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                                    |
+| Capability                      | Contract                                                                                                                                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext()`                  | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                                           |
+| `isOnline()`                    | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                                           |
+| `subscribeLifecycle(listener)`  | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                                           |
+| `subscribeUrlChanges(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                                         |
+| `prepareDelivery()`             | Await prerequisites before sending each fixed normal delivery snapshot. Resolve with `true` or `undefined` to proceed, `false` to defer, or reject to prevent the attempt. This does not run for exit transport or each HTTP retry. |
+| `sendOnExit({ url, body })`     | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                                                  |
 
 Only `getContext()` is required. Missing subscriptions disable those integrations;
 the SDK does not substitute browser implementations for an explicitly supplied
@@ -513,8 +513,9 @@ Normal delivery respects tracking consent and connectivity. For platforms with
 asynchronous delivery preparation, overlapping automatic requests are coalesced;
 new threshold events trigger a subsequent snapshot, while failed requests wait
 for a later trigger. Overlapping lifecycle or interval requests share the current
-snapshot; events below the threshold remain batched until the next trigger. Explicit `flush()` continues draining, preparing every new
-snapshot. `flush({ drain: false })` shares the automatic delivery task on these
+snapshot; events below the threshold remain batched until the next trigger. Snapshots select events before preparation starts; later arrivals require
+their own prepared snapshot. Explicit `flush()` continues draining, preparing
+every new snapshot. `flush({ drain: false })` shares the automatic delivery task on these
 platforms. Preparation failures reach `onError` for automatic attempts and reject
 explicit flushes.
 

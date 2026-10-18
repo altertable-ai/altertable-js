@@ -268,7 +268,7 @@ export class Altertable {
     this._automaticFlushRequested = false;
     this._exiting = false;
     if (this._isInitialized) {
-      this._batcher?.clear();
+      this._eventStorage?.removeItem(this._eventStorageKey);
       this._queue.clear();
     }
     this._isInitialized = false;
@@ -1057,11 +1057,11 @@ export class Altertable {
 
   private _stopRuntime() {
     this._deliveryActive = false;
+    this._batcher?.retire();
     const cleanups = [
       () => this._adapterSubscription?.dispose(),
       this._cleanupAutoCapture,
       this._cleanupLifecycleFlush,
-      () => this._batcher?.stop(),
     ];
     this._cleanupAutoCapture = undefined;
     this._cleanupLifecycleFlush = undefined;
@@ -1130,8 +1130,8 @@ export class Altertable {
         await this._batcher!.flush({
           drain: false,
           prepare: () => this._prepareDelivery(generation),
-          onDispatch: () => {
-            // Requests received during preparation belong to this snapshot.
+          onSnapshot: () => {
+            // Requests received after selection need their own prepared snapshot.
             this._automaticFlushRequested = false;
           },
         });

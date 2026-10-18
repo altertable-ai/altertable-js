@@ -71,8 +71,8 @@ export type BatcherApi = {
   flush(options?: {
     drain?: boolean;
     prepare?: () => Promise<boolean>;
-    /** Runs synchronously when preparation has finished and a snapshot is taken. */
-    onDispatch?: () => void;
+    /** Runs synchronously when events are selected, before preparation starts. */
+    onSnapshot?: () => void;
   }): Promise<void>;
   /** Drop buffered and in-flight payloads, including persisted copies. */
   clear(): void;
@@ -80,6 +80,8 @@ export type BatcherApi = {
   start(): void;
   /** Stop periodic flushing without clearing queued payloads. */
   stop(): void;
+  /** Permanently stop delivery and relinquish persistence ownership. */
+  retire(): void;
   /** Best-effort page-unload delivery. Payloads remain persisted until normal send succeeds. */
   flushUnload(
     sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
@@ -346,6 +348,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let inFlightChunks = createEmptyChunkBuffers();
   let inFlightOrder: BufferedEventRef[] = [];
   let intervalId: ReturnType<typeof setInterval> | undefined;
+  let retired = false;
   /** Bumped on authoritative clear / unload so stale send failures do not requeue. */
   let bufferGeneration = 0;
   let unloadFlushVersion = 0;
@@ -445,7 +448,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   }
 
   function persistBuffers(): void {
-    if (!config.persistence) {
+    if (retired || !config.persistence) {
       return;
     }
 
@@ -532,37 +535,35 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
    */
   function dispatchFlushFromBuffer(
     fromTimer: boolean,
-    onDispatch?: () => void
+    selectedRefs: readonly BufferedEventRef[] = bufferOrder
   ): Promise<void> {
-    if (!config.isOnline()) {
-      return Promise.resolve();
-    }
+    if (retired || !config.isOnline()) return Promise.resolve();
 
-    onDispatch?.();
-    const dispatchGeneration = bufferGeneration;
+    const selected = new Set(selectedRefs);
     const snapshot = createEmptyBuffers();
-    let hadAny = false;
-    for (const eventType of EVENT_TYPES) {
-      const items = buffers.get(eventType) ?? [];
-      if (items.length > 0) {
-        hadAny = true;
-        snapshot.set(eventType, [...items]);
+    const remaining = createEmptyBuffers();
+    const snapshotOrder: BufferedEventRef[] = [];
+    const remainingOrder: BufferedEventRef[] = [];
+    for (const ref of bufferOrder) {
+      if (selected.has(ref)) {
+        snapshot.get(ref.eventType)!.push(ref.payload);
+        snapshotOrder.push(ref);
+      } else {
+        remaining.get(ref.eventType)!.push(ref.payload);
+        remainingOrder.push(ref);
       }
     }
-    if (!hadAny) {
-      return Promise.resolve();
-    }
-    const snapshotOrder = bufferOrder;
+    if (snapshotOrder.length === 0) return Promise.resolve();
+
+    const dispatchGeneration = bufferGeneration;
     const snapshotRefsByType = new Map(
       EVENT_TYPES.map(eventType => [
         eventType,
         snapshotOrder.filter(ref => ref.eventType === eventType),
       ])
     );
-    for (const eventType of EVENT_TYPES) {
-      buffers.set(eventType, []);
-    }
-    bufferOrder = [];
+    buffers = remaining;
+    bufferOrder = remainingOrder;
     inFlightOrder.push(...snapshotOrder);
 
     const sendPromises: Promise<void>[] = [];
@@ -603,10 +604,29 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     }
   }
 
+  function flushSnapshot(
+    fromTimer: boolean,
+    prepare?: () => Promise<boolean>,
+    onSnapshot?: () => void
+  ): Promise<boolean> {
+    if (retired || !config.isOnline()) return Promise.resolve(false);
+    const generation = bufferGeneration;
+    // Keep these refs buffered and persisted while preparing. Later arrivals
+    // belong to another snapshot, even if they arrive in a promise continuation.
+    const selected = [...bufferOrder];
+    onSnapshot?.();
+    const dispatch = () =>
+      dispatchFlushFromBuffer(fromTimer, selected).then(() => true);
+    if (!prepare) return dispatch();
+    return prepare().then(ready =>
+      ready && generation === bufferGeneration ? dispatch() : false
+    );
+  }
+
   async function flushUntilDrained(
     prepare?: () => Promise<boolean>
   ): Promise<void> {
-    if (!config.isOnline()) {
+    if (retired || !config.isOnline()) {
       return;
     }
 
@@ -616,11 +636,8 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       iteration += 1
     ) {
       await Promise.all(inFlightOther);
-      if (prepare && !(await prepare())) {
-        return;
-      }
-      await dispatchFlushFromBuffer(false);
-      if (!config.isOnline()) {
+      if (!(await flushSnapshot(false, prepare))) return;
+      if (retired || !config.isOnline()) {
         return;
       }
       if (totalBufferedCount(buffers) === 0 && inFlightOther.size === 0) {
@@ -635,6 +652,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
 
   return {
     add(eventType: EventType, payload: EventPayload): void {
+      if (retired) return;
       const list = buffers.get(eventType) ?? [];
       list.push(payload);
       buffers.set(eventType, list);
@@ -646,14 +664,10 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       }
     },
 
-    flush({ drain = true, prepare, onDispatch } = {}): Promise<void> {
-      if (drain) return flushUntilDrained(prepare);
-      if (prepare) {
-        return prepare().then(ready =>
-          ready ? dispatchFlushFromBuffer(false, onDispatch) : undefined
-        );
-      }
-      return dispatchFlushFromBuffer(false, onDispatch);
+    flush({ drain = true, prepare, onSnapshot } = {}): Promise<void> {
+      return drain
+        ? flushUntilDrained(prepare)
+        : flushSnapshot(false, prepare, onSnapshot).then(() => undefined);
     },
 
     clear(): void {
@@ -667,7 +681,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     },
 
     start(): void {
-      if (intervalId !== undefined) {
+      if (retired || intervalId !== undefined) {
         return;
       }
       intervalId = setInterval(() => {
@@ -682,10 +696,19 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       }
     },
 
+    retire(): void {
+      retired = true;
+      bufferGeneration += 1;
+      if (intervalId !== undefined) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    },
+
     flushUnload(
       sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
     ): void {
-      if (!config.isOnline()) {
+      if (retired || !config.isOnline()) {
         return;
       }
       if (lastUnloadFlushVersion === unloadFlushVersion) {
@@ -717,6 +740,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     updateConfig(
       updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>
     ): void {
+      if (retired) return;
       config = resolveBatcherConfig({
         send: config.send,
         requestFlush: config.requestFlush,

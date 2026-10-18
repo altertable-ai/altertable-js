@@ -1,55 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import {
-  Altertable,
-  type Platform,
-  type PlatformContext,
-  type PlatformLifecycleEvent,
-} from '../src';
+import { createPlatformRuntime as runtime } from '../../../test-utils/platformRuntime';
+import { Altertable } from '../src';
 
 const cleanups: Array<() => void> = [];
 
 function deferred<T>() {
   return Promise.withResolvers<T>();
-}
-
-function runtime() {
-  let context: PlatformContext = {};
-  let online = true;
-  const lifecycle = new Set<(event: PlatformLifecycleEvent) => void>();
-  const navigation = new Set<(url: string) => void>();
-  const platform: Platform = {
-    getContext: () => context,
-    isOnline: () => online,
-    subscribeLifecycle(listener) {
-      lifecycle.add(listener);
-      return () => {
-        lifecycle.delete(listener);
-      };
-    },
-    subscribeUrlChanges(listener) {
-      navigation.add(listener);
-      return () => {
-        navigation.delete(listener);
-      };
-    },
-  };
-  return {
-    platform,
-    setContext(value: PlatformContext) {
-      context = value;
-    },
-    setOnline(value: boolean) {
-      online = value;
-    },
-    emit(event: PlatformLifecycleEvent) {
-      lifecycle.forEach(listener => listener(event));
-    },
-    navigate(url: string) {
-      context = { ...context, url };
-      navigation.forEach(listener => listener(url));
-    },
-  };
 }
 
 function init(
@@ -197,7 +154,7 @@ it('flushes on platform connectivity recovery and backgrounding using normal tra
   ]);
 });
 
-it('coalesces threshold delivery while platform persistence is pending', async () => {
+it('keeps arrivals during preparation in separately prepared snapshots', async () => {
   const host = runtime();
   const write = deferred<void>();
   host.platform.prepareDelivery = () => write.promise;
@@ -210,7 +167,15 @@ it('coalesces threshold delivery while platform persistence is pending', async (
   expect(fetch).not.toHaveBeenCalled();
   write.resolve();
   await vi.advanceTimersByTimeAsync(0);
-  expect(fetch).toHaveBeenCalledOnce();
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.map(([, options]) =>
+        JSON.parse(options!.body as string).map(
+          (event: { event: string }) => event.event
+        )
+      )
+  ).toEqual([['First'], ['Second']]);
   expect(payloads().map(event => event.event)).toEqual(['First', 'Second']);
 });
 

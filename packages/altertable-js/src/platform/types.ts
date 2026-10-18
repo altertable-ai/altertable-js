@@ -32,8 +32,9 @@ export interface Platform {
   subscribeUrlChanges?(listener: (url: string) => void): () => void;
   /**
    * Await prerequisites, such as durable writes, before each normal delivery
-   * snapshot. This runs before taking events from the buffer, not before each
-   * HTTP request or retry, and does not run for sendOnExit delivery.
+   * snapshot. Events are selected before this hook runs and remain buffered
+   * until it succeeds; later arrivals require another prepared snapshot. This
+   * does not run before each HTTP retry or for sendOnExit delivery.
    * Resolve with true or undefined to proceed, or false to leave events buffered
    * until a later trigger. Rejection also leaves events buffered: automatic
    * attempts report it through onError, and explicit flush calls reject.

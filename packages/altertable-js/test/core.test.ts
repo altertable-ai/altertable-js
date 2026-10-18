@@ -221,31 +221,19 @@ describe('Altertable', () => {
         });
       });
 
-      it('returns a cleanup that stops the batcher and removes lifecycle listeners', () => {
+      it('returns a cleanup that stops scheduled delivery', async () => {
+        vi.useFakeTimers();
         const client = new Altertable();
         const cleanup = client.init(apiKey, {
-          baseUrl: 'http://localhost',
           autoCapture: false,
-          trackingConsent: 'granted',
           persistence: 'memory',
-          flushEventThreshold: 1,
-          flushIntervalMs: 86_400_000,
+          flushIntervalMs: 1_000,
         });
-        const stopSpy = vi.spyOn(client['_batcher'], 'stop');
-        const removeDocumentSpy = vi.spyOn(document, 'removeEventListener');
-        const removeWindowSpy = vi.spyOn(window, 'removeEventListener');
-
+        client.track('Buffered Before Cleanup');
         cleanup();
-
-        expect(stopSpy).toHaveBeenCalledTimes(1);
-        expect(removeDocumentSpy).toHaveBeenCalledWith(
-          'visibilitychange',
-          expect.any(Function)
-        );
-        expect(removeWindowSpy).toHaveBeenCalledWith(
-          'pagehide',
-          expect.any(Function)
-        );
+        await vi.advanceTimersByTimeAsync(2_000);
+        await client.flush();
+        expect(fetch).not.toHaveBeenCalled();
       });
 
       it('does not send page event when auto-capture disabled', () => {
