@@ -682,8 +682,8 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       inFlightChunks = createEmptyChunkBuffers();
       inFlightOrder = [];
       markUnloadDirty();
-      persistBuffers();
       cancelledDelivery.abort();
+      persistBuffers();
     },
 
     start(): void {

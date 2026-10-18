@@ -12,6 +12,7 @@ export type StorageType =
 export interface StorageAdapter {
   getItem(key: string): string | null;
   setItem(key: string, value: string): boolean;
+  /** Deletion failures are reported through the client onError handler without interrupting privacy controls. */
   removeItem(key: string): void;
 }
 
@@ -170,7 +171,10 @@ function testStorageSupport(
 
 export function selectStorage(
   type: Persistence | 'unknown',
-  params: { onFallback: (message: string) => void }
+  params: {
+    onFallback: (message: string) => void;
+    onError?: (error: Error) => void;
+  }
 ): StorageApi {
   const { onFallback } = params;
 
@@ -178,7 +182,16 @@ export function selectStorage(
     return {
       getItem: key => type.getItem(key),
       setItem: (key, value) => type.setItem(key, value),
-      removeItem: key => type.removeItem(key),
+      removeItem(key) {
+        try {
+          type.removeItem(key);
+        } catch (error) {
+          const sourceError =
+            error instanceof Error ? error : new Error(String(error));
+          onFallback(`Failed to remove persisted data: ${sourceError.message}`);
+          params.onError?.(sourceError);
+        }
+      },
       migrate(fromStorage, keys) {
         migrateKeys(this, fromStorage, keys);
       },
@@ -248,7 +261,10 @@ export function selectStorage(
 
 export function selectEventStorage(
   type: Persistence | 'unknown',
-  params: { onFallback: (message: string) => void }
+  params: {
+    onFallback: (message: string) => void;
+    onError?: (error: Error) => void;
+  }
 ): StorageApi {
   const { onFallback } = params;
 

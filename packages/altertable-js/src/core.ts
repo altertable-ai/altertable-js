@@ -286,6 +286,7 @@ export class Altertable {
     this._lastUrl = context.url ?? null;
     this._storage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
+      onError: error => this._notifyError(error),
     });
     this._eventStorage = this._selectEventStorage(
       this._config.eventPersistence
@@ -417,6 +418,7 @@ export class Altertable {
       const previousStorage = this._storage;
       this._storage = selectStorage(nextConfig.persistence, {
         onFallback: message => this._logger.warn(message),
+        onError: error => this._notifyError(error),
       });
       this._storage.migrate(previousStorage, [this._storageKey]);
       this._sessionManager.setStorage(this._storage);
@@ -431,12 +433,13 @@ export class Altertable {
         this._eventStorage.migrate(previousEventStorage, [
           this._eventStorageKey,
         ]);
-      } else if (previousEventStorage && !this._eventStorage) {
-        previousEventStorage.removeItem(this._eventStorageKey);
       }
       this._batcher.updateConfig({
         persistence: this._getBatcherPersistence(),
       });
+      if (previousEventStorage && !this._eventStorage) {
+        previousEventStorage.removeItem(this._eventStorageKey);
+      }
     }
 
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
@@ -1194,6 +1197,7 @@ export class Altertable {
     }
     return selectEventStorage(eventPersistence, {
       onFallback: message => this._logger.warn(message),
+      onError: error => this._notifyError(error),
     });
   }
 

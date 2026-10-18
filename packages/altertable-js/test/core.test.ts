@@ -952,6 +952,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -968,6 +969,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -987,6 +989,7 @@ describe('Altertable', () => {
 
       expect(selectEventStorageSpy).toHaveBeenCalledWith('memory', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -2426,6 +2429,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('localStorage', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
 
       global.localStorage = originalLocalStorage;

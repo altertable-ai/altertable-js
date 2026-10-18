@@ -255,3 +255,96 @@ it.each([true, false])(
     expect(values.has(key)).toBe(false);
   }
 );
+
+it.each(['denial', 'reset'] as const)(
+  'completes %s and cancels delivery when event deletion throws',
+  async action => {
+    const response = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(response.promise);
+    const { storage, values } = createStorage();
+    const failure = new Error('Deletion failed');
+    const key = getStorageKeys('key').events;
+    const removeItem = storage.removeItem;
+    storage.removeItem = item => {
+      if (item === key) throw failure;
+      removeItem(item);
+    };
+    const onError = vi.fn();
+    const client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', {
+      persistence: storage,
+      onError,
+      flushIntervalMs: 1_000_000,
+    });
+    client.track('Withdrawn');
+    const identity = JSON.parse(
+      values.get(getStorageKeys('key').session)!
+    ).distinctId;
+    const sending = client.flush({ drain: false });
+    expect(() => {
+      if (action === 'denial') client.configure({ trackingConsent: 'denied' });
+      else client.reset();
+    }).not.toThrow();
+    if (action === 'denial') expect(client.getTrackingConsent()).toBe('denied');
+    else
+      expect(
+        JSON.parse(values.get(getStorageKeys('key').session)!).distinctId
+      ).not.toBe(identity);
+    expect(onError).toHaveBeenCalledWith(failure);
+    response.resolve({
+      ok: false,
+      status: 503,
+      statusText: 'Unavailable',
+      json: async () => ({}),
+    } as Response);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await sending;
+    expect(fetch).toHaveBeenCalledOnce();
+    // Storage could not erase the old bytes; report that failure without keeping them live.
+    expect(values.get(key)).toContain('Withdrawn');
+    storage.removeItem = removeItem;
+    if (action === 'denial') client.configure({ trackingConsent: 'granted' });
+    client.track('Current');
+    await client.flush();
+    expect(values.has(key)).toBe(false);
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.flatMap(([, options]) =>
+          JSON.parse(options!.body as string)
+        )
+        .map(event => event.event)
+    ).toEqual(['Withdrawn', 'Current']);
+  }
+);
+
+it('detaches persistence despite deletion failure and can enable and disable it again', async () => {
+  const { storage, values } = createStorage();
+  const failure = new Error('Deletion failed');
+  const key = getStorageKeys('key').events;
+  const removeItem = storage.removeItem;
+  const onError = vi.fn();
+  const client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', { persistence: storage, onError });
+  client.track('Before Disable');
+  const previousValue = values.get(key);
+  storage.removeItem = item => {
+    if (item === key) throw failure;
+    removeItem(item);
+  };
+  expect(() => client.configure({ eventPersistence: false })).not.toThrow();
+  expect(onError).toHaveBeenCalledWith(failure);
+  client.track('Memory Only');
+  expect(values.get(key)).toBe(previousValue);
+  await client.flush();
+  expect(values.get(key)).toBe(previousValue);
+  storage.removeItem = removeItem;
+  client.configure({ eventPersistence: storage });
+  client.track('Durable Again');
+  expect(values.get(key)).toContain('Durable Again');
+  expect(values.get(key)).not.toContain('Before Disable');
+  client.configure({ eventPersistence: false });
+  expect(values.has(key)).toBe(false);
+  client.track('Memory Again');
+  expect(values.has(key)).toBe(false);
+});
