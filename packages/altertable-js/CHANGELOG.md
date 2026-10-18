@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- Preserve source identity data when a persistence migration destination rejects the write.
+
 ## [1.3.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.2.0...altertable-js-v1.3.0) (2026-09-23)
 
 ### Features

@@ -93,6 +93,7 @@ describe('Storage API', () => {
       configurable: true,
     });
     mockWindow = {
+      location: originalWindow.location,
       localStorage: mockLocalStorage as unknown as Storage,
       sessionStorage: mockSessionStorage as unknown as Storage,
       document: mockDocument as Document,
@@ -155,6 +156,50 @@ describe('Storage API', () => {
       expect(storage.getItem('key1')).toBe('value1');
       expect(storage.getItem('key2')).toBe('value2');
       expect(storage.getItem('key3')).toBeNull(); // Not migrated
+    });
+  });
+
+  describe.each<StorageType>([
+    'memory',
+    'cookie',
+    'localStorage',
+    'sessionStorage',
+    'localStorage+cookie',
+  ])('%s migration', type => {
+    it('preserves source identity when the destination rejects the write', () => {
+      const storage = selectStorage(type, { onFallback });
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('identity', 'user-123');
+      vi.spyOn(storage, 'setItem').mockReturnValue(false);
+
+      storage.migrate(sourceStorage, ['identity']);
+
+      expect(sourceStorage.getItem('identity')).toBe('user-123');
+    });
+
+    it('removes only successfully migrated source data', () => {
+      const storage = selectStorage(type, { onFallback });
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('identity', 'user-123');
+      sourceStorage.setItem('retained', 'value');
+
+      storage.migrate(sourceStorage, ['identity', 'missing']);
+
+      if (type === 'localStorage' || type === 'localStorage+cookie') {
+        expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+          'identity',
+          'user-123'
+        );
+      } else if (type === 'sessionStorage') {
+        expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
+          'identity',
+          'user-123'
+        );
+      } else {
+        expect(storage.getItem('identity')).toBe('user-123');
+      }
+      expect(sourceStorage.getItem('identity')).toBeNull();
+      expect(sourceStorage.getItem('retained')).toBe('value');
     });
   });
 
@@ -308,6 +353,19 @@ describe('Storage API', () => {
       storage.setItem('test-key', 'test-value');
       // Should not throw, just ignore the error
       expect(mockLocalStorage.setItem).toHaveBeenCalled();
+    });
+
+    it('preserves source identity when localStorage exceeds its quota during migration', () => {
+      const sourceStorage = selectStorage('memory', { onFallback });
+      sourceStorage.setItem('identity', 'user-123');
+      mockLocalStorage.setItem.mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+      storage.migrate(sourceStorage, ['identity']);
+
+      expect(sourceStorage.getItem('identity')).toBe('user-123');
+      expect(storage.getItem('identity')).toBeNull();
     });
 
     it('should handle getItem errors gracefully', () => {
