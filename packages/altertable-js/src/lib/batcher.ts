@@ -749,12 +749,10 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
         flushIntervalMs: updates.flushIntervalMs ?? config.flushIntervalMs,
         maxBatchSize: updates.maxBatchSize ?? config.maxBatchSize,
         persistence:
-          updates.persistence !== undefined
-            ? updates.persistence
-            : config.persistence,
+          'persistence' in updates ? updates.persistence : config.persistence,
         isOnline: updates.isOnline ?? config.isOnline,
       });
-      if (updates.persistence !== undefined) {
+      if ('persistence' in updates) {
         persistBuffers();
       }
       if (updates.flushIntervalMs !== undefined && intervalId !== undefined) {

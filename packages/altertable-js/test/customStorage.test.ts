@@ -143,3 +143,54 @@ it('ignores retry exhaustion from a retired batcher without changing the replace
   await client.flush();
   expect(values.has(getStorageKeys('key').events)).toBe(false);
 });
+
+it.each([true, false])(
+  'keeps persistence disabled through writes and late completion (ok=%s), then restores it when enabled',
+  async ok => {
+    const response = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(response.promise);
+    const { storage, values } = createStorage();
+    const key = getStorageKeys('key').events;
+    const client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', {
+      persistence: storage,
+      flushIntervalMs: 1_000_000,
+    });
+    client.track('In Flight');
+    const sending = client.flush({ drain: false });
+    client.configure({ eventPersistence: false });
+    expect(values.has(key)).toBe(false);
+    client.track('Memory Only');
+    expect(values.has(key)).toBe(false);
+    response.resolve({
+      ok,
+      status: ok ? 200 : 503,
+      statusText: 'Unavailable',
+      json: async () => ({}),
+    } as Response);
+    if (!ok) {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Unavailable',
+        json: async () => ({}),
+      } as Response);
+    }
+    await vi.advanceTimersByTimeAsync(60_000);
+    await sending;
+    expect(values.has(key)).toBe(false);
+    client.configure({ flushIntervalMs: 2_000_000 });
+    client.track('Still In Memory');
+    expect(values.has(key)).toBe(false);
+    client.configure({ eventPersistence: storage });
+    expect(values.get(key)).toContain('Memory Only');
+    expect(values.get(key)).toContain('Still In Memory');
+    if (!ok) expect(values.get(key)).toContain('In Flight');
+    client.configure({ flushIntervalMs: 3_000_000 });
+    client.track('Durable Again');
+    expect(values.get(key)).toContain('Durable Again');
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+    await client.flush();
+    expect(values.has(key)).toBe(false);
+  }
+);
