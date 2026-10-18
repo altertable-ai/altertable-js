@@ -57,6 +57,11 @@ export class Requester<TPayload extends EventPayload> {
     };
   }
 
+  /** Apply to future sends; ongoing batches keep their captured URL across retries. */
+  setBaseUrl(baseUrl: string): void {
+    this._config.baseUrl = baseUrl;
+  }
+
   private _constructUrl(path: string): string {
     return `${this._config.baseUrl}${path}?apiKey=${encodeURIComponent(this._config.apiKey)}`;
   }

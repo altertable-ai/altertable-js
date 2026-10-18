@@ -410,6 +410,9 @@ export class Altertable {
       autoCapture: this._requestedAutoCapture,
     });
 
+    const autoCaptureChanged =
+      nextConfig.autoCapture !== this._config.autoCapture;
+
     if (updates.eventPersistence !== undefined) {
       this._eventPersistenceConfigured = true;
     }
@@ -442,6 +445,9 @@ export class Altertable {
       }
     }
 
+    this._config = nextConfig;
+    this._requester.setBaseUrl(nextConfig.baseUrl);
+
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
     if (
       updates.trackingConsent !== undefined &&
@@ -462,9 +468,6 @@ export class Altertable {
       }
     }
 
-    const autoCaptureChanged =
-      nextConfig.autoCapture !== this._config.autoCapture;
-    this._config = nextConfig;
     if (
       autoCaptureChanged ||
       (nextConfig.autoCapture && !this._autoCaptureOwner)
