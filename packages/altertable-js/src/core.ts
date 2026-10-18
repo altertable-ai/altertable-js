@@ -413,36 +413,42 @@ export class Altertable {
     const autoCaptureChanged =
       nextConfig.autoCapture !== this._config.autoCapture;
 
-    if (updates.eventPersistence !== undefined) {
-      this._eventPersistenceConfigured = true;
+    const persistenceChanged =
+      nextConfig.persistence !== this._config.persistence;
+    const eventPersistenceChanged =
+      nextConfig.eventPersistence !== this._config.eventPersistence;
+    const nextStorage = persistenceChanged
+      ? selectStorage(nextConfig.persistence, {
+          onFallback: message => this._logger.warn(message),
+          onError: error => this._notifyError(error),
+        })
+      : this._storage;
+    const nextEventStorage = eventPersistenceChanged
+      ? this._selectEventStorage(nextConfig.eventPersistence)
+      : this._eventStorage;
+
+    // Keep the original sources for retries if either migration throws.
+    if (persistenceChanged) {
+      nextStorage.migrate(this._storage, [this._storageKey]);
+    }
+    if (eventPersistenceChanged && this._eventStorage && nextEventStorage) {
+      nextEventStorage.migrate(this._eventStorage, [this._eventStorageKey]);
     }
 
-    if (nextConfig.persistence !== this._config.persistence) {
-      const previousStorage = this._storage;
-      this._storage = selectStorage(nextConfig.persistence, {
-        onFallback: message => this._logger.warn(message),
-        onError: error => this._notifyError(error),
-      });
-      this._storage.migrate(previousStorage, [this._storageKey]);
-      this._sessionManager.setStorage(this._storage);
-    }
-
-    if (nextConfig.eventPersistence !== this._config.eventPersistence) {
+    this._storage = nextStorage;
+    this._sessionManager.setStorage(nextStorage);
+    if (eventPersistenceChanged) {
       const previousEventStorage = this._eventStorage;
-      this._eventStorage = this._selectEventStorage(
-        nextConfig.eventPersistence
-      );
-      if (previousEventStorage && this._eventStorage) {
-        this._eventStorage.migrate(previousEventStorage, [
-          this._eventStorageKey,
-        ]);
-      }
+      this._eventStorage = nextEventStorage;
       this._batcher.updateConfig({
         persistence: this._getBatcherPersistence(),
       });
-      if (previousEventStorage && !this._eventStorage) {
+      if (previousEventStorage && !nextEventStorage) {
         previousEventStorage.removeItem(this._eventStorageKey);
       }
+    }
+    if (updates.eventPersistence !== undefined) {
+      this._eventPersistenceConfigured = true;
     }
 
     this._config = nextConfig;

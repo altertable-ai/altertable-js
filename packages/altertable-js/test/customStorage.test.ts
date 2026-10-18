@@ -449,3 +449,58 @@ it('retains undelivered events when HTTP failure and a storage write failure coi
   ).toEqual(['Undelivered', 'Later']);
   expect(values.has(getStorageKeys('key').events)).toBe(false);
 });
+
+it.each(['session', 'events'] as const)(
+  'preserves identified identity after retrying a failed %s migration and restarting immediately',
+  async failedKey => {
+    const source = createStorage();
+    const target = createStorage();
+    const keys = getStorageKeys('key');
+    const client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', { persistence: source.storage });
+    client.identify('user-123');
+    client.track('Before Migration');
+    const savedIdentity = JSON.parse(source.values.get(keys.session)!);
+    const getItem = source.storage.getItem;
+    const failure = new Error('Temporary storage read failure');
+    source.storage.getItem = key => {
+      if (key === keys[failedKey]) throw failure;
+      return getItem(key);
+    };
+    expect(() => client.configure({ persistence: target.storage })).toThrow(
+      failure
+    );
+    source.storage.getItem = getItem;
+    client.configure({ persistence: target.storage });
+    // Restart before another identity write could hide a failed migration.
+    cleanup();
+    const restored = new Altertable({ getContext: () => ({}) });
+    cleanup = restored.init('key', { persistence: target.storage });
+    expect(JSON.parse(target.values.get(keys.session)!)).toMatchObject(
+      savedIdentity
+    );
+    restored.track('After Restart');
+    await restored.flush();
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.flatMap(([, options]) =>
+          JSON.parse(options!.body as string)
+        )
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'Before Migration',
+          distinct_id: 'user-123',
+        }),
+        expect.objectContaining({
+          event: 'After Restart',
+          distinct_id: 'user-123',
+          device_id: savedIdentity.deviceId,
+        }),
+      ])
+    );
+    expect(source.values.has(keys.session)).toBe(false);
+    expect(source.values.has(keys.events)).toBe(false);
+  }
+);
