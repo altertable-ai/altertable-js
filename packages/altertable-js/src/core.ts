@@ -525,6 +525,11 @@ export class Altertable {
     }
 
     if (enableAutoCapture && this._platform.subscribeUrlChanges) {
+      const url = this._platform.getContext().url ?? null;
+      if (url !== this._lastUrl) {
+        this._referrer = this._lastUrl;
+        this._lastUrl = url;
+      }
       const owner = {};
       this._autoCaptureOwner = owner;
       try {

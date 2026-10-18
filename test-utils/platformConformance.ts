@@ -60,6 +60,33 @@ export function platformConformanceTests(
     });
 
     it.each([false, true])(
+      'captures the current URL when enabling capture (initially enabled=%s)',
+      async initiallyEnabled => {
+        cleanup = client.init('key', {
+          ...config,
+          autoCapture: initiallyEnabled,
+        });
+        client.configure({ autoCapture: false });
+        const checkout = new URL('/checkout', driver.homeUrl).href;
+        driver.navigate(checkout);
+        client.configure({ autoCapture: true });
+        await vi.advanceTimersByTimeAsync(1_500);
+        await client.flush();
+        expect(events().map(event => event.properties.$url)).toEqual(
+          initiallyEnabled ? [driver.homeUrl, checkout] : [checkout]
+        );
+        expect(events().at(-1).properties.$referer).toBe(driver.homeUrl);
+        const confirmation = new URL('/confirmation', driver.homeUrl).href;
+        driver.navigate(confirmation);
+        await client.flush();
+        expect(events().at(-1).properties).toMatchObject({
+          $url: confirmation,
+          $referer: checkout,
+        });
+      }
+    );
+
+    it.each([false, true])(
       'ignores retired URL subscriptions after reinitialization (cleanup fails=%s)',
       async fails => {
         cleanup = client.init('key', config);
