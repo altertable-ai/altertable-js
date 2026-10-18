@@ -71,7 +71,7 @@ export interface AltertableConfig {
    */
   environment?: Environment;
   /**
-   * Whether to automatically capture page views and events.
+   * Automatically record page views when the platform reports URL changes.
    * Stays off while an adapter is configured, even when explicitly enabled.
    * @default true
    */
@@ -207,8 +207,8 @@ export class Altertable {
   private _automaticFlushRequested = false;
   private _autoCaptureOwner: object | undefined;
   private _lifecycleOwner: object | undefined;
-  private _cleanupAutoCapture: (() => void) | undefined;
-  private _cleanupLifecycleFlush: (() => void) | undefined;
+  private _unsubscribeUrlChanges: (() => void) | undefined;
+  private _unsubscribeLifecycle: (() => void) | undefined;
   private _config: ResolvedAltertableConfig;
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
@@ -218,10 +218,10 @@ export class Altertable {
   private _requester: Requester<EventPayload> | undefined;
   private _sessionManager: SessionManager | undefined;
   private _eventStorage: StorageApi | undefined;
-  private _eventPersistenceConfigured = false;
-  private _storage: StorageApi | undefined;
+  private _hasExplicitEventPersistence = false;
+  private _identityStorage: StorageApi | undefined;
   private _eventStorageKey: string | undefined;
-  private _storageKey: string | undefined;
+  private _identityStorageKey: string | undefined;
 
   private readonly _platform: Platform;
 
@@ -277,14 +277,14 @@ export class Altertable {
 
     this._requestedAutoCapture = config.autoCapture;
     this._config = resolveAltertableConfig(config);
-    this._eventPersistenceConfigured = config.eventPersistence !== undefined;
+    this._hasExplicitEventPersistence = config.eventPersistence !== undefined;
     const storageKeys = getStorageKeys(apiKey, this._config.environment);
-    this._storageKey = storageKeys.session;
+    this._identityStorageKey = storageKeys.session;
     this._eventStorageKey = storageKeys.events;
     const context = this._platform.getContext();
     this._referrer = context.referrer ?? null;
     this._lastUrl = context.url ?? null;
-    this._storage = selectStorage(this._config.persistence, {
+    this._identityStorage = selectStorage(this._config.persistence, {
       onFallback: message => this._logger.warn(message),
       onError: error => this._notifyError(error),
     });
@@ -306,7 +306,7 @@ export class Altertable {
       persistence: this._getBatcherPersistence(),
       isOnline: () => this._canDeliver(),
       requestFlush: this._platform.prepareDelivery
-        ? fromTimer => this._requestAutomaticFlush(!fromTimer)
+        ? trigger => this._requestAutomaticFlush(trigger === 'threshold')
         : undefined,
       send: async (eventType, payloads, signal) => {
         try {
@@ -320,8 +320,8 @@ export class Altertable {
       },
     });
     this._sessionManager = new SessionManager({
-      storage: this._storage,
-      storageKey: this._storageKey,
+      storage: this._identityStorage,
+      storageKey: this._identityStorageKey,
       logger: this._logger,
       defaultTrackingConsent: this._config.trackingConsent,
     });
@@ -341,7 +341,7 @@ export class Altertable {
         onError: error => this._reportAdapterError(error),
       });
       this._adapterSubscription.update(this._config.adapters);
-      this._cleanupLifecycleFlush = this._subscribeLifecycle();
+      this._unsubscribeLifecycle = this._subscribeLifecycle();
     } catch (error) {
       this._stopRuntime();
       this._isInitialized = false;
@@ -400,7 +400,7 @@ export class Altertable {
     if (
       updates.persistence !== undefined &&
       updates.eventPersistence === undefined &&
-      !this._eventPersistenceConfigured
+      !this._hasExplicitEventPersistence
     ) {
       nextUpdates.eventPersistence = updates.persistence;
     }
@@ -413,30 +413,32 @@ export class Altertable {
     const autoCaptureChanged =
       nextConfig.autoCapture !== this._config.autoCapture;
 
-    const persistenceChanged =
+    const identityPersistenceChanged =
       nextConfig.persistence !== this._config.persistence;
     const eventPersistenceChanged =
       nextConfig.eventPersistence !== this._config.eventPersistence;
-    const nextStorage = persistenceChanged
+    const nextIdentityStorage = identityPersistenceChanged
       ? selectStorage(nextConfig.persistence, {
           onFallback: message => this._logger.warn(message),
           onError: error => this._notifyError(error),
         })
-      : this._storage;
+      : this._identityStorage;
     const nextEventStorage = eventPersistenceChanged
       ? this._selectEventStorage(nextConfig.eventPersistence)
       : this._eventStorage;
 
     // Keep the original sources for retries if either migration throws.
-    if (persistenceChanged) {
-      nextStorage.migrate(this._storage, [this._storageKey]);
+    if (identityPersistenceChanged) {
+      nextIdentityStorage.migrate(this._identityStorage, [
+        this._identityStorageKey,
+      ]);
     }
     if (eventPersistenceChanged && this._eventStorage && nextEventStorage) {
       nextEventStorage.migrate(this._eventStorage, [this._eventStorageKey]);
     }
 
-    this._storage = nextStorage;
-    this._sessionManager.setStorage(nextStorage);
+    this._identityStorage = nextIdentityStorage;
+    this._sessionManager.setStorage(nextIdentityStorage);
     if (eventPersistenceChanged) {
       const previousEventStorage = this._eventStorage;
       this._eventStorage = nextEventStorage;
@@ -448,7 +450,7 @@ export class Altertable {
       }
     }
     if (updates.eventPersistence !== undefined) {
-      this._eventPersistenceConfigured = true;
+      this._hasExplicitEventPersistence = true;
     }
 
     this._config = nextConfig;
@@ -526,8 +528,8 @@ export class Altertable {
 
   private _handleAutoCaptureChange(enableAutoCapture: boolean) {
     this._autoCaptureOwner = undefined;
-    const cleanup = this._cleanupAutoCapture;
-    this._cleanupAutoCapture = undefined;
+    const cleanup = this._unsubscribeUrlChanges;
+    this._unsubscribeUrlChanges = undefined;
     try {
       cleanup?.();
     } catch (error) {
@@ -545,12 +547,14 @@ export class Altertable {
       const owner = {};
       this._autoCaptureOwner = owner;
       try {
-        this._cleanupAutoCapture = this._platform.subscribeUrlChanges(url => {
-          if (this._autoCaptureOwner !== owner) return;
-          this._referrer = this._lastUrl;
-          this._lastUrl = url;
-          this.page(url);
-        });
+        this._unsubscribeUrlChanges = this._platform.subscribeUrlChanges(
+          url => {
+            if (this._autoCaptureOwner !== owner) return;
+            this._referrer = this._lastUrl;
+            this._lastUrl = url;
+            this.page(url);
+          }
+        );
       } catch (error) {
         this._autoCaptureOwner = undefined;
         throw error;
@@ -858,7 +862,7 @@ export class Altertable {
   /**
    * Tracks a custom event with optional properties.
    *
-   * @param eventThe event name
+   * @param event The event name
    * @param properties Custom event properties
    *
    * @example
@@ -997,14 +1001,13 @@ export class Altertable {
 
   /**
    * Flushes buffered events to the API when the platform is ready. If it reports offline,
-   * this resolves without sending and keeps the durable buffer queued for the next online retry.
-   * Resolves when every HTTP request **started by this flush** has finished. Overlapping flushes
-   * (for example a manual `flush()` while the interval timer also flushes) are independent: each
-   * call only waits on its own requests, not on sends from other concurrent flushes.
+   * this resolves without sending and keeps buffered events for a later online retry.
+   * By default, drain buffered events and wait for outstanding non-timer sends.
+   * Requests started by the periodic timer are not part of that wait.
    *
    * Pass `drain: false` to send one snapshot, leaving requeued failures and new
-   * events for a later attempt. Platforms with asynchronous preparation share the
-   * automatic delivery task for this option. The default keeps draining until the buffer is empty.
+   * events for a later trigger. Platforms with asynchronous preparation share
+   * the automatic delivery task, including any requested follow-up snapshots.
    *
    * @example
    * ```javascript
@@ -1049,9 +1052,7 @@ export class Altertable {
 
     // Replay pushes into the batcher; flush immediately so consent/pre-init
     // delivery is not delayed until flushEventThreshold or the interval timer.
-    if (items.length > 0) {
-      this._requestAutomaticFlush(true);
-    }
+    this._requestAutomaticFlush(true);
   }
 
   private _executeQueueItem(item: QueueItem) {
@@ -1099,11 +1100,11 @@ export class Altertable {
     this._batcher?.retire();
     const cleanups = [
       () => this._adapterSubscription?.dispose(),
-      this._cleanupAutoCapture,
-      this._cleanupLifecycleFlush,
+      this._unsubscribeUrlChanges,
+      this._unsubscribeLifecycle,
     ];
-    this._cleanupAutoCapture = undefined;
-    this._cleanupLifecycleFlush = undefined;
+    this._unsubscribeUrlChanges = undefined;
+    this._unsubscribeLifecycle = undefined;
     for (const cleanup of cleanups) {
       try {
         cleanup?.();
@@ -1147,17 +1148,17 @@ export class Altertable {
     );
   }
 
-  private _requestAutomaticFlush(replayIfRunning = false) {
-    void this._flushAutomatically(replayIfRunning).catch(() => {
+  private _requestAutomaticFlush(scheduleNextSnapshot = false) {
+    void this._flushAutomatically(scheduleNextSnapshot).catch(() => {
       // The shared automatic task reports preparation errors once.
     });
   }
 
-  private _flushAutomatically(replayIfRunning: boolean): Promise<void> {
+  private _flushAutomatically(scheduleNextSnapshot: boolean): Promise<void> {
     if (!this._canDeliver()) return Promise.resolve();
     if (!this._platform.prepareDelivery) return this._batcher!.flush();
     if (this._automaticFlushTask) {
-      this._automaticFlushRequested ||= replayIfRunning;
+      this._automaticFlushRequested ||= scheduleNextSnapshot;
       return this._automaticFlushTask;
     }
     this._automaticFlushRequested = true;

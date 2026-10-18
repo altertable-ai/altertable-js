@@ -6,14 +6,7 @@ import type {
 } from '../platform/types';
 import type { EventProperties } from '../types';
 
-/**
- * Runtime context captured at event time.
- *
- * This snapshots platform context and metadata for events recorded
- * prior to the library being initialized. It ensures that the event payload
- * reflects the correct time-sensitive data from when the user called the method,
- * not when the queue is flushed post-init.
- */
+/** Event-time context, retained when calls are queued before initialization. */
 export type RuntimeContext = {
   timestamp: string;
   url: PropertyUrl;

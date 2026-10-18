@@ -1,10 +1,13 @@
 import { expect, it, vi } from 'vitest';
 
+interface LifecycleTestClient {
+  track(event: string): void;
+  flush(): Promise<void>;
+}
+
 interface LifecycleConformanceFixture {
   retire(): void | Promise<void>;
-  replace():
-    | { track(event: string): void; flush(): Promise<void> }
-    | Promise<{ track(event: string): void; flush(): Promise<void> }>;
+  replace(): LifecycleTestClient | Promise<LifecycleTestClient>;
   setCleanupError(error?: Error): void;
   emitStale(): void;
   cleanup?(): void;

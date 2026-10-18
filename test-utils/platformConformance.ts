@@ -16,17 +16,20 @@ export interface PlatformConformanceDriver {
   destroy(): void;
 }
 
+type ConformanceClient = Pick<
+  Altertable,
+  'init' | 'configure' | 'track' | 'flush'
+>;
+
 /** Reusable platform conformance tests for subscription ownership through SDK APIs. */
 export function platformConformanceTests(
   name: string,
   createDriver: () => PlatformConformanceDriver,
-  createClient: (
-    platform: Platform
-  ) => Pick<Altertable, 'init' | 'configure' | 'track' | 'flush'>
+  createClient: (platform: Platform) => ConformanceClient
 ) {
   describe(`${name} platform conformance`, () => {
     let driver: PlatformConformanceDriver;
-    let client: Pick<Altertable, 'init' | 'configure' | 'track' | 'flush'>;
+    let client: ConformanceClient;
     let cleanup: (() => void) | undefined;
     const errors: Error[] = [];
     const config = {

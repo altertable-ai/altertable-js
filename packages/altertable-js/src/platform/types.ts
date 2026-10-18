@@ -4,7 +4,7 @@ export type PropertyUrl = string | null;
 export type PropertyReferrer = string | null;
 export type PropertyViewport = string | null;
 
-/** Event-time values. Missing browser concepts remain null in other runtimes. */
+/** Event-time defaults. URL, referrer, and viewport are optional outside browser runtimes. */
 export interface PlatformContext {
   url?: PropertyUrl;
   referrer?: PropertyReferrer;
@@ -19,6 +19,7 @@ export type PlatformLifecycleEvent = 'active' | 'inactive' | 'online' | 'exit';
 export interface Platform {
   /** Best-effort transport for runtimes that can deliver while exiting. */
   sendOnExit?(request: { url: string; body: string }): void;
+  /** Read current runtime values and default event properties. */
   getContext(): PlatformContext;
   isOnline?(): boolean;
   subscribeLifecycle?(

@@ -17,7 +17,7 @@ export type RequesterConfig = {
   retryBaseDelayMs?: number;
 };
 
-function sleep(durationMs: number, signal?: AbortSignal): Promise<void> {
+function waitForRetry(durationMs: number, signal?: AbortSignal): Promise<void> {
   return new Promise(resolve => {
     const finish = () => {
       clearTimeout(timeoutId);
@@ -30,21 +30,13 @@ function sleep(durationMs: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function exponentialBackoffWithJitterMs(
-  baseDelayMs: number,
-  attemptIndex: number
-): number {
+function getRetryDelayMs(baseDelayMs: number, attemptIndex: number): number {
   const exponentialMs = baseDelayMs * 2 ** attemptIndex;
   return exponentialMs * (0.5 + Math.random());
 }
 
 export class Requester<TPayload extends EventPayload> {
-  private readonly _config: Required<
-    Omit<RequesterConfig, 'maxHttpAttempts' | 'retryBaseDelayMs'>
-  > & {
-    maxHttpAttempts: number;
-    retryBaseDelayMs: number;
-  };
+  private _config: Required<RequesterConfig>;
 
   constructor(config: RequesterConfig) {
     this._config = {
@@ -105,8 +97,8 @@ export class Requester<TPayload extends EventPayload> {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
-        const waitMs = exponentialBackoffWithJitterMs(baseDelay, attempt - 1);
-        await sleep(waitMs, signal);
+        const waitMs = getRetryDelayMs(baseDelay, attempt - 1);
+        await waitForRetry(waitMs, signal);
       }
 
       if (signal?.aborted) return;

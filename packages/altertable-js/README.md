@@ -295,7 +295,10 @@ altertable.reset({
 
 #### `altertable.configure(updates)`
 
-Updates the configuration after initialization.
+Updates the configuration after initialization. A `baseUrl` change applies to new
+requests; batches already in flight keep their original destination across retries.
+If enabling autocapture fails to subscribe, calling `configure({ autoCapture: true })`
+again retries registration.
 
 **Parameters:**
 
@@ -439,6 +442,11 @@ adapter. It must implement `getItem(key): string | null`,
 initialization and provide a synchronous in-memory adapter; do not pass an async
 storage API directly.
 
+Thrown custom write and deletion errors reach `onError`. Failed event writes leave
+events in memory, and storage errors do not requeue acknowledged events. Read
+errors propagate to `init()` or `configure()`; after a failed migration read, fix
+the backend and retry the same configuration.
+
 Use the exported `getStorageKeys(apiKey, environment?)` to resolve the `session`
 and `events` keys before hydration. The environment defaults to `production`.
 For custom runtimes, supply a [platform](#runtime-platforms) to the constructor.
@@ -469,10 +477,6 @@ Available tracking consent states.
 | `"denied"`    | User has denied consent for tracking  |
 | `"pending"`   | User hasn't made a decision yet       |
 | `"dismissed"` | User dismissed the consent prompt     |
-
-## License
-
-[MIT](./LICENSE)
 
 ## Runtime platforms
 
@@ -513,18 +517,19 @@ Normal delivery respects tracking consent and connectivity. For platforms with
 asynchronous delivery preparation, overlapping automatic requests are coalesced;
 new threshold events trigger a subsequent snapshot, while failed requests wait
 for a later trigger. Overlapping lifecycle or interval requests share the current
-snapshot; events below the threshold remain batched until the next trigger. Snapshots select events before preparation starts; later arrivals require
-their own prepared snapshot. Explicit `flush()` continues draining, preparing
-every new snapshot. `flush({ drain: false })` shares the automatic delivery task on these
+snapshot; events below the threshold remain batched until the next trigger.
+Snapshots select events before preparation starts; later arrivals require their
+own prepared snapshot. Explicit `flush()` continues draining, preparing every new
+snapshot. `flush({ drain: false })` shares the automatic delivery task on these
 platforms. Preparation failures reach `onError` for automatic attempts and reject
 explicit flushes.
 
 Cleanup stops platform subscriptions, timers, and further delivery. Subscription
 ownership is revoked before cleanup runs, so queued callbacks and callbacks
 retained by failed cleanup are ignored. Retired batchers cannot modify storage
-when old requests finish. Cleanup and reinitialization also prevent a pending
-preparation from starting stale delivery.
-Reinitialize before continuing to use a cleaned-up client.
+when old requests finish. Cleanup, reset, and consent denial cancel HTTP retries;
+cleanup and reinitialization also prevent pending preparation from starting stale
+delivery. Reinitialize before continuing to use a cleaned-up client.
 
 To extend browser behavior, compose the exported implementation directly:
 
@@ -546,3 +551,7 @@ The React Native package supplies native context, AppState lifecycle handling,
 optional connectivity, and asynchronous storage preparation through this same
 contract. Analytics-provider subscriptions are independent of browser detection;
 a configured provider must satisfy its own adapter contract.
+
+## License
+
+[MIT](./LICENSE)
