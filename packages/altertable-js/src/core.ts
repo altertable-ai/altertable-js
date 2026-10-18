@@ -465,7 +465,10 @@ export class Altertable {
     const autoCaptureChanged =
       nextConfig.autoCapture !== this._config.autoCapture;
     this._config = nextConfig;
-    if (autoCaptureChanged) {
+    if (
+      autoCaptureChanged ||
+      (nextConfig.autoCapture && !this._autoCaptureOwner)
+    ) {
       this._handleAutoCaptureChange(nextConfig.autoCapture);
     }
     this._adapterSubscription?.update(nextConfig.adapters);

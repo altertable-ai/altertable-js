@@ -60,6 +60,45 @@ export function platformConformanceTests(
     });
 
     it.each([false, true])(
+      'retries failed autocapture registration without duplicate views (attached before failure=%s)',
+      async attachedBeforeFailure => {
+        cleanup = client.init('key', { ...config, autoCapture: false });
+        const subscribe = driver.platform.subscribeUrlChanges!.bind(
+          driver.platform
+        );
+        const failure = new Error('Temporary navigation subscription failure');
+        const registration = vi
+          .spyOn(driver.platform, 'subscribeUrlChanges')
+          .mockImplementationOnce(listener => {
+            if (attachedBeforeFailure) subscribe(listener);
+            throw failure;
+          });
+        expect(() => client.configure({ autoCapture: true })).toThrow(failure);
+        const checkout = new URL('/checkout', driver.homeUrl).href;
+        driver.navigate(checkout);
+        await client.flush();
+        expect(events()).toEqual([]);
+
+        client.configure({ autoCapture: true });
+        client.configure({ autoCapture: true });
+        await vi.advanceTimersByTimeAsync(1_500);
+        await client.flush();
+        expect(registration).toHaveBeenCalledTimes(2);
+        expect(events().map(event => event.properties.$url)).toEqual([
+          checkout,
+        ]);
+        const confirmation = new URL('/confirmation', driver.homeUrl).href;
+        driver.navigate(confirmation);
+        await client.flush();
+        expect(events().map(event => event.properties.$url)).toEqual([
+          checkout,
+          confirmation,
+        ]);
+        expect(events().at(-1).properties.$referer).toBe(checkout);
+      }
+    );
+
+    it.each([false, true])(
       'captures the current URL when enabling capture (initially enabled=%s)',
       async initiallyEnabled => {
         cleanup = client.init('key', {
