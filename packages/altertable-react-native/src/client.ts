@@ -35,7 +35,10 @@ export type ReactNativeConfig = CoreOptions & {
   connectivity?: Connectivity;
 };
 
-/** Mutable options. API key, environment, storage, and connectivity are fixed at creation. */
+/**
+ * Mutable event options. Endpoint, environment, storage, connectivity, and
+ * event persistence are fixed at creation.
+ */
 export type ReactNativeConfigUpdates = Omit<
   CoreOptions,
   'baseUrl' | 'environment'
@@ -107,12 +110,13 @@ export async function createAltertable(
   }
 
   let disposed = false;
-  let deliveryEnabled = false;
+  // Startup and consent grants must persist before delivery can resume.
+  let deliveryReady = false;
   const platform = createReactNativePlatform({
     connectivity,
     async prepareDelivery() {
       await storage.flush();
-      return deliveryEnabled;
+      return deliveryReady;
     },
     onError: reportError,
   });
@@ -153,7 +157,7 @@ export async function createAltertable(
       return;
     }
 
-    deliveryEnabled = true;
+    deliveryReady = true;
     await core.flush();
     await storage.flush();
   }
@@ -167,10 +171,14 @@ export async function createAltertable(
     throw error;
   }
 
-  deliveryEnabled = true;
-  void core.flush({ drain: false }).catch(() => {
-    // Delivery and persistence report their own failures.
-  });
+  function flushInBackground() {
+    void core.flush({ drain: false }).catch(() => {
+      // Delivery and persistence report their own failures.
+    });
+  }
+
+  deliveryReady = true;
+  flushInBackground();
 
   return {
     /** Queue an event synchronously. Use flushPersistence() to await native writes. */
@@ -208,7 +216,7 @@ export async function createAltertable(
       assertNotDisposed();
       const grantingConsent =
         updates.trackingConsent === TrackingConsent.GRANTED;
-      if (grantingConsent) deliveryEnabled = false;
+      if (grantingConsent) deliveryReady = false;
       if ('onError' in updates) {
         onError = updates.onError;
       }
@@ -216,8 +224,8 @@ export async function createAltertable(
       core.configure({ ...updates, onError: reportError });
       await storage.flush();
       if (grantingConsent && !disposed) {
-        deliveryEnabled = true;
-        void core.flush({ drain: false }).catch(() => {});
+        deliveryReady = true;
+        flushInBackground();
       }
     },
     /** Persist, drain deliverable events, and persist the result. Offline events remain queued. */

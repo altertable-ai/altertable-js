@@ -9,8 +9,7 @@ export interface NavigationSource {
 
 type ScreenClient = Pick<ReactNativeClient, 'screen'>;
 
-// Effect cleanup removes listeners, but replay must retain the last visit.
-// Weak keys keep this state scoped to the client and navigator lifetimes.
+// Keep the last visit across effect replay without retaining the client or navigator.
 const lastRouteKeys = new WeakMap<
   NavigationSource,
   WeakMap<ScreenClient, string>

@@ -37,7 +37,7 @@ export function createReactNativePlatform({
     isOnline: () => online,
     prepareDelivery,
     subscribeLifecycle(listener) {
-      const stop = (cleanup: () => void) => {
+      const runCleanup = (cleanup: () => void) => {
         try {
           cleanup();
         } catch (error) {
@@ -64,12 +64,12 @@ export function createReactNativePlatform({
           if (online && !wasOnline) listener('online');
         });
       } catch (error) {
-        stop(() => subscription.remove());
+        runCleanup(() => subscription.remove());
         throw error;
       }
       return () => {
-        stop(() => subscription.remove());
-        stop(() => unsubscribeConnectivity?.());
+        runCleanup(() => subscription.remove());
+        runCleanup(() => unsubscribeConnectivity?.());
       };
     },
   };
