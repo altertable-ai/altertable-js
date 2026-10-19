@@ -1,6 +1,6 @@
 /**
  * Integration tests import built core and React Native packages. Build both first
- * locally with `bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native`.
+ * locally with `bun run --filter @altertable/altertable-js --filter @altertable/altertable-react-native build`.
  * CI runs the same build before `test:integration`.
  */
 import path from 'node:path';

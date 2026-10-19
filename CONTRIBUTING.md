@@ -11,13 +11,13 @@
 1. Create a branch from `main`
 2. Make your changes
 3. Add or update tests
-4. Run the full check suite: `bun run build && bun run typecheck && bun run lint && bun run test`
+4. Run the full check suite: `bun run check`
 5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, etc.)
 6. Open a pull request
 
 ## Code Style
 
-This project uses Oxlint for linting and Oxfmt for formatting. Run `bun run lint` before committing; use `bun run lint:fix` to apply available fixes and formatting.
+This project uses Oxlint for linting and Oxfmt for formatting. Run `bun run lint` before committing; use `bun run lint:fix` to apply available lint fixes and `bun run format` to format.
 
 ## Tests
 
