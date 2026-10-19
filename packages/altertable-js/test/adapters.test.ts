@@ -65,7 +65,7 @@ function requests(path = '/track') {
 describe('PostHog normalization', () => {
   it('preserves source context and copies properties without overwriting explicit mappings', () => {
     const input = event();
-    const [record] = normalizePostHogEvent(input, 'staging');
+    const [record] = normalizePostHogEvent(input);
     expect(record).toEqual({
       type: 'track',
       source: {
@@ -75,7 +75,6 @@ describe('PostHog normalization', () => {
         lib_version: 'TEST_LIB_VERSION',
       },
       payload: {
-        environment: 'staging',
         distinct_id: 'customer',
         device_id: 'device-uuid',
         anonymous_id: null,
@@ -99,8 +98,7 @@ describe('PostHog normalization', () => {
     expect(input.properties.token).toBe('posthog-key');
     expect(input.properties).not.toHaveProperty('$url');
     const [mapped] = normalizePostHogEvent(
-      event({ properties: { ...input.properties, $url: 'redacted' } }),
-      'production'
+      event({ properties: { ...input.properties, $url: 'redacted' } })
     );
     expect(mapped.payload).toMatchObject({ properties: { $url: 'redacted' } });
   });
@@ -111,8 +109,7 @@ describe('PostHog normalization', () => {
         properties: { distinct_id: 'uuid' },
         timestamp: '2026-09-21T10:00:00Z',
         uuid: undefined,
-      }),
-      'production'
+      })
     );
     expect(record.payload).toMatchObject({
       distinct_id: 'uuid',
@@ -134,8 +131,7 @@ describe('PostHog normalization', () => {
         },
         $set: { tier: 'pro' },
         $set_once: { first: 'original' },
-      }),
-      'production'
+      })
     );
     expect(records[0].payload).toMatchObject({
       properties: {
@@ -154,17 +150,13 @@ describe('PostHog normalization', () => {
     });
     expect(records[1].payload).not.toHaveProperty('session_id');
     const set = normalizePostHogEvent(
-      event({ event: '$set', $set: { tier: 'free' } }),
-      'production'
+      event({ event: '$set', $set: { tier: 'free' } })
     );
     expect(set[1]).toMatchObject({
       type: 'identify',
       payload: { traits: { tier: 'free' } },
     });
-    const noTraits = normalizePostHogEvent(
-      event({ event: '$identify' }),
-      'production'
-    );
+    const noTraits = normalizePostHogEvent(event({ event: '$identify' }));
     expect(noTraits[1]).toMatchObject({ payload: { traits: {} } });
   });
 
@@ -173,8 +165,7 @@ describe('PostHog normalization', () => {
       event({
         event: '$create_alias',
         properties: { distinct_id: 'old', alias: 'new' },
-      }),
-      'production'
+      })
     );
     expect(records[1]).toMatchObject({
       type: 'alias',
@@ -185,14 +176,14 @@ describe('PostHog normalization', () => {
       },
     });
     expect(
-      normalizePostHogEvent(event({ event: '$groupidentify' }), 'production')
+      normalizePostHogEvent(event({ event: '$groupidentify' }))
     ).toHaveLength(1);
   });
 
   it.each(['$snapshot', '$$heatmap'])(
     'excludes %s transport payloads before copying their data',
     name => {
-      expect(normalizePostHogEvent({ event: name }, 'production')).toEqual([]);
+      expect(normalizePostHogEvent({ event: name })).toEqual([]);
     }
   );
 
@@ -214,7 +205,7 @@ describe('PostHog normalization', () => {
     }),
     event({ event: '$create_alias' }),
   ])('rejects malformed or unsupported source data (%#)', value => {
-    expect(() => normalizePostHogEvent(value, 'production')).toThrow();
+    expect(() => normalizePostHogEvent(value)).toThrow();
   });
 });
 
@@ -546,9 +537,7 @@ describe('configured adapters', () => {
     init({ environment: 'staging' });
     adapter.emit(event({ event: 'new' }));
     await client.flush();
-    expect(requests()).toMatchObject([
-      { event: 'new', environment: 'staging' },
-    ]);
+    expect(requests()).toMatchObject([{ event: 'new' }]);
   });
 
   it('contains subscription failures without enabling native collection', async () => {

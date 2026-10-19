@@ -27,11 +27,6 @@ const DEFAULT_SAMPING_RATE = 1;
 const DEFAULT_ENDPOINT = 'https://api.altertable.ai';
 
 /**
- * Default Altertable environment
- */
-const DEFAULT_ENVIRONMENT = 'production';
-
-/**
  * Context mapping from Segment to Altertable format
  */
 const contextMapping: Record<string, string> = {
@@ -160,15 +155,10 @@ async function sendToAltertable(
   return response;
 }
 
-function buildTrackPayload(
-  event: SegmentTrackEvent,
-  settings: FunctionSettings
-): Record<string, any> {
-  const environment = settings.environment || DEFAULT_ENVIRONMENT;
+function buildTrackPayload(event: SegmentTrackEvent): Record<string, any> {
   const contextProps = parseContext(event.context, event.channel);
 
   const payload: Record<string, any> = {
-    environment,
     event: event.event,
     properties: {
       ...contextProps,
@@ -188,10 +178,8 @@ function buildTrackPayload(
 }
 
 function buildIdentifyPayload(
-  event: SegmentIdentifyEvent,
-  settings: FunctionSettings
+  event: SegmentIdentifyEvent
 ): Record<string, any> {
-  const environment = settings.environment || DEFAULT_ENVIRONMENT;
   const contextProps = parseContext(event.context, event.channel);
 
   const distinctId = event.userId || event.anonymousId;
@@ -201,7 +189,6 @@ function buildIdentifyPayload(
       : undefined;
 
   const payload: Record<string, any> = {
-    environment,
     traits: {
       ...event.traits,
     },
@@ -217,14 +204,8 @@ function buildIdentifyPayload(
   return payload;
 }
 
-function buildAliasPayload(
-  event: SegmentAliasEvent,
-  settings: FunctionSettings
-): Record<string, any> {
-  const environment = settings.environment || DEFAULT_ENVIRONMENT;
-
+function buildAliasPayload(event: SegmentAliasEvent): Record<string, any> {
   const payload = {
-    environment,
     new_user_id: event.userId,
     timestamp: event.timestamp,
     distinct_id: event.previousId,
@@ -243,7 +224,7 @@ export async function onTrack(
   event: SegmentTrackEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  await sendToAltertable('track', buildTrackPayload(event, settings), settings);
+  await sendToAltertable('track', buildTrackPayload(event), settings);
 }
 
 function batchTrack(
@@ -252,7 +233,7 @@ function batchTrack(
 ): Promise<Response | undefined> {
   return sendToAltertable(
     'track',
-    events.map(event => buildTrackPayload(event, settings)),
+    events.map(event => buildTrackPayload(event)),
     settings
   );
 }
@@ -266,11 +247,7 @@ export async function onIdentify(
   event: SegmentIdentifyEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  await sendToAltertable(
-    'identify',
-    buildIdentifyPayload(event, settings),
-    settings
-  );
+  await sendToAltertable('identify', buildIdentifyPayload(event), settings);
 }
 
 /**
@@ -284,7 +261,7 @@ function batchIdentify(
 ): Promise<Response | undefined> {
   return sendToAltertable(
     'identify',
-    events.map(event => buildIdentifyPayload(event, settings)),
+    events.map(event => buildIdentifyPayload(event)),
     settings
   );
 }
@@ -298,7 +275,7 @@ export async function onAlias(
   event: SegmentAliasEvent,
   settings: FunctionSettings
 ): Promise<void> {
-  await sendToAltertable('alias', buildAliasPayload(event, settings), settings);
+  await sendToAltertable('alias', buildAliasPayload(event), settings);
 }
 
 /**
@@ -312,7 +289,7 @@ function batchAlias(
 ): Promise<Response | undefined> {
   return sendToAltertable(
     'alias',
-    events.map(event => buildAliasPayload(event, settings)),
+    events.map(event => buildAliasPayload(event)),
     settings
   );
 }

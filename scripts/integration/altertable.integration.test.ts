@@ -17,7 +17,6 @@ import {
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
-const environment = process.env.ALTERTABLE_ENVIRONMENT ?? 'integration_env';
 
 const interceptor = createFetchInterceptor();
 
@@ -40,7 +39,6 @@ describe('altertable-js integration (altertable-mock)', () => {
   it('sends track, page, identify, updateTraits, and alias with expected payloads', async () => {
     altertable.init(apiKey, {
       baseUrl: endpoint,
-      environment,
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
@@ -81,10 +79,7 @@ describe('altertable-js integration (altertable-mock)', () => {
         `Request to ${call.path} should include apiKey`
       ).not.toBeNull();
       for (const row of call.payload) {
-        expect(
-          row.environment,
-          `Request to ${call.path} should set environment`
-        ).toBe(environment);
+        expect(row).not.toHaveProperty('environment');
       }
       expect(call.status, `Request to ${call.path} should return 200`).toBe(
         200
@@ -126,7 +121,6 @@ describe('altertable-js integration (altertable-mock)', () => {
   it('batches multiple track calls into one /track request when flushed together', async () => {
     altertable.init(apiKey, {
       baseUrl: endpoint,
-      environment,
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,
@@ -163,7 +157,7 @@ describe('altertable-js integration (altertable-mock)', () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
-  it('defaults environment to production when omitted from config', async () => {
+  it('omits environment when omitted from config', async () => {
     altertable.init(apiKey, {
       baseUrl: endpoint,
       autoCapture: false,
@@ -187,7 +181,7 @@ describe('altertable-js integration (altertable-mock)', () => {
       row => row.event === 'ci_smoke_default_environment'
     );
     expect(defaultEnvTrack).toBeDefined();
-    expect(defaultEnvTrack!.environment).toBe('production');
+    expect(defaultEnvTrack).not.toHaveProperty('environment');
 
     const defaultCapture = captureList.find(call =>
       call.payload.some(
@@ -201,7 +195,6 @@ describe('altertable-js integration (altertable-mock)', () => {
   it('receives 401 from mock when API key is invalid', async () => {
     altertable.init('__invalid_api_key__', {
       baseUrl: endpoint,
-      environment,
       autoCapture: false,
       persistence: 'memory',
       trackingConsent: TrackingConsent.GRANTED,

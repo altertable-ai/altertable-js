@@ -17,7 +17,6 @@ function createTrackEventPayload(
     event: 'Event Tracked',
     timestamp: new Date().toISOString(),
     properties: {},
-    environment: 'test',
     device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
@@ -31,7 +30,6 @@ function createIdentifyEventPayload(
 ): IdentifyPayload {
   return {
     traits: { email: 'test@example.com' },
-    environment: 'test',
     device_id: 'device-0197d9df-3c3b-734e-96dd-dfda52b0167c',
     distinct_id: 'u_01jzcxxwcgfzztabq1e3dk1y8q',
     anonymous_id: 'anonymous-0197d9df-3c3b-734e-96dd-dfda52b0167c',
@@ -66,6 +64,19 @@ describe('Requester', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('omits deprecated environments from normal and unload requests without mutating records', async () => {
+    const payload = createTrackEventPayload({ environment: 'staging' });
+    mockFetch.mockResolvedValue({ ok: true });
+    await requester.sendBatch('/track', [payload]);
+    const send = vi.fn();
+    requester.sendUnload('/track', [payload], send);
+    const normal = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const unloaded = JSON.parse(send.mock.calls[0][0].body);
+    expect(normal).toEqual(unloaded);
+    expect(normal[0]).not.toHaveProperty('environment');
+    expect(payload.environment).toBe('staging');
   });
 
   describe('constructor', () => {

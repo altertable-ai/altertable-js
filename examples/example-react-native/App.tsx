@@ -47,7 +47,6 @@ function initialize() {
   initialization ??= createAltertable(apiKey, {
     storage: deliveryChecksEnabled ? deliveryCheckStorage : AsyncStorage,
     connectivity: NetInfo,
-    environment: 'development',
     trackingConsent: deliveryChecksEnabled ? 'pending' : 'granted',
     onError: console.error,
   }).catch(error => {

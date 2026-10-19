@@ -10,7 +10,7 @@ export type {
   PlatformLifecycleEvent,
 } from './platform/types';
 export type { AltertableConfig };
-export { getStorageKeys } from './lib/getStorageKeys';
+export { getStorageKeys, getLegacyStorageKeys } from './lib/getStorageKeys';
 export type { Persistence, StorageAdapter } from './lib/storage';
 export type { TrackingConsentType } from './constants';
 export type { Adapters, PostHogAdapter } from './adapters/types';

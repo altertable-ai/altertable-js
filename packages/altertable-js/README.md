@@ -65,17 +65,15 @@ Initializes the Altertable SDK with your API key and optional configuration.
 
 **Parameters:**
 
-| Parameter | Type                                    | Required | Description             |
-| --------- | --------------------------------------- | -------- | ----------------------- |
-| `apiKey`  | `string`                                | Yes      | Your Altertable API key |
-| `config`  | [`AltertableConfig`](#altertableconfig) | No       | Configuration options   |
+| Parameter | Type                                    | Required | Description                                        |
+| --------- | --------------------------------------- | -------- | -------------------------------------------------- |
+| `apiKey`  | `string`                                | Yes      | Your Altertable API key for the target environment |
+| `config`  | [`AltertableConfig`](#altertableconfig) | No       | Configuration options                              |
 
 **Example:**
 
 ```javascript
-altertable.init('YOUR_API_KEY', {
-  environment: 'development',
-});
+altertable.init('YOUR_API_KEY', {});
 ```
 
 Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
@@ -340,7 +338,6 @@ Configuration options for the Altertable SDK.
 | Property              | Type                                          | Default                             | Description                                            |
 | --------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
 | `baseUrl`             | `string`                                      | `"https://api.altertable.ai"`       | The base URL of the Altertable API                     |
-| `environment`         | `string`                                      | `"production"`                      | The environment of the application                     |
 | `adapters`            | `Adapters`                                    | -                                   | Existing analytics instances; currently `{ posthog }`  |
 | `autoCapture`         | `boolean`                                     | `true`; off while an adapter is set | Whether to automatically capture page views and events |
 | `release`             | `string`                                      | -                                   | The release ID of the application                      |
@@ -395,7 +392,6 @@ type TrackPayload = {
   event: string;
   properties: EventProperties;
   timestamp: string;
-  environment: string;
   device_id: `device-${string}`;
   distinct_id: string;
   anonymous_id: `anonymous-${string}` | null;
@@ -445,10 +441,26 @@ storage API directly.
 Thrown custom write and deletion errors reach `onError`. Failed event writes leave
 events in memory, and storage errors do not requeue acknowledged events. Read
 errors propagate to `init()` or `configure()`; after a failed migration read, fix
-the backend and retry the same configuration.
+the backend and retry the same configuration. Initialization also stops if legacy data
+cannot be deleted after migration, preventing stale queued events from replaying.
 
-Use the exported `getStorageKeys(apiKey, environment?)` to resolve the `session`
-and `events` keys before hydration. The environment defaults to `production`.
+Use the exported `getStorageKeys(apiKey)` to resolve the API-key-scoped `session`
+and `events` keys before hydration. Its former environment argument is deprecated
+and ignored.
+
+The API key determines the environment. Use a separate API key for each environment.
+The `environment` config option is deprecated: it no longer routes events and warns
+once in development when supplied. Event payloads and debug logs no longer include
+an environment, including payloads returned by `transformEvent` or restored from storage.
+
+When upgrading, keep your previous `environment` option for the first initialization
+if you used a non-default environment. The SDK uses it only to migrate saved identity,
+consent, and unsent events to the API-key-scoped keys; otherwise it looks for legacy
+`production` data. Existing data under the new keys takes precedence. Remove the
+option after migration. Migration never scans or combines other environment scopes.
+Custom async adapters must also hydrate the legacy `atbl.<apiKey>.<environment>`
+and `atbl.<apiKey>.<environment>.events` keys during this transition. The React Native
+SDK handles hydration automatically.
 For custom runtimes, supply a [platform](#runtime-platforms) to the constructor.
 Its `isOnline()` method reads connectivity; returning `false` retains buffered
 events until a later flush.

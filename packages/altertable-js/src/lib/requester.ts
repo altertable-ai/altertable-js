@@ -70,7 +70,13 @@ export class Requester<TPayload extends EventPayload> {
     if (payloads.length === 0) {
       return;
     }
-    await this._sendWithFetchRetry(path, JSON.stringify(payloads), signal);
+    await this._sendWithFetchRetry(
+      path,
+      JSON.stringify(
+        payloads.map(({ environment: _environment, ...payload }) => payload)
+      ),
+      signal
+    );
   }
 
   /** Format a request for a platform-owned best-effort exit transport. */
@@ -80,7 +86,12 @@ export class Requester<TPayload extends EventPayload> {
     send: (request: { url: string; body: string }) => void
   ): void {
     if (payloads.length > 0) {
-      send({ url: this._constructUrl(path), body: JSON.stringify(payloads) });
+      send({
+        url: this._constructUrl(path),
+        body: JSON.stringify(
+          payloads.map(({ environment: _environment, ...payload }) => payload)
+        ),
+      });
     }
   }
 

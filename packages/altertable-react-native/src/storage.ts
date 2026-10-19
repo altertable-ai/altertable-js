@@ -16,7 +16,8 @@ interface HydratedStorage extends StorageAdapter {
 export async function hydrateStorage(
   backend: AsyncStorageAdapter,
   keys: string[],
-  onError: (error: Error, operation: 'read' | 'write') => void
+  onError: (error: Error, operation: 'read' | 'write') => void,
+  migrations: Array<[from: string, to: string]> = []
 ): Promise<HydratedStorage> {
   const entries = await Promise.all(
     keys.map(async key => [key, await backend.getItem(key)] as const)
@@ -27,6 +28,25 @@ export async function hydrateStorage(
     throw sourceError;
   });
   const cachedValues = new Map(entries);
+  // Migration must await durable writes. The write-behind adapter below only
+  // acknowledges cache updates and cannot safely order a rename after a failure.
+  try {
+    for (const [from, to] of migrations) {
+      const value = cachedValues.get(from);
+      if (value == null) continue;
+      if (cachedValues.get(to) == null) {
+        await backend.setItem(to, value);
+        cachedValues.set(to, value);
+      }
+      await backend.removeItem(from);
+      cachedValues.set(from, null);
+    }
+  } catch (error) {
+    const sourceError =
+      error instanceof Error ? error : new Error(String(error));
+    onError(sourceError, 'write');
+    throw sourceError;
+  }
   const pendingWrites = new Map<string, string | null>();
   let writeTask: Promise<void> | undefined;
   let isClosed = false;

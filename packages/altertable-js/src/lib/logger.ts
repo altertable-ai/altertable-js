@@ -40,8 +40,6 @@ export function createLogger(prefix: string) {
           ? String(payload.properties[PROPERTY_URL])
           : payload.event
       );
-      const [environmentBadgeLabel, environmentBadgeStyle] =
-        createEnvironmentBadgeElement(payload.environment);
       const [timestampLabel, timestampStyle] = createTimestampElement(
         payload.timestamp
       );
@@ -49,10 +47,9 @@ export function createLogger(prefix: string) {
         getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c ${eventTitleLabel} %c[${environmentBadgeLabel}] %c${timestampLabel} %c${consentBadgeLabel}`,
+        `[${prefix}] %c${eventBadgeLabel}%c ${eventTitleLabel} %c${timestampLabel} %c${consentBadgeLabel}`,
         eventBadgeStyle,
         eventTitleStyle,
-        environmentBadgeStyle,
         timestampStyle,
         consentBadgeStyle
       );
@@ -96,16 +93,13 @@ export function createLogger(prefix: string) {
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] =
         createEventBadgeElement('Identify');
-      const [environmentBadgeLabel, environmentBadgeStyle] =
-        createEnvironmentBadgeElement(payload.environment);
       const [consentBadgeLabel, consentBadgeStyle] =
         getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
+        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c${consentBadgeLabel}`,
         eventBadgeStyle,
         'font-weight: 600;',
-        environmentBadgeStyle,
         consentBadgeStyle
       );
 
@@ -139,16 +133,13 @@ export function createLogger(prefix: string) {
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] =
         createEventBadgeElement('Alias');
-      const [environmentBadgeLabel, environmentBadgeStyle] =
-        createEnvironmentBadgeElement(payload.environment);
       const [consentBadgeLabel, consentBadgeStyle] =
         getConsentBadgeElement(trackingConsent);
 
       console.groupCollapsed(
-        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c[${environmentBadgeLabel}] %c${consentBadgeLabel}`,
+        `[${prefix}] %c${eventBadgeLabel}%c ${payload.distinct_id} %c${consentBadgeLabel}`,
         eventBadgeStyle,
         'font-weight: 600;',
-        environmentBadgeStyle,
         consentBadgeStyle
       );
 
@@ -247,23 +238,6 @@ function createEventBadgeElement(event: string): [string, string] {
 function createEventTitleElement(event: string): [string, string] {
   const label = event === '$pageview' ? 'Page Viewed' : event;
   return [label, 'font-weight: 600;'];
-}
-
-function createEnvironmentBadgeElement(value: string): [string, string] {
-  return [value, `color: ${getEnvironmentColor(value)}; font-weight: 400;`];
-}
-
-function getEnvironmentColor(environment: string) {
-  const formattedEnv = environment.toLocaleLowerCase().startsWith('prod')
-    ? 'production'
-    : environment;
-
-  switch (formattedEnv) {
-    case 'production':
-      return '#ef4444';
-    default:
-      return '#3b82f6';
-  }
 }
 
 function createTimestampElement(value: string): [string, string] {

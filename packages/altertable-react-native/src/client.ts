@@ -3,6 +3,7 @@ import {
   type AltertableConfig,
   type EventProperties,
   getStorageKeys,
+  getLegacyStorageKeys,
   TrackingConsent,
 } from '@altertable/altertable-js';
 
@@ -36,7 +37,7 @@ export type ReactNativeConfig = CoreOptions & {
 };
 
 /**
- * Mutable event options. Endpoint, environment, storage, connectivity, and
+ * Mutable event options. Endpoint, storage, connectivity, and
  * event persistence are fixed at creation.
  */
 export type ReactNativeConfigUpdates = Omit<
@@ -45,7 +46,7 @@ export type ReactNativeConfigUpdates = Omit<
 >;
 
 export type ScreenOptions = { id?: string; properties?: EventProperties };
-/** A hydrated client. Keep one active instance per API key, environment, and storage backend. */
+/** A hydrated client. Keep one active instance per API key and storage backend. */
 export type ReactNativeClient = Awaited<ReturnType<typeof createAltertable>>;
 
 /**
@@ -91,10 +92,15 @@ export async function createAltertable(
     }
   }
 
-  const keys = getStorageKeys(apiKey, config.environment);
+  const keys = getStorageKeys(apiKey);
+  const legacyKeys = getLegacyStorageKeys(apiKey, config.environment);
+  const migrations: Array<[string, string]> = [
+    [legacyKeys.session, keys.session],
+  ];
+  if (eventPersistence) migrations.push([legacyKeys.events, keys.events]);
   const storage = await hydrateStorage(
     backend,
-    [keys.session, keys.events],
+    [keys.session, keys.events, legacyKeys.session, legacyKeys.events],
     (error, operation) => {
       logger.warnOnce(
         operation === 'read'
@@ -103,10 +109,12 @@ export async function createAltertable(
         error
       );
       reportError(error);
-    }
+    },
+    migrations
   );
   if (!eventPersistence) {
     storage.removeItem(keys.events);
+    storage.removeItem(legacyKeys.events);
   }
 
   let disposed = false;

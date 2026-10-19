@@ -1,6 +1,6 @@
 import { PROPERTY_REFERER, PROPERTY_URL } from '../constants';
 import { isRecord } from '../lib/isRecord';
-import type { Environment, EventContext, EventProperties } from '../types';
+import type { EventContext, EventProperties } from '../types';
 import type { AdapterIngress } from './subscription';
 import type { AdapterEvent, PostHogAdapter, SourceMetadata } from './types';
 
@@ -54,10 +54,7 @@ export class PostHogSubscription {
       return;
     }
     try {
-      for (const record of normalizePostHogEvent(
-        event,
-        this._sink.getEnvironment()
-      )) {
+      for (const record of normalizePostHogEvent(event)) {
         if (this._instance !== instance) {
           return;
         }
@@ -95,10 +92,7 @@ export class PostHogSubscription {
 }
 
 /** Normalize the captured snapshot, never the provider's mutable current state. */
-export function normalizePostHogEvent(
-  input: unknown,
-  environment: Environment
-): AdapterEvent[] {
+export function normalizePostHogEvent(input: unknown): AdapterEvent[] {
   if (!isRecord(input) || typeof input.event !== 'string' || !input.event) {
     throw new Error('Invalid PostHog event.');
   }
@@ -143,7 +137,6 @@ export function normalizePostHogEvent(
   };
 
   const context: PostHogEventContext = {
-    environment,
     timestamp: date.toISOString(),
     distinct_id: distinctId,
     device_id: nonBlankString(properties.$device_id),

@@ -20,13 +20,11 @@ import {
 import { type BatcherApi, createBatcher } from './lib/batcher';
 import {
   isAltertableError,
-  isApiError,
   isNetworkError,
   isRetryableHttpDeliveryError,
 } from './lib/error';
-import { getStorageKeys } from './lib/getStorageKeys';
+import { getLegacyStorageKeys, getStorageKeys } from './lib/getStorageKeys';
 import { invariant } from './lib/invariant';
-import { dashboardUrl } from './lib/link';
 import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
 import { Queue } from './lib/queue';
@@ -66,8 +64,8 @@ export interface AltertableConfig {
    */
   baseUrl?: string;
   /**
-   * The environment of the application.
-   * @default "production"
+   * @deprecated The environment is determined by your API key. This option is ignored
+   * except when locating persisted data from older SDK versions.
    */
   environment?: Environment;
   /**
@@ -132,7 +130,6 @@ export interface AltertableConfig {
 
 type ResolvedAltertableConfigKeys =
   | 'baseUrl'
-  | 'environment'
   | 'autoCapture'
   | 'debug'
   | 'persistence'
@@ -154,7 +151,6 @@ const DEFAULT_CONFIG: ResolvedAltertableConfig = {
   autoCapture: true,
   baseUrl: 'https://api.altertable.ai',
   debug: false,
-  environment: 'production',
   flushEventThreshold: DEFAULT_FLUSH_EVENT_THRESHOLD,
   flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
   maxBatchSize: DEFAULT_MAX_BATCH_SIZE,
@@ -167,12 +163,12 @@ const DEFAULT_CONFIG: ResolvedAltertableConfig = {
 function resolveAltertableConfig(
   partial: AltertableConfig
 ): ResolvedAltertableConfig {
-  const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...partial };
+  const { environment: _environment, ...options } = partial;
+  const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...options };
   const persistence = merged.persistence ?? DEFAULT_CONFIG.persistence;
   return {
     ...merged,
     baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
-    environment: merged.environment ?? DEFAULT_CONFIG.environment,
     autoCapture: hasConfiguredAdapter(partial.adapters)
       ? false
       : (partial.autoCapture ?? true),
@@ -253,13 +249,13 @@ export class Altertable {
    * @example
    * ```javascript
    * altertable.init('YOUR_API_KEY', {
-   *   environment: 'development',
+   *   debug: true,
    * });
    * ```
    *
    * Calling `init` again (e.g. new API key) stops the batcher, clears the in-memory
    * outbound buffer, and drops the command/event queue so nothing replays under the
-   * new API key or environment. Await `flush()` first if you need those events
+   * new API key. Await `flush()` first if you need those events
    * delivered before re-initializing.
    */
   init(apiKey: string, config: AltertableConfig = {}) {
@@ -275,10 +271,11 @@ export class Altertable {
     }
     this._isInitialized = false;
 
+    this._warnDeprecatedEnvironment(config);
     this._requestedAutoCapture = config.autoCapture;
     this._config = resolveAltertableConfig(config);
     this._hasExplicitEventPersistence = config.eventPersistence !== undefined;
-    const storageKeys = getStorageKeys(apiKey, this._config.environment);
+    const storageKeys = getStorageKeys(apiKey);
     this._identityStorageKey = storageKeys.session;
     this._eventStorageKey = storageKeys.events;
     const context = this._platform.getContext();
@@ -291,6 +288,19 @@ export class Altertable {
     this._eventStorage = this._selectEventStorage(
       this._config.eventPersistence
     );
+    const legacyKeys = getLegacyStorageKeys(apiKey, config.environment);
+    this._identityStorageKey = this._migrateLegacyStorage(
+      this._identityStorage,
+      legacyKeys.session,
+      storageKeys.session
+    );
+    if (this._eventStorage) {
+      this._eventStorageKey = this._migrateLegacyStorage(
+        this._eventStorage,
+        legacyKeys.events,
+        storageKeys.events
+      );
+    }
     this._requester = new Requester({
       baseUrl: this._config.baseUrl,
       apiKey,
@@ -336,7 +346,6 @@ export class Altertable {
     try {
       this._handleAutoCaptureChange(this._config.autoCapture);
       this._adapterSubscription = connectAdapters({
-        getEnvironment: () => this._config.environment,
         emit: event => this._ingestAdapterEvent(event),
         onError: error => this._reportAdapterError(error),
       });
@@ -396,6 +405,7 @@ export class Altertable {
     if ('autoCapture' in updates) {
       this._requestedAutoCapture = updates.autoCapture;
     }
+    this._warnDeprecatedEnvironment(updates);
     const nextUpdates = { ...updates };
     if (
       updates.persistence !== undefined &&
@@ -640,7 +650,6 @@ export class Altertable {
 
     const context = this._getContext();
     const payload: IdentifyPayload = {
-      environment: context.environment,
       device_id: context.device_id,
       distinct_id: context.distinct_id,
       traits,
@@ -694,7 +703,6 @@ export class Altertable {
     const context = this._getContext();
 
     const payload: AliasPayload = {
-      environment: context.environment,
       device_id: context.device_id,
       anonymous_id: context.anonymous_id,
       distinct_id: context.distinct_id,
@@ -748,7 +756,6 @@ export class Altertable {
     }
 
     const payload = {
-      environment: context.environment,
       device_id: context.device_id,
       distinct_id: context.distinct_id,
       traits,
@@ -912,7 +919,6 @@ export class Altertable {
     const payload: TrackPayload = {
       timestamp: runtimeContext.timestamp,
       event,
-      environment: context.environment,
       device_id: context.device_id,
       distinct_id: context.distinct_id,
       anonymous_id: context.anonymous_id,
@@ -1230,9 +1236,31 @@ export class Altertable {
     };
   }
 
+  private _warnDeprecatedEnvironment(config: Partial<AltertableConfig>) {
+    if (config.environment !== undefined) {
+      this._logger.warnDev(
+        'The environment is determined by your API key. Remove the environment option.'
+      );
+    }
+  }
+
+  private _migrateLegacyStorage(storage: StorageApi, from: string, to: string) {
+    // Existing API-key data wins. Never combine identities or event queues.
+    const existing = storage.getItem(to);
+    const value = storage.getItem(from);
+    if (value === null) return to;
+    if (existing === null && !storage.setItem(to, value)) return from;
+    storage.removeItem(from);
+    if (storage.getItem(from) !== null) {
+      throw new Error(
+        'Failed to remove legacy analytics storage. Retry initialization after storage recovers.'
+      );
+    }
+    return to;
+  }
+
   private _getContext(): AltertableContext {
     return {
-      environment: this._config.environment,
       device_id: this._sessionManager.getDeviceId(),
       distinct_id: this._sessionManager.getDistinctId(),
       anonymous_id: this._sessionManager.getAnonymousId(),
@@ -1273,11 +1301,7 @@ export class Altertable {
       this._notifyError(error);
     }
 
-    if (isApiError(error) && error.errorCode === 'environment-not-found') {
-      this._logger.warnDev(
-        `Environment "${this._config.environment}" not found. Please create this environment in your Altertable dashboard at ${dashboardUrl(`/environments/new?name=${this._config.environment}`)} before tracking events.`
-      );
-    } else if (isNetworkError(error)) {
+    if (isNetworkError(error)) {
       this._logger.error('Network error while sending event', {
         error: error.message,
         cause: error.cause,

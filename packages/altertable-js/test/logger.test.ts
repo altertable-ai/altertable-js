@@ -97,7 +97,6 @@ describe('Logger', () => {
       distinct_id: 'user123',
       session_id: 'session-123',
       anonymous_id: 'anonymous-123',
-      environment: 'development',
       properties: {
         key1: 'value1',
         key2: 42,
@@ -112,9 +111,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %c/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %c/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -215,9 +213,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %c$/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %c$/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -232,9 +229,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cDENIED$/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %cDENIED$/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -249,9 +245,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cPENDING$/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %cPENDING$/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -266,9 +261,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cPENDING$/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %cPENDING$/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -283,9 +277,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cTrack%c test_event %c\[development\] %c\d{2}:\d{2}:\d{2} %cUNKNOWN$/
+          /\[TestLogger\] %cTrack%c test_event %c\d{2}:\d{2}:\d{2} %cUNKNOWN$/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -308,9 +301,8 @@ describe('Logger', () => {
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[TestLogger\] %cPage%c https:\/\/example\.com\/test-page %c\[development\] %c\d{2}:\d{2}:\d{2} %c/
+          /\[TestLogger\] %cPage%c https:\/\/example\.com\/test-page %c\d{2}:\d{2}:\d{2} %c/
         ),
-        expect.any(String),
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -321,7 +313,6 @@ describe('Logger', () => {
 
   describe('logIdentify', () => {
     const mockIdentifyPayload: IdentifyPayload = {
-      environment: 'development',
       traits: {
         email: 'test@example.com',
         name: 'Test User',
@@ -338,10 +329,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %c$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cIdentify%c user123 %c$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -422,10 +410,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %c$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cIdentify%c user123 %c$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -438,10 +423,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'denied' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cDENIED$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cIdentify%c user123 %cDENIED$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -454,10 +436,7 @@ describe('Logger', () => {
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'pending' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cIdentify%c user123 %c\[development\] %cPENDING$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cIdentify%c user123 %cPENDING$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -467,7 +446,6 @@ describe('Logger', () => {
 
   describe('logAlias', () => {
     const mockAliasPayload: AliasPayload = {
-      environment: 'development',
       new_user_id: 'user--456',
       device_id: 'device-123',
       distinct_id: 'user123',
@@ -480,10 +458,7 @@ describe('Logger', () => {
       logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cAlias%c user123 %c$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -544,10 +519,7 @@ describe('Logger', () => {
       logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cAlias%c user123 %c\[development\] %c$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cAlias%c user123 %c$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -560,10 +532,7 @@ describe('Logger', () => {
       logger.logAlias(mockAliasPayload, { trackingConsent: 'denied' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cDENIED$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cAlias%c user123 %cDENIED$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
@@ -576,10 +545,7 @@ describe('Logger', () => {
       logger.logAlias(mockAliasPayload, { trackingConsent: 'pending' });
 
       expect(console.groupCollapsed).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /\[TestLogger\] %cAlias%c user123 %c\[development\] %cPENDING$/
-        ),
-        expect.any(String),
+        expect.stringMatching(/\[TestLogger\] %cAlias%c user123 %cPENDING$/),
         expect.any(String),
         expect.any(String),
         expect.any(String)
