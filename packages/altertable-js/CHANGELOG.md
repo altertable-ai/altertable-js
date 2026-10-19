@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.1...altertable-js-v1.4.0) (2026-10-19)
+
+### Features
+
+- Select the environment from the API key. The `environment` option is deprecated and ignored for routing. ([#215](https://github.com/altertable-ai/altertable-js/pull/215))
+- Migrate saved identity, consent, and unsent events to API-key-scoped storage.
+
 ## [1.3.1](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.0...altertable-js-v1.3.1) (2026-10-19)
 
 ### Bug Fixes

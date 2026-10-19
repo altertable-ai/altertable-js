@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.3.1...altertable-react-native-v1.4.0) (2026-10-19)
+
+### Features
+
+- Select the environment from the API key. The `environment` option is deprecated and ignored for routing. ([#215](https://github.com/altertable-ai/altertable-js/pull/215))
+- Migrate saved identity, consent, and unsent events after confirming native storage writes.
+
+### Dependencies
+
+- Update `@altertable/altertable-js` to `^1.4.0`.
+
 ## [1.3.1](https://github.com/altertable-ai/altertable-js/releases/tag/altertable-react-native-v1.3.1) (2026-10-19)
 
 Initial release of the Altertable React Native SDK for iOS and Android, with an
