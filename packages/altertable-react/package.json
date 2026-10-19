@@ -51,10 +51,10 @@
     "@altertable/altertable-js": "^1.4.0"
   },
   "devDependencies": {
-    "@posthog/react": "1.11.2",
+    "@posthog/react": "1.11.3",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
-    "posthog-js": "1.434.14",
+    "posthog-js": "1.438.12",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }
