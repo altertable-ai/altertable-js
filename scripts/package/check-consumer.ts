@@ -89,7 +89,13 @@ try {
   assert.equal(window.Altertable?.[0]?.[0], 'init');
   assert.equal(inserted.length, 1);
 
-  for (const version of ['16.8.0', '19.3.0']) {
+  // Keep the minimum runtime on maintained React 16 types, which include React.JSX.
+  const reactTypeVersions = {
+    '16.8.0': '16.14.70',
+    '19.3.0': '19.3.0',
+  };
+
+  for (const [version, reactTypes] of Object.entries(reactTypeVersions)) {
     await rm(path.join(fixture, 'node_modules'), {
       recursive: true,
       force: true,
@@ -106,7 +112,7 @@ try {
           '@altertable/altertable-react': react,
           react: version,
           'react-dom': version,
-          '@types/react': version === '16.8.0' ? '16.14.70' : '19.3.0',
+          '@types/react': reactTypes,
           typescript: '7.0.2',
         },
       })
