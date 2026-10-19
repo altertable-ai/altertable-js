@@ -31,7 +31,7 @@ it('accepts and ignores deprecated environment options, warning once in developm
   client.track('Second');
   await client.flush();
   expect(warn).toHaveBeenCalledExactlyOnceWith(
-    '[Altertable] The environment is determined by your API key. Remove the environment option.'
+    '[Altertable] The environment is determined by your API key. Remove the `environment` option.'
   );
   for (const [payload] of transformEvent.mock.calls)
     expect(payload).not.toHaveProperty('environment');

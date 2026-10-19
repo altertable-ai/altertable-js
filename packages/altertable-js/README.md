@@ -73,7 +73,7 @@ Initializes the Altertable SDK with your API key and optional configuration.
 **Example:**
 
 ```javascript
-altertable.init('YOUR_API_KEY', {});
+altertable.init('YOUR_API_KEY');
 ```
 
 Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
@@ -441,26 +441,10 @@ storage API directly.
 Thrown custom write and deletion errors reach `onError`. Failed event writes leave
 events in memory, and storage errors do not requeue acknowledged events. Read
 errors propagate to `init()` or `configure()`; after a failed migration read, fix
-the backend and retry the same configuration. Initialization also stops if legacy data
-cannot be deleted after migration, preventing stale queued events from replaying.
+the backend and retry the same configuration.
 
 Use the exported `getStorageKeys(apiKey)` to resolve the API-key-scoped `session`
-and `events` keys before hydration. Its former environment argument is deprecated
-and ignored.
-
-The API key determines the environment. Use a separate API key for each environment.
-The `environment` config option is deprecated: it no longer routes events and warns
-once in development when supplied. Event payloads and debug logs no longer include
-an environment, including payloads returned by `transformEvent` or restored from storage.
-
-When upgrading, keep your previous `environment` option for the first initialization
-if you used a non-default environment. The SDK uses it only to migrate saved identity,
-consent, and unsent events to the API-key-scoped keys; otherwise it looks for legacy
-`production` data. Existing data under the new keys takes precedence. Remove the
-option after migration. Migration never scans or combines other environment scopes.
-Custom async adapters must also hydrate the legacy `atbl.<apiKey>.<environment>`
-and `atbl.<apiKey>.<environment>.events` keys during this transition. The React Native
-SDK handles hydration automatically.
+and `events` keys before hydration.
 For custom runtimes, supply a [platform](#runtime-platforms) to the constructor.
 Its `isOnline()` method reads connectivity; returning `false` retains buffered
 events until a later flush.

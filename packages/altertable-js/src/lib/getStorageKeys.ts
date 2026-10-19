@@ -1,7 +1,7 @@
 import { keyBuilder } from '../constants';
 import { createKeyBuilder } from './keyBuilder';
 
-const storageKeyBuilder = createKeyBuilder('atbl2', '.');
+const storageKeyBuilder = createKeyBuilder('atbl.2', '.');
 
 type StorageKeys = { session: string; events: string };
 

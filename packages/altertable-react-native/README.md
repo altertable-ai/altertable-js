@@ -186,9 +186,3 @@ for shared options.
 ## License
 
 [MIT](./LICENSE)
-
-The API key determines the environment. The `environment` option is deprecated and
-ignored for routing. When upgrading an existing installation that used a non-default
-environment, retain that option for the first initialization so the SDK can migrate
-persisted identity, consent, and unsent events. Hydration and migration complete before
-the client is returned. Remove the option afterward; new storage is scoped by API key.

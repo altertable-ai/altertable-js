@@ -18,7 +18,7 @@ export interface UserTraits extends Record<string, unknown> {
 }
 
 export type AltertableContext = {
-  /** @deprecated The environment is determined by the API key and is no longer populated. */
+  /** @deprecated The environment is determined by the API key. The SDK no longer sets this field. */
   environment?: Environment;
   device_id: DeviceId;
   distinct_id: DistinctId;
@@ -34,7 +34,7 @@ export type EventPayload =
 
 /** @internal Shared wire context for Altertable and adapter delivery. */
 export type EventContext = {
-  /** @deprecated The environment is determined by the API key and is no longer populated. */
+  /** @deprecated The environment is determined by the API key. The SDK no longer sets this field. */
   environment?: Environment;
   distinct_id: string;
   device_id?: string;

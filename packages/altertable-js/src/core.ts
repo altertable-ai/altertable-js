@@ -64,8 +64,7 @@ export interface AltertableConfig {
    */
   baseUrl?: string;
   /**
-   * @deprecated The environment is determined by your API key. This option is ignored
-   * except when locating persisted data from older SDK versions.
+   * @deprecated The environment is determined by your API key. This option is ignored.
    */
   environment?: Environment;
   /**
@@ -1239,7 +1238,7 @@ export class Altertable {
   private _warnDeprecatedEnvironment(config: Partial<AltertableConfig>) {
     if (config.environment !== undefined) {
       this._logger.warnDev(
-        'The environment is determined by your API key. Remove the environment option.'
+        'The environment is determined by your API key. Remove the `environment` option.'
       );
     }
   }
