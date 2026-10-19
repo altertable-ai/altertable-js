@@ -662,9 +662,13 @@ describe('configured adapters', () => {
     expect(adapter.on).toHaveBeenCalledOnce();
   });
 
-  it('does not subscribe without a browser', () => {
+  it('delivers adapter events without a browser', async () => {
     vi.stubGlobal('window', undefined);
     init();
-    expect(adapter.on).not.toHaveBeenCalled();
+    adapter.emit(event());
+    await client.flush();
+    expect(requests()).toEqual([
+      expect.objectContaining({ event: 'Checkout', distinct_id: 'customer' }),
+    ]);
   });
 });

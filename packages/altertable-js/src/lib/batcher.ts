@@ -4,8 +4,11 @@ import type { StorageApi } from './storage';
 
 export type BatcherSendFn = (
   eventType: EventType,
-  payloads: EventPayload[]
+  payloads: EventPayload[],
+  signal: AbortSignal
 ) => Promise<void>;
+
+export type FlushTrigger = 'interval' | 'threshold' | 'manual';
 
 export type BatcherConfig = {
   flushEventThreshold: number;
@@ -13,6 +16,8 @@ export type BatcherConfig = {
   /** Maximum payloads per HTTP request per endpoint (chunk size). */
   maxBatchSize: number;
   send: BatcherSendFn;
+  /** Coordinate automatic dispatch with runtime delivery preparation. */
+  requestFlush?: (trigger: FlushTrigger) => void;
   persistence?: {
     storage: StorageApi;
     storageKey: string;
@@ -46,6 +51,7 @@ type ResolvedBatcherConfig = {
   flushIntervalMs: number;
   maxBatchSize: number;
   send: BatcherSendFn;
+  requestFlush?: (trigger: FlushTrigger) => void;
   persistence?: ResolvedBatcherPersistence;
   isOnline: () => boolean;
 };
@@ -65,13 +71,20 @@ export type BatcherApi = {
   /** Add one payload to the in-memory buffer and persist the updated buffer if configured. */
   add(eventType: EventType, payload: EventPayload): void;
   /** Send buffered payloads now when online; resolves without sending while offline. */
-  flush(options?: { drain?: boolean }): Promise<void>;
-  /** Drop buffered and in-flight payloads, including persisted copies. */
+  flush(options?: {
+    drain?: boolean;
+    prepare?: () => Promise<boolean>;
+    /** Runs synchronously when events are selected, before preparation starts. */
+    onSnapshot?: () => void;
+  }): Promise<void>;
+  /** Cancel delivery and drop buffered and in-flight payloads, including persisted copies. */
   clear(): void;
   /** Start periodic flushing with the configured interval. */
   start(): void;
   /** Stop periodic flushing without clearing queued payloads. */
   stop(): void;
+  /** Cancel delivery and relinquish persistence ownership; in-flight requests may settle. */
+  retire(): void;
   /** Best-effort page-unload delivery. Payloads remain persisted until normal send succeeds. */
   flushUnload(
     sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
@@ -114,6 +127,7 @@ function resolveBatcherPersistence(
 function resolveBatcherConfig(config: BatcherConfig): ResolvedBatcherConfig {
   return {
     send: config.send,
+    requestFlush: config.requestFlush,
     flushEventThreshold: Math.max(1, config.flushEventThreshold),
     flushIntervalMs: Math.max(1, config.flushIntervalMs),
     maxBatchSize: Math.max(1, config.maxBatchSize),
@@ -325,9 +339,8 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
  * combined queue reaches `flushEventThreshold`, on an interval, or when `flush()` is called.
  * Each send uses chunks of at most `maxBatchSize` payloads per endpoint.
  *
- * When `flushEventThreshold` is reached inside `add()`, dispatch runs synchronously until
- * each HTTP request is started (so callers/tests can observe `fetch` in the
- * same turn).
+ * Without a preparation coordinator, threshold dispatch starts requests in the
+ * same turn. A coordinator can defer dispatch until the platform is ready.
  */
 export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let config = resolveBatcherConfig(initialConfig);
@@ -337,14 +350,14 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   let inFlightChunks = createEmptyChunkBuffers();
   let inFlightOrder: BufferedEventRef[] = [];
   let intervalId: ReturnType<typeof setInterval> | undefined;
-  /** Bumped on authoritative clear / unload so stale send failures do not requeue. */
-  let bufferGeneration = 0;
+  let retired = false;
+  let deliveryController = new AbortController();
+  /** Clear and retirement revoke the generation so stale failures cannot requeue. */
+  let deliveryGeneration = 0;
   let unloadFlushVersion = 0;
   let lastUnloadFlushVersion: number | undefined;
-  /** HTTP work started by the periodic timer — excluded from {@link flush} drain. */
-  const inFlightTimer = new Set<Promise<void>>();
-  /** All other sends (flushEventThreshold, manual flush, updateConfig). */
-  const inFlightOther = new Set<Promise<void>>();
+  /** Explicit flushes wait for manual and threshold sends, but not periodic sends. */
+  const pendingDrainSends = new Set<Promise<void>>();
 
   function getPersistableState(): BufferState {
     const persistableBuffers = createEmptyBuffers();
@@ -436,7 +449,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
   }
 
   function persistBuffers(): void {
-    if (!config.persistence) {
+    if (retired || !config.persistence) {
       return;
     }
 
@@ -477,7 +490,6 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     buffers.set(eventType, [...items, ...existing]);
     bufferOrder = [...refs, ...bufferOrder];
     markUnloadDirty();
-    persistBuffers();
   }
 
   function addInFlightChunk(eventType: EventType, chunk: EventPayload[]): void {
@@ -506,75 +518,74 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     }
   }
 
-  function registerInFlight(
+  function trackDrainableSend(
     chunkPromise: Promise<void>,
-    fromTimer: boolean
+    trigger: FlushTrigger
   ): void {
-    const bucket = fromTimer ? inFlightTimer : inFlightOther;
-    bucket.add(chunkPromise);
-    void chunkPromise.finally(() => {
-      bucket.delete(chunkPromise);
-    });
+    if (trigger === 'interval') return;
+    pendingDrainSends.add(chunkPromise);
+    const release = () => {
+      pendingDrainSends.delete(chunkPromise);
+    };
+    void chunkPromise.then(release, release);
   }
 
   /**
-   * Snapshots and clears buffers, then starts sends. The returned promise
-   * settles when all chunk sends for this snapshot finish.
+   * Move selected occurrences into flight, leaving later arrivals buffered.
+   * Settle when every chunk in the selected snapshot finishes.
    */
-  function dispatchFlushFromBuffer(fromTimer: boolean): Promise<void> {
-    if (!config.isOnline()) {
-      return Promise.resolve();
-    }
+  function dispatchFlushFromBuffer(
+    trigger: FlushTrigger,
+    selectedRefs: readonly BufferedEventRef[] = bufferOrder
+  ): Promise<void> {
+    if (retired || !config.isOnline()) return Promise.resolve();
 
-    const dispatchGeneration = bufferGeneration;
-    const snapshot = createEmptyBuffers();
-    let hadAny = false;
-    for (const eventType of EVENT_TYPES) {
-      const items = buffers.get(eventType) ?? [];
-      if (items.length > 0) {
-        hadAny = true;
-        snapshot.set(eventType, [...items]);
-      }
-    }
-    if (!hadAny) {
-      return Promise.resolve();
-    }
-    const snapshotOrder = bufferOrder;
-    const snapshotRefsByType = new Map(
-      EVENT_TYPES.map(eventType => [
+    const selected = new Set(selectedRefs);
+    const snapshotByType = new Map<EventType, BufferedEventRef[]>(
+      EVENT_TYPES.map((eventType): [EventType, BufferedEventRef[]] => [
         eventType,
-        snapshotOrder.filter(ref => ref.eventType === eventType),
+        [],
       ])
     );
-    for (const eventType of EVENT_TYPES) {
-      buffers.set(eventType, []);
+    const remaining = createEmptyBuffers();
+    const snapshotOrder: BufferedEventRef[] = [];
+    const remainingOrder: BufferedEventRef[] = [];
+    for (const ref of bufferOrder) {
+      if (selected.has(ref)) {
+        snapshotByType.get(ref.eventType)!.push(ref);
+        snapshotOrder.push(ref);
+      } else {
+        remaining.get(ref.eventType)!.push(ref.payload);
+        remainingOrder.push(ref);
+      }
     }
-    bufferOrder = [];
+    if (snapshotOrder.length === 0) return Promise.resolve();
+
+    const dispatchGeneration = deliveryGeneration;
+    const signal = deliveryController.signal;
+    buffers = remaining;
+    bufferOrder = remainingOrder;
     inFlightOrder.push(...snapshotOrder);
 
     const sendPromises: Promise<void>[] = [];
-    for (const eventType of EVENT_TYPES) {
-      const items = snapshot.get(eventType) ?? [];
-      for (const chunk of chunkArray(items, config.maxBatchSize)) {
-        const chunkRefs = snapshotRefsByType
-          .get(eventType)!
-          .splice(0, chunk.length);
+    for (const [eventType, refs] of snapshotByType) {
+      for (const chunkRefs of chunkArray(refs, config.maxBatchSize)) {
+        const chunk = chunkRefs.map(ref => ref.payload);
         addInFlightChunk(eventType, chunk);
         const chunkPromise = config
-          .send(eventType, chunk)
-          .then(() => {
-            removeInFlightChunk(eventType, chunk, chunkRefs);
-            return persistBuffers();
-          })
-          .catch(() => {
-            removeInFlightChunk(eventType, chunk, chunkRefs);
-            if (dispatchGeneration === bufferGeneration) {
-              prependToBuffer(eventType, chunk, chunkRefs);
-            } else {
-              persistBuffers();
+          .send(eventType, chunk, signal)
+          .then(
+            () => removeInFlightChunk(eventType, chunk, chunkRefs),
+            () => {
+              removeInFlightChunk(eventType, chunk, chunkRefs);
+              if (dispatchGeneration === deliveryGeneration) {
+                prependToBuffer(eventType, chunk, chunkRefs);
+              }
+              return;
             }
-          });
-        registerInFlight(chunkPromise, fromTimer);
+          )
+          .then(() => persistBuffers());
+        trackDrainableSend(chunkPromise, trigger);
         sendPromises.push(chunkPromise);
       }
     }
@@ -582,8 +593,37 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     return Promise.all(sendPromises).then((): void => undefined);
   }
 
-  async function flushUntilDrained(): Promise<void> {
-    if (!config.isOnline()) {
+  function requestFlush(trigger: FlushTrigger) {
+    if (config.requestFlush) {
+      config.requestFlush(trigger);
+    } else {
+      void dispatchFlushFromBuffer(trigger);
+    }
+  }
+
+  function flushSnapshot(
+    trigger: FlushTrigger,
+    prepare?: () => Promise<boolean>,
+    onSnapshot?: () => void
+  ): Promise<boolean> {
+    if (retired || !config.isOnline()) return Promise.resolve(false);
+    const generation = deliveryGeneration;
+    // Keep these refs buffered and persisted while preparing. Later arrivals
+    // belong to another snapshot, even if they arrive in a promise continuation.
+    const selected = [...bufferOrder];
+    onSnapshot?.();
+    const dispatch = () =>
+      dispatchFlushFromBuffer(trigger, selected).then(() => true);
+    if (!prepare) return dispatch();
+    return prepare().then(ready =>
+      ready && generation === deliveryGeneration ? dispatch() : false
+    );
+  }
+
+  async function flushUntilDrained(
+    prepare?: () => Promise<boolean>
+  ): Promise<void> {
+    if (retired || !config.isOnline()) {
       return;
     }
 
@@ -592,9 +632,12 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       iteration < FLUSH_MAX_DRAIN_ITERATIONS;
       iteration += 1
     ) {
-      await Promise.all(inFlightOther);
-      await dispatchFlushFromBuffer(false);
-      if (totalBufferedCount(buffers) === 0 && inFlightOther.size === 0) {
+      await Promise.all(pendingDrainSends);
+      if (!(await flushSnapshot('manual', prepare))) return;
+      if (retired || !config.isOnline()) {
+        return;
+      }
+      if (totalBufferedCount(buffers) === 0 && pendingDrainSends.size === 0) {
         return;
       }
     }
@@ -606,6 +649,7 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
 
   return {
     add(eventType: EventType, payload: EventPayload): void {
+      if (retired) return;
       const list = buffers.get(eventType) ?? [];
       list.push(payload);
       buffers.set(eventType, list);
@@ -613,30 +657,37 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       markUnloadDirty();
       persistBuffers();
       if (totalBufferedCount(buffers) >= config.flushEventThreshold) {
-        void dispatchFlushFromBuffer(false);
+        requestFlush('threshold');
       }
     },
 
-    flush({ drain = true } = {}): Promise<void> {
-      return drain ? flushUntilDrained() : dispatchFlushFromBuffer(false);
+    flush({ drain = true, prepare, onSnapshot } = {}): Promise<void> {
+      return drain
+        ? flushUntilDrained(prepare)
+        : flushSnapshot('manual', prepare, onSnapshot).then(
+            (): void => undefined
+          );
     },
 
     clear(): void {
-      bufferGeneration += 1;
+      deliveryGeneration += 1;
+      const cancelledDelivery = deliveryController;
+      deliveryController = new AbortController();
       buffers = createEmptyBuffers();
       bufferOrder = [];
       inFlightChunks = createEmptyChunkBuffers();
       inFlightOrder = [];
       markUnloadDirty();
+      cancelledDelivery.abort();
       persistBuffers();
     },
 
     start(): void {
-      if (intervalId !== undefined) {
+      if (retired || intervalId !== undefined) {
         return;
       }
       intervalId = setInterval(() => {
-        void dispatchFlushFromBuffer(true);
+        requestFlush('interval');
       }, config.flushIntervalMs);
     },
 
@@ -647,10 +698,20 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
       }
     },
 
+    retire(): void {
+      retired = true;
+      deliveryGeneration += 1;
+      deliveryController.abort();
+      if (intervalId !== undefined) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    },
+
     flushUnload(
       sendUnload: (eventType: EventType, payloads: EventPayload[]) => void
     ): void {
-      if (!config.isOnline()) {
+      if (retired || !config.isOnline()) {
         return;
       }
       if (lastUnloadFlushVersion === unloadFlushVersion) {
@@ -682,33 +743,33 @@ export function createBatcher(initialConfig: BatcherConfig): BatcherApi {
     updateConfig(
       updates: Partial<Pick<BatcherConfig, BatcherConfigurableKeys>>
     ): void {
+      if (retired) return;
       config = resolveBatcherConfig({
         send: config.send,
+        requestFlush: config.requestFlush,
         flushEventThreshold:
           updates.flushEventThreshold ?? config.flushEventThreshold,
         flushIntervalMs: updates.flushIntervalMs ?? config.flushIntervalMs,
         maxBatchSize: updates.maxBatchSize ?? config.maxBatchSize,
         persistence:
-          updates.persistence !== undefined
-            ? updates.persistence
-            : config.persistence,
+          'persistence' in updates ? updates.persistence : config.persistence,
         isOnline: updates.isOnline ?? config.isOnline,
       });
-      if (updates.persistence !== undefined) {
+      if ('persistence' in updates) {
         persistBuffers();
       }
       if (updates.flushIntervalMs !== undefined && intervalId !== undefined) {
         clearInterval(intervalId);
         intervalId = undefined;
         intervalId = setInterval(() => {
-          void dispatchFlushFromBuffer(true);
+          requestFlush('interval');
         }, config.flushIntervalMs);
       }
       if (
         updates.flushEventThreshold !== undefined &&
         totalBufferedCount(buffers) >= config.flushEventThreshold
       ) {
-        void dispatchFlushFromBuffer(false);
+        requestFlush('threshold');
       }
     },
   };

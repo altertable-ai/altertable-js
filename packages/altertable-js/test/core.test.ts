@@ -7,6 +7,7 @@ import {
   setupBeaconUnavailable,
 } from '../../../test-utils/networkMode';
 import {
+  AUTO_CAPTURE_INTERVAL_MS,
   EVENT_PAGEVIEW,
   PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
@@ -220,31 +221,19 @@ describe('Altertable', () => {
         });
       });
 
-      it('returns a cleanup that stops the batcher and removes lifecycle listeners', () => {
+      it('returns a cleanup that stops scheduled delivery', async () => {
+        vi.useFakeTimers();
         const client = new Altertable();
         const cleanup = client.init(apiKey, {
-          baseUrl: 'http://localhost',
           autoCapture: false,
-          trackingConsent: 'granted',
           persistence: 'memory',
-          flushEventThreshold: 1,
-          flushIntervalMs: 86_400_000,
+          flushIntervalMs: 1_000,
         });
-        const stopSpy = vi.spyOn(client['_batcher'], 'stop');
-        const removeDocumentSpy = vi.spyOn(document, 'removeEventListener');
-        const removeWindowSpy = vi.spyOn(window, 'removeEventListener');
-
+        client.track('Buffered Before Cleanup');
         cleanup();
-
-        expect(stopSpy).toHaveBeenCalledTimes(1);
-        expect(removeDocumentSpy).toHaveBeenCalledWith(
-          'visibilitychange',
-          expect.any(Function)
-        );
-        expect(removeWindowSpy).toHaveBeenCalledWith(
-          'pagehide',
-          expect.any(Function)
-        );
+        await vi.advanceTimersByTimeAsync(2_000);
+        await client.flush();
+        expect(fetch).not.toHaveBeenCalled();
       });
 
       it('does not send page event when auto-capture disabled', () => {
@@ -286,6 +275,7 @@ describe('Altertable', () => {
       });
 
       it('tracks referrer when URL changes', () => {
+        vi.useFakeTimers();
         setupWindow({ url: 'http://localhost/initial-page' });
 
         altertable.init(apiKey, {
@@ -297,12 +287,16 @@ describe('Altertable', () => {
         });
 
         setupWindow({ url: 'http://localhost/changed-page' });
-        altertable['_checkForChanges']();
+        vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS);
 
-        expect(altertable['_referrer']).toBe('http://localhost/initial-page');
+        expect(getFetchCallBodyParsed(1)).toMatchObject({
+          event: EVENT_PAGEVIEW,
+          properties: { [PROPERTY_REFERER]: 'http://localhost/initial-page' },
+        });
       });
 
       it('includes correct referrer in pageview payload when auto-capture detects URL change', () => {
+        vi.useFakeTimers();
         setupWindow({ url: 'http://localhost/page-1' });
 
         altertable.init(apiKey, {
@@ -316,7 +310,7 @@ describe('Altertable', () => {
         // Navigate to page-2
         setupWindow({ url: 'http://localhost/page-2' });
         expect(() => {
-          altertable['_checkForChanges']();
+          vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS);
         }).toRequestApi('/track', {
           payload: expect.objectContaining({
             event: EVENT_PAGEVIEW,
@@ -330,7 +324,7 @@ describe('Altertable', () => {
         // Navigate to page-3
         setupWindow({ url: 'http://localhost/page-3' });
         expect(() => {
-          altertable['_checkForChanges']();
+          vi.advanceTimersByTime(AUTO_CAPTURE_INTERVAL_MS);
         }).toRequestApi('/track', {
           payload: expect.objectContaining({
             event: EVENT_PAGEVIEW,
@@ -702,23 +696,23 @@ describe('Altertable', () => {
         });
       });
 
-      it('queues when called before initialization', () => {
-        const uninitializedAltertable = new Altertable();
-        expect(() => {
-          uninitializedAltertable.track('test-event', { foo: 'bar' });
-        }).not.toThrow();
-        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
-        expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
-          type: 'command',
-          method: 'track',
-          args: ['test-event', { foo: 'bar' }],
-          runtimeContext: {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            url: expect.any(String),
-            referrer: expect.toBeOneOf([expect.any(String), null]),
-            viewport: expect.any(String),
-          },
+      it('delivers events queued before initialization', async () => {
+        const client = new Altertable();
+        client.track('test-event', { foo: 'bar' });
+        expect(fetch).not.toHaveBeenCalled();
+        const cleanup = client.init(apiKey, {
+          persistence: 'memory',
+          autoCapture: false,
         });
+        try {
+          await client.flush();
+          expect(getFetchCallBodyParsed(0)).toMatchObject({
+            event: 'test-event',
+            properties: expect.objectContaining({ foo: 'bar' }),
+          });
+        } finally {
+          cleanup();
+        }
       });
 
       it('always includes current URL in track events', () => {
@@ -794,23 +788,25 @@ describe('Altertable', () => {
         });
       });
 
-      it('queues when called before initialization', () => {
-        const uninitializedAltertable = new Altertable();
-        expect(() => {
-          uninitializedAltertable.page('http://localhost/test');
-        }).not.toThrow();
-        expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1);
-        expect(uninitializedAltertable['_queue'].getAll()[0]).toEqual({
-          type: 'command',
-          method: 'page',
-          args: ['http://localhost/test'],
-          runtimeContext: {
-            timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-            url: expect.any(String),
-            referrer: expect.toBeOneOf([expect.any(String), null]),
-            viewport: expect.any(String),
-          },
+      it('delivers events queued before initialization', async () => {
+        const client = new Altertable();
+        client.page('http://localhost/test');
+        expect(fetch).not.toHaveBeenCalled();
+        const cleanup = client.init(apiKey, {
+          persistence: 'memory',
+          autoCapture: false,
         });
+        try {
+          await client.flush();
+          expect(getFetchCallBodyParsed(0)).toMatchObject({
+            event: EVENT_PAGEVIEW,
+            properties: expect.objectContaining({
+              [PROPERTY_URL]: 'http://localhost/test',
+            }),
+          });
+        } finally {
+          cleanup();
+        }
       });
     });
   });
@@ -956,6 +952,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('localStorage+cookie', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -972,6 +969,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('memory', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -991,6 +989,7 @@ describe('Altertable', () => {
 
       expect(selectEventStorageSpy).toHaveBeenCalledWith('memory', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
     });
 
@@ -1323,27 +1322,18 @@ describe('Altertable', () => {
   describe('alias() method', () => {
     it('aliases user to a new ID', () => {
       setupAltertable();
-      const requesterSendBatchSpy = vi.spyOn(
-        altertable['_requester'],
-        'sendBatch'
-      );
-
       altertable.alias('user456');
-
-      expect(requesterSendBatchSpy).toHaveBeenCalledWith(
-        '/alias',
-        expect.arrayContaining([
-          expect.objectContaining({
-            environment: expect.any(String),
-            device_id: expect.stringMatching(REGEXP_DEVICE_ID),
-            new_user_id: 'user456',
-            distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
-            anonymous_id: null,
-          }),
-        ])
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/alias?'),
+        expect.objectContaining({ method: 'POST' })
       );
-
-      requesterSendBatchSpy.mockRestore();
+      expect(getFetchCallBodyParsed(0)).toMatchObject({
+        environment: expect.any(String),
+        device_id: expect.stringMatching(REGEXP_DEVICE_ID),
+        new_user_id: 'user456',
+        distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
+        anonymous_id: null,
+      });
     });
 
     it('logs alias when debug is enabled', () => {
@@ -2439,6 +2429,7 @@ describe('Altertable', () => {
 
       expect(selectStorageSpy).toHaveBeenCalledWith('localStorage', {
         onFallback: expect.any(Function),
+        onError: expect.any(Function),
       });
 
       global.localStorage = originalLocalStorage;
@@ -3626,7 +3617,9 @@ describe('Altertable', () => {
           ])
         );
       });
-      expect(window.localStorage.getItem(eventStorageKey)).toBeNull();
+      await vi.waitFor(() =>
+        expect(window.localStorage.getItem(eventStorageKey)).toBeNull()
+      );
 
       cleanupSecondClient();
     });
@@ -3669,7 +3662,9 @@ describe('Altertable', () => {
           String(call[1].body).includes('offline-expired-track')
         )
       ).toBe(false);
-      expect(window.localStorage.getItem(eventStorageKey)).toBeNull();
+      await vi.waitFor(() =>
+        expect(window.localStorage.getItem(eventStorageKey)).toBeNull()
+      );
 
       cleanupSecondClient();
     });

@@ -118,11 +118,15 @@ describe('createBatcher', () => {
       expect.arrayContaining([
         expect.objectContaining({ timestamp: 'a' }),
         expect.objectContaining({ timestamp: 'b' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
-    expect(send).toHaveBeenNthCalledWith(2, 'track', [
-      expect.objectContaining({ timestamp: 'c' }),
-    ]);
+    expect(send).toHaveBeenNthCalledWith(
+      2,
+      'track',
+      [expect.objectContaining({ timestamp: 'c' })],
+      expect.any(AbortSignal)
+    );
   });
 
   it('routes mixed types to separate send calls', async () => {
@@ -173,7 +177,8 @@ describe('createBatcher', () => {
     expect(send).toHaveBeenNthCalledWith(
       2,
       'track',
-      expect.arrayContaining([expect.objectContaining({ timestamp: 't1' })])
+      expect.arrayContaining([expect.objectContaining({ timestamp: 't1' })]),
+      expect.any(AbortSignal)
     );
   });
 
@@ -301,7 +306,8 @@ describe('createBatcher', () => {
         expect.objectContaining({
           timestamp: '2020-01-01T00:00:00.000Z',
         }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
     batcher.stop();
   });
@@ -403,7 +409,8 @@ describe('createBatcher', () => {
       expect.arrayContaining([
         expect.objectContaining({ timestamp: 'a' }),
         expect.objectContaining({ timestamp: 'b' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
     expect(send).toHaveBeenNthCalledWith(
       2,
@@ -411,7 +418,8 @@ describe('createBatcher', () => {
       expect.arrayContaining([
         expect.objectContaining({ timestamp: 'c' }),
         expect.objectContaining({ timestamp: 'd' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
   });
 
@@ -437,7 +445,8 @@ describe('createBatcher', () => {
         expect.objectContaining({ timestamp: 'a' }),
         expect.objectContaining({ timestamp: 'b' }),
         expect.objectContaining({ timestamp: 'c' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
   });
 
@@ -480,7 +489,8 @@ describe('createBatcher', () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(
       'track',
-      expect.arrayContaining([expect.objectContaining({ timestamp: 't2' })])
+      expect.arrayContaining([expect.objectContaining({ timestamp: 't2' })]),
+      expect.any(AbortSignal)
     );
 
     batcher.stop();
@@ -540,7 +550,8 @@ describe('createBatcher', () => {
       'track',
       expect.arrayContaining([
         expect.objectContaining({ timestamp: 'rehydrated' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
     expect(store.has('pending-events')).toBe(false);
   });
@@ -951,7 +962,8 @@ describe('createBatcher', () => {
       'track',
       expect.arrayContaining([
         expect.objectContaining({ timestamp: 'offline' }),
-      ])
+      ]),
+      expect.any(AbortSignal)
     );
     expect(store.has('pending-events')).toBe(false);
   });
@@ -1128,11 +1140,19 @@ describe('createBatcher', () => {
     const attempt = batcher.flush({ drain: false });
     batcher.add('track', second);
     await attempt;
-    expect(send).toHaveBeenCalledExactlyOnceWith('track', [first]);
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      'track',
+      [first],
+      expect.any(AbortSignal)
+    );
 
     send.mockResolvedValue(undefined);
     await batcher.flush();
-    expect(send).toHaveBeenLastCalledWith('track', [first, second]);
+    expect(send).toHaveBeenLastCalledWith(
+      'track',
+      [first, second],
+      expect.any(AbortSignal)
+    );
     expect(send).toHaveBeenCalledTimes(2);
   });
 

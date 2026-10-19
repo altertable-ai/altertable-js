@@ -128,8 +128,9 @@ effect and return its cleanup. Pass the object returned by
 `useNavigationContainerRef()` directly. The `NavigationSource` type describes the
 required navigation methods. It tracks the initial route and subsequent active
 route changes. The [Expo example](../../examples/example-react-native/App.tsx)
-shows the full integration. Use either manual or navigation tracking to avoid
-duplicates.
+shows the full integration. It tracks route names; route parameters are not copied
+into events. Use manual `screen()` calls when you need custom IDs or properties,
+and choose one tracking method to avoid duplicate visits.
 
 ### Offline delivery and cleanup
 
@@ -152,13 +153,23 @@ await client.dispose(); // Stop listeners/timers and persist remaining events.
 Keep one active client per API key, environment, and storage backend. Dispose it
 before creating a replacement. Storage failures reach `onError` and reject awaited
 operations; a later flush retries pending writes. Native storage and subscription
-failures also produce a branded console warning, deduplicated for each client.
+failures also produce a console warning, deduplicated for each client.
+
+## Runtime integration
+
+The native SDK supplies event context, AppState lifecycle notifications, optional
+connectivity, and storage preparation through the core SDK's `Platform` contract.
+Each delivery snapshot waits for native writes before starting its request;
+overlapping lifecycle and interval triggers share pending delivery work.
+
+For custom runtime integrations, see the core SDK's
+[runtime platform API](../altertable-js/README.md#runtime-platforms).
 
 ## Types
 
 ### `ReactNativeConfig`
 
-Accepts the core event options for environment, release, consent, transformation,
+Accepts core options for API endpoint, environment, release, consent, transformation,
 error handling, and batching, plus:
 
 | Option             | Required | Default | Description                                                       |
@@ -168,8 +179,8 @@ error handling, and batching, plus:
 | `connectivity`     | No       | —       | Optional app-provided network status subscription.                |
 
 `configure()` updates consent, release, debug, transformation, error handling, and
-batch settings. API key, environment, storage, and connectivity are fixed for a
-client's lifetime. See the [core configuration reference](../altertable-js/README.md#altertableconfig)
+batch settings. API key, `baseUrl`, environment, storage, connectivity, and
+`eventPersistence` are fixed at creation. See the [core configuration reference](../altertable-js/README.md#altertableconfig)
 for shared options.
 
 ## License

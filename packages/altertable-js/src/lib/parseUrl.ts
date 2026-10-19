@@ -6,6 +6,9 @@ type ParsedUrl = {
 export function parseUrl(url: string): ParsedUrl | null {
   try {
     const parsedUrl = new URL(url);
+    if (parsedUrl.origin === 'null') {
+      return null;
+    }
     return {
       baseUrl: `${parsedUrl.origin}${parsedUrl.pathname}`,
       searchParams: Object.fromEntries(parsedUrl.searchParams),

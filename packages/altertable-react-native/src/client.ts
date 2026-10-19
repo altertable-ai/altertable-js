@@ -5,20 +5,12 @@ import {
   getStorageKeys,
   TrackingConsent,
 } from '@altertable/altertable-js';
-import { AppState, Platform } from 'react-native';
 
 import { createLogger } from './logger';
+import { createReactNativePlatform, type Connectivity } from './platform';
 import { type AsyncStorageAdapter, hydrateStorage } from './storage';
 
-/** Structurally compatible with @react-native-community/netinfo. */
-export interface Connectivity {
-  addEventListener(
-    listener: (state: {
-      isConnected: boolean | null;
-      isInternetReachable: boolean | null;
-    }) => void
-  ): () => void;
-}
+export type { Connectivity } from './platform';
 
 type CoreOptions = Pick<
   AltertableConfig,
@@ -43,7 +35,10 @@ export type ReactNativeConfig = CoreOptions & {
   connectivity?: Connectivity;
 };
 
-/** Mutable options. API key, environment, storage, and connectivity are fixed at creation. */
+/**
+ * Mutable event options. Endpoint, environment, storage, connectivity, and
+ * event persistence are fixed at creation.
+ */
 export type ReactNativeConfigUpdates = Omit<
   CoreOptions,
   'baseUrl' | 'environment'
@@ -83,8 +78,12 @@ export async function createAltertable(
   } = options;
   const logger = createLogger();
   let onError = config.onError;
+  const reportedErrors = new WeakSet<Error>();
 
   function reportError(error: Error) {
+    // A storage failure can surface both from its write task and delivery preparation.
+    if (reportedErrors.has(error)) return;
+    reportedErrors.add(error);
     try {
       onError?.(error);
     } catch {
@@ -110,39 +109,32 @@ export async function createAltertable(
     storage.removeItem(keys.events);
   }
 
-  const core = new Altertable();
-  let deliveryEnabled = false;
   let disposed = false;
-  let online = true;
-  let automaticFlushTask: Promise<void> | undefined;
-  let flushDeferredByStorage = false;
-  const cleanupCore = core.init(apiKey, {
-    ...config,
-    autoCapture: false,
-    persistence: storage,
-    eventPersistence: eventPersistence ? storage : false,
-    flushIntervalMs: config.flushIntervalMs ?? 10_000,
-    isOnline: () => {
-      if (
-        !deliveryEnabled ||
-        disposed ||
-        !online ||
-        core.getTrackingConsent() !== TrackingConsent.GRANTED
-      ) {
-        return false;
-      }
-      // Automatic threshold/timer dispatch uses core's synchronous storage API.
-      // Defer that attempt through the native flush so its writes finish first.
-      if (storage.hasPendingWrites()) {
-        flushDeferredByStorage = true;
-        scheduleFlush();
-        return false;
-      }
-
-      return true;
+  // Startup and consent grants must persist before delivery can resume.
+  let deliveryReady = false;
+  const platform = createReactNativePlatform({
+    connectivity,
+    async prepareDelivery() {
+      await storage.flush();
+      return deliveryReady;
     },
     onError: reportError,
   });
+  const core = new Altertable(platform);
+  let cleanupCore: () => void;
+  try {
+    cleanupCore = core.init(apiKey, {
+      ...config,
+      autoCapture: false,
+      persistence: storage,
+      eventPersistence: eventPersistence ? storage : false,
+      flushIntervalMs: config.flushIntervalMs ?? 10_000,
+      onError: reportError,
+    });
+  } catch (error) {
+    await storage.close().catch(() => {});
+    throw error;
+  }
 
   function assertNotDisposed() {
     if (disposed) {
@@ -154,16 +146,10 @@ export async function createAltertable(
 
   function track(event: string, properties: EventProperties = {}) {
     assertNotDisposed();
-    core.track(event, {
-      $os: Platform.OS,
-      $os_version: String(Platform.Version),
-      ...properties,
-      $lib: __LIB__,
-      $lib_version: __LIB_VERSION__,
-    });
+    core.track(event, properties);
   }
 
-  async function flush({ drain = true } = {}) {
+  async function flush() {
     assertNotDisposed();
     // Persist first: background network attempts must not delay native writes.
     await storage.flush();
@@ -171,85 +157,28 @@ export async function createAltertable(
       return;
     }
 
-    deliveryEnabled = true;
-    flushDeferredByStorage = false;
-    await core.flush({ drain });
+    deliveryReady = true;
+    await core.flush();
     await storage.flush();
-  }
-
-  function scheduleFlush() {
-    if (disposed || automaticFlushTask) {
-      return;
-    }
-
-    // One snapshot per automatic attempt: failed batches wait for the next
-    // interval, lifecycle transition, or connectivity recovery.
-    automaticFlushTask = flush({ drain: false })
-      .catch(() => {
-        // Core delivery and storage already report errors through onError.
-        flushDeferredByStorage = false;
-      })
-      .finally(() => {
-        automaticFlushTask = undefined;
-        if (flushDeferredByStorage) {
-          scheduleFlush();
-        }
-      });
-  }
-
-  let appStateSubscription:
-    | ReturnType<typeof AppState.addEventListener>
-    | undefined;
-  let unsubscribeConnectivity: (() => void) | undefined;
-
-  function stopListenersAndTimers() {
-    for (const stop of [
-      () => appStateSubscription?.remove(),
-      () => unsubscribeConnectivity?.(),
-      cleanupCore,
-    ]) {
-      try {
-        stop();
-      } catch (error) {
-        const sourceError =
-          error instanceof Error ? error : new Error(String(error));
-        logger.warnOnce(
-          'Failed to remove a native subscription. Remaining cleanup will continue.',
-          sourceError
-        );
-        reportError(sourceError);
-      }
-    }
   }
 
   try {
     await storage.flush();
-    deliveryEnabled = true;
-    appStateSubscription = AppState.addEventListener('change', state => {
-      if (
-        state === 'active' ||
-        state === 'inactive' ||
-        state === 'background'
-      ) {
-        scheduleFlush();
-      }
-    });
-    unsubscribeConnectivity = connectivity?.addEventListener(state => {
-      const wasOnline = online;
-      online =
-        state.isConnected !== false && state.isInternetReachable !== false;
-      if (online && !wasOnline) {
-        scheduleFlush();
-      }
-    });
   } catch (error) {
     disposed = true;
-    stopListenersAndTimers();
+    cleanupCore();
     await storage.close().catch(() => {});
     throw error;
   }
 
-  scheduleFlush();
+  function flushInBackground() {
+    void core.flush({ drain: false }).catch(() => {
+      // Delivery and persistence report their own failures.
+    });
+  }
+
+  deliveryReady = true;
+  flushInBackground();
 
   return {
     /** Queue an event synchronously. Use flushPersistence() to await native writes. */
@@ -285,13 +214,9 @@ export async function createAltertable(
     /** Update mutable options and await native writes. Consent grants are persisted before delivery. */
     async configure(updates: ReactNativeConfigUpdates) {
       assertNotDisposed();
-      // A consent grant can synchronously replay and flush queued events in
-      // core. Keep delivery paused until the updated consent is durable.
       const grantingConsent =
         updates.trackingConsent === TrackingConsent.GRANTED;
-      if (grantingConsent) {
-        deliveryEnabled = false;
-      }
+      if (grantingConsent) deliveryReady = false;
       if ('onError' in updates) {
         onError = updates.onError;
       }
@@ -299,12 +224,12 @@ export async function createAltertable(
       core.configure({ ...updates, onError: reportError });
       await storage.flush();
       if (grantingConsent && !disposed) {
-        deliveryEnabled = true;
-        scheduleFlush();
+        deliveryReady = true;
+        flushInBackground();
       }
     },
     /** Persist, drain deliverable events, and persist the result. Offline events remain queued. */
-    flush: () => flush(),
+    flush,
     /** Wait for identity, consent, and event writes without making network requests. */
     flushPersistence() {
       assertNotDisposed();
@@ -318,7 +243,7 @@ export async function createAltertable(
     dispose(): Promise<void> {
       if (!disposed) {
         disposed = true;
-        stopListenersAndTimers();
+        cleanupCore();
       }
 
       return storage.close();

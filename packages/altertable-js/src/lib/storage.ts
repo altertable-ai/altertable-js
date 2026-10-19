@@ -11,7 +11,9 @@ export type StorageType =
 /** Synchronous storage contract. Async backends must be hydrated before init. */
 export interface StorageAdapter {
   getItem(key: string): string | null;
+  /** Return false if persistence fails. Thrown write errors are reported through client onError. */
   setItem(key: string, value: string): boolean;
+  /** Deletion failures are reported through the client onError handler without interrupting privacy controls. */
   removeItem(key: string): void;
 }
 
@@ -170,15 +172,39 @@ function testStorageSupport(
 
 export function selectStorage(
   type: Persistence | 'unknown',
-  params: { onFallback: (message: string) => void }
+  params: {
+    onFallback: (message: string) => void;
+    onError?: (error: Error) => void;
+  }
 ): StorageApi {
   const { onFallback } = params;
 
   if (typeof type === 'object' && type !== null) {
+    const reportStorageError = (operation: string, error: unknown) => {
+      const sourceError =
+        error instanceof Error ? error : new Error(String(error));
+      onFallback(
+        `Failed to ${operation} persisted data: ${sourceError.message}`
+      );
+      params.onError?.(sourceError);
+    };
     return {
       getItem: key => type.getItem(key),
-      setItem: (key, value) => type.setItem(key, value),
-      removeItem: key => type.removeItem(key),
+      setItem(key, value) {
+        try {
+          return type.setItem(key, value);
+        } catch (error) {
+          reportStorageError('write', error);
+          return false;
+        }
+      },
+      removeItem(key) {
+        try {
+          type.removeItem(key);
+        } catch (error) {
+          reportStorageError('remove', error);
+        }
+      },
       migrate(fromStorage, keys) {
         migrateKeys(this, fromStorage, keys);
       },
@@ -248,7 +274,10 @@ export function selectStorage(
 
 export function selectEventStorage(
   type: Persistence | 'unknown',
-  params: { onFallback: (message: string) => void }
+  params: {
+    onFallback: (message: string) => void;
+    onError?: (error: Error) => void;
+  }
 ): StorageApi {
   const { onFallback } = params;
 

@@ -4,7 +4,12 @@ import { renderHook } from '@testing-library/react';
 import { StrictMode, useEffect } from 'react';
 import { expect, it, vi } from 'vitest';
 
-import { trackNavigation, type NavigationSource } from '../src/navigation';
+import {
+  createAltertable,
+  trackNavigation,
+  type NavigationSource,
+} from '../src';
+import { createAsyncStorageMock } from './helpers';
 
 function createNavigation(ready = true) {
   let route: { key: string; name: string } | undefined = {
@@ -112,3 +117,82 @@ it('tracks a single initial visit when React Strict Mode replays the effect', ()
   ref.setRoute({ key: 'another', name: 'Another' });
   expect(client.screen).toHaveBeenCalledTimes(3);
 });
+
+it.each(['ready', 'state'] as const)(
+  'invalidates navigation before a %s listener removal throws and attempts both removals',
+  async failedEvent => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    const client = await createAltertable('key', {
+      storage: createAsyncStorageMock(),
+    });
+    try {
+      const ref = createNavigation();
+      const removals: string[] = [];
+      const failure = new Error('Unsubscribe failed');
+      const navigation: NavigationSource = {
+        ...ref.navigation,
+        addListener(event, listener) {
+          const remove = ref.navigation.addListener(event, listener);
+          return () => {
+            removals.push(event);
+            if (event === failedEvent) throw failure;
+            remove();
+          };
+        },
+      };
+      const cleanup = trackNavigation(client, navigation);
+      await client.flush();
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(() => cleanup()).toThrow(failure);
+      expect(removals).toEqual(['ready', 'state']);
+      await client.dispose();
+      expect(() => {
+        ref.setRoute({ key: 'later', name: 'Later' });
+        ref.setReady();
+        cleanup();
+      }).not.toThrow();
+      expect(fetch).toHaveBeenCalledOnce();
+    } finally {
+      await client.dispose();
+      vi.unstubAllGlobals();
+    }
+  }
+);
+
+it.each(['ready', 'state'] as const)(
+  'invalidates partially registered navigation when %s subscription setup throws',
+  async failedEvent => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    const client = await createAltertable('key', {
+      storage: createAsyncStorageMock(),
+    });
+    try {
+      const ref = createNavigation();
+      const removals: string[] = [];
+      const failure = new Error('Subscribe failed');
+      const navigation: NavigationSource = {
+        ...ref.navigation,
+        addListener(event, listener) {
+          ref.navigation.addListener(event, listener);
+          // A dependency may attach before failing to return its cleanup handle.
+          if (event === failedEvent) throw failure;
+          return () => {
+            removals.push(event);
+            throw new Error('Removal failed before detachment');
+          };
+        },
+      };
+      expect(() => trackNavigation(client, navigation)).toThrow(failure);
+      expect(removals).toEqual(failedEvent === 'state' ? ['ready'] : []);
+      await client.dispose();
+      expect(() => {
+        ref.setRoute({ key: 'later', name: 'Later' });
+        ref.setReady();
+      }).not.toThrow();
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      await client.dispose();
+      vi.unstubAllGlobals();
+    }
+  }
+);
