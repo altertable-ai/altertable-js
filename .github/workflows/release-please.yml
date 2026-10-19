@@ -78,6 +78,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Check packed consumers and bundle sizes
+        run: bun run check:package
+
       - name: Publish @altertable/altertable-js
         working-directory: packages/altertable-js
         run: |
@@ -87,7 +90,7 @@ jobs:
           if npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "${package_name}@${package_version} is already published; skipping."
           else
-            npm publish
+            npm publish --provenance
           fi
 
       - name: Publish @altertable/altertable-react
@@ -99,7 +102,7 @@ jobs:
           if npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "${package_name}@${package_version} is already published; skipping."
           else
-            npm publish
+            npm publish --provenance
           fi
 
       - name: Publish @altertable/altertable-react-native
@@ -111,5 +114,5 @@ jobs:
           if npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "${package_name}@${package_version} is already published; skipping."
           else
-            npm publish
+            npm publish --provenance
           fi
