@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "workspaces": {
+    ".": {
+      // Copied into isolated installations by check-runtime.ts, then bundled by Metro.
+      "entry": ["scripts/react-native/fixture/App.tsx"],
+      // Installed at minimum/current versions inside the isolated native fixture.
+      "ignoreDependencies": ["react-native"],
+    },
+    "examples/example-react-native": {
+      // The Expo plugin assumes expo-updates unless explicitly disabled in app.json.
+      // This workspace does not install or use the optional OTA updates integration.
+      "ignoreDependencies": ["expo-updates"],
+    },
+  },
+}

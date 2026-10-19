@@ -44,6 +44,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Check unused code and dependencies
+        run: bun run knip
+
       - name: Check formatting
         run: bun run format:check
 

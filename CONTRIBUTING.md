@@ -38,7 +38,7 @@ Expo examples. `bun run dev` builds once before starting all watchers; use
 `dev:packages` or `dev:examples` to select a subset. `bun run test` exits after
 running tests; `bun run test:watch` keeps watching.
 
-`bun run check` runs builds, typechecking, linting, formatting, tests, and
+`bun run check` runs builds, typechecking, linting, Knip, formatting, tests, and
 `check:package`. Workspace dependency installation stays separate. `check:package` preserves
 the gzip budgets, parses the snippet as ES5, executes the browser global, and
 qualifies packed core/React consumers with React 16.8 and current React. Each
@@ -66,3 +66,10 @@ output names. The snippet uses the SWC CLI directly because tsdown/Rolldown
 reject ES5 targets. Its config preserves the IIFE boundary to avoid global names.
 Preserve all public formats, global filenames, platform exports, and runtime
 limits when revisiting that exception.
+
+`bun run knip` checks unused files, exports, and dependencies across the SDK
+workspaces, examples, tests, and scripts. Its built-in tsdown, Vitest, Vite, SWC,
+and Expo plugins discover normal entry points and preserve package entry exports.
+`knip.jsonc` adds the native fixture copied into temporary installations and
+records its dynamically installed runtime plus the Expo plugin's optional OTA
+updates assumption.
