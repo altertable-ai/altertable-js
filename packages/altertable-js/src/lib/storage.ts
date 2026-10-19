@@ -170,6 +170,12 @@ function testStorageSupport(
   );
 }
 
+function isStorageAdapter(
+  value: Persistence | 'unknown'
+): value is StorageAdapter {
+  return typeof value === 'object' && value !== null;
+}
+
 export function selectStorage(
   type: Persistence | 'unknown',
   params: {
@@ -179,7 +185,7 @@ export function selectStorage(
 ): StorageApi {
   const { onFallback } = params;
 
-  if (typeof type === 'object' && type !== null) {
+  if (isStorageAdapter(type)) {
     const reportStorageError = (operation: string, error: unknown) => {
       const sourceError =
         // oxlint-disable-next-line typescript/no-base-to-string -- Storage adapters can throw any value; preserve its diagnostic text.
@@ -267,7 +273,6 @@ export function selectStorage(
 
     default: {
       throw new Error(
-        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions -- Invalid runtime inputs are included verbatim in this diagnostic.
         `Unknown storage type: "${type}". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.`
       );
     }
@@ -283,7 +288,7 @@ export function selectEventStorage(
 ): StorageApi {
   const { onFallback } = params;
 
-  if (typeof type === 'object' && type !== null) {
+  if (isStorageAdapter(type)) {
     return selectStorage(type, params);
   }
 
@@ -316,7 +321,6 @@ export function selectEventStorage(
 
     default: {
       throw new Error(
-        // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions -- Invalid runtime inputs are included verbatim in this diagnostic.
         `Unknown storage type: "${type}". Valid types are: localStorage, sessionStorage, cookie, memory, localStorage+cookie.`
       );
     }
