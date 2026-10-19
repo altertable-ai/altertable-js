@@ -20,7 +20,6 @@
     "lint": "oxlint --type-aware --deny-warnings .",
     "lint:fix": "oxlint --type-aware --fix .",
     "test": "bun run --filter './packages/*' test",
-    "test:watch": "bun run --parallel --filter './packages/*' test:watch",
     "coverage": "bun run --parallel --filter './packages/*' coverage",
     "bundlesize": "bun run scripts/package/check-size.ts",
     "check:react-native": "bun run scripts/react-native/check-runtime.ts",

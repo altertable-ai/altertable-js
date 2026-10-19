@@ -50,13 +50,13 @@ bun run test
 
 ### Development Workflow
 
-| Step       | Command              | Description                                       |
-| ---------- | -------------------- | ------------------------------------------------- |
-| Start      | `bun run dev`        | Start all packages and examples in watch mode     |
-| Edit       | –                    | Modify files and changes auto-reflect in examples |
-| Test       | `bun run test:watch` | Run tests in watch mode                           |
-| Lint       | `bun run lint`       | Check code quality                                |
-| Type check | `bun run typecheck`  | Verify TypeScript types                           |
+| Step       | Command             | Description                                       |
+| ---------- | ------------------- | ------------------------------------------------- |
+| Start      | `bun run dev`       | Start all packages and examples in watch mode     |
+| Edit       | –                   | Modify files and changes auto-reflect in examples |
+| Test       | `bun run test`      | Run tests once                                    |
+| Lint       | `bun run lint`      | Check code quality                                |
+| Type check | `bun run typecheck` | Verify TypeScript types                           |
 
 ### Monorepo Scripts
 
@@ -73,7 +73,6 @@ bun run test
 | `format`       | Format the monorepo with Oxfmt                               |
 | `format:check` | Check formatting across the monorepo                         |
 | `test`         | Run tests across all packages                                |
-| `test:watch`   | Run tests in watch mode across all packages                  |
 
 ## Testing
 
@@ -82,9 +81,6 @@ The monorepo uses [Vitest](https://vitest.dev/) for testing:
 ```bash
 # Run all tests
 bun run test
-
-# Run tests in watch mode
-bun run test:watch
 
 # Run tests for a specific package
 cd packages/altertable-js && bun run test
