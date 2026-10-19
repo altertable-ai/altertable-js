@@ -106,7 +106,7 @@ try {
           '@altertable/altertable-react': react,
           react: version,
           'react-dom': version,
-          '@types/react': version === '16.8.0' ? '16.8.0' : '19.3.0',
+          '@types/react': version === '16.8.0' ? '16.14.70' : '19.3.0',
           typescript: '7.0.2',
         },
       })
