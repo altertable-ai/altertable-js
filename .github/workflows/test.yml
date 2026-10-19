@@ -35,26 +35,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build
-        run: bun run build
-
-      - name: Type check
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Check unused code and dependencies
-        run: bun run knip
-
-      - name: Check formatting
-        run: bun run format:check
-
-      - name: Run tests
-        run: bun run test
-
-      - name: Check packed consumers and bundle sizes
-        run: bun run check:package
+      - name: Run repository checks
+        run: bun run check
 
   integration:
     name: Integration Tests
