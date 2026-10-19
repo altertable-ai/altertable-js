@@ -154,7 +154,8 @@ describe.each([
     attach();
     adapter.init('posthog-test', {
       ...config,
-      before_send: (value: CaptureResult) => {
+      before_send: (value: CaptureResult | null) => {
+        if (value === null) return null;
         if (value.event === 'Drop') return null;
         if (value.properties) delete value.properties.secret;
         return value;

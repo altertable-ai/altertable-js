@@ -170,12 +170,6 @@ function testStorageSupport(
   );
 }
 
-function isStorageAdapter(
-  value: Persistence | 'unknown'
-): value is StorageAdapter {
-  return typeof value === 'object' && value !== null;
-}
-
 export function selectStorage(
   type: Persistence | 'unknown',
   params: {
@@ -185,10 +179,9 @@ export function selectStorage(
 ): StorageApi {
   const { onFallback } = params;
 
-  if (isStorageAdapter(type)) {
+  if (typeof type === 'object' && type !== null) {
     const reportStorageError = (operation: string, error: unknown) => {
       const sourceError =
-        // oxlint-disable-next-line typescript/no-base-to-string -- Storage adapters can throw any value; preserve its diagnostic text.
         error instanceof Error ? error : new Error(String(error));
       onFallback(
         `Failed to ${operation} persisted data: ${sourceError.message}`
@@ -288,7 +281,7 @@ export function selectEventStorage(
 ): StorageApi {
   const { onFallback } = params;
 
-  if (isStorageAdapter(type)) {
+  if (typeof type === 'object' && type !== null) {
     return selectStorage(type, params);
   }
 

@@ -204,19 +204,34 @@ export class Altertable {
   private _lifecycleOwner: object | undefined;
   private _unsubscribeUrlChanges: (() => void) | undefined;
   private _unsubscribeLifecycle: (() => void) | undefined;
-  private _config: ResolvedAltertableConfig;
+  private _config: ResolvedAltertableConfig = { ...DEFAULT_CONFIG };
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
   private _lastUrl: string | null;
   private _logger = createLogger('Altertable');
   private _referrer: string | null;
-  private _requester: Requester<EventPayload> | undefined;
-  private _sessionManager: SessionManager | undefined;
+  private _requesterState: Requester<EventPayload> | undefined;
+  private _sessionManagerState: SessionManager | undefined;
   private _eventStorage: StorageApi | undefined;
   private _hasExplicitEventPersistence = false;
   private _identityStorage: StorageApi | undefined;
   private _eventStorageKey: string | undefined;
   private _identityStorageKey: string | undefined;
+
+  private get _requester(): Requester<EventPayload> {
+    invariant(this._requesterState, 'Requester is not available.');
+    return this._requesterState;
+  }
+
+  private get _sessionManager(): SessionManager {
+    invariant(this._sessionManagerState, 'Session manager is not available.');
+    return this._sessionManagerState;
+  }
+
+  private _requireBatcher(): BatcherApi {
+    invariant(this._batcher, 'Batcher is not available.');
+    return this._batcher;
+  }
 
   private readonly _platform: Platform;
 
@@ -265,7 +280,9 @@ export class Altertable {
     this._automaticFlushRequested = false;
     this._exiting = false;
     if (this._isInitialized) {
-      this._eventStorage?.removeItem(this._eventStorageKey);
+      if (this._eventStorage && this._eventStorageKey !== undefined) {
+        this._eventStorage.removeItem(this._eventStorageKey);
+      }
       this._queue.clear();
     }
     this._isInitialized = false;
@@ -300,7 +317,7 @@ export class Altertable {
         storageKeys.events
       );
     }
-    this._requester = new Requester({
+    this._requesterState = new Requester({
       baseUrl: this._config.baseUrl,
       apiKey,
       requestTimeout: REQUEST_TIMEOUT_MS,
@@ -328,7 +345,7 @@ export class Altertable {
         }
       },
     });
-    this._sessionManager = new SessionManager({
+    this._sessionManagerState = new SessionManager({
       storage: this._identityStorage,
       storageKey: this._identityStorageKey,
       logger: this._logger,
@@ -401,6 +418,13 @@ export class Altertable {
       'The client must be initialized with init() before configuring.'
     );
 
+    invariant(
+      this._identityStorage &&
+        this._identityStorageKey &&
+        this._eventStorageKey,
+      'Storage is not available.'
+    );
+
     if ('autoCapture' in updates) {
       this._requestedAutoCapture = updates.autoCapture;
     }
@@ -451,7 +475,7 @@ export class Altertable {
     if (eventPersistenceChanged) {
       const previousEventStorage = this._eventStorage;
       this._eventStorage = nextEventStorage;
-      this._batcher.updateConfig({
+      this._requireBatcher().updateConfig({
         persistence: this._getBatcherPersistence(),
       });
       if (previousEventStorage && !nextEventStorage) {
@@ -477,11 +501,11 @@ export class Altertable {
         updates.trackingConsent === TrackingConsent.GRANTED
       ) {
         this._flushQueue();
-        this._batcher.start();
+        this._requireBatcher().start();
       } else if (updates.trackingConsent === TrackingConsent.DENIED) {
         this._queue.clear();
-        this._batcher.clear();
-        this._batcher.stop();
+        this._requireBatcher().clear();
+        this._requireBatcher().stop();
       }
     }
 
@@ -498,7 +522,7 @@ export class Altertable {
       updates.flushIntervalMs !== undefined ||
       updates.maxBatchSize !== undefined
     ) {
-      this._batcher.updateConfig({
+      this._requireBatcher().updateConfig({
         flushEventThreshold: this._config.flushEventThreshold,
         flushIntervalMs: this._config.flushIntervalMs,
         maxBatchSize: this._config.maxBatchSize,
@@ -603,7 +627,9 @@ export class Altertable {
     try {
       validateUserId(userId);
     } catch (error) {
-      throw new Error(`[Altertable] ${error.message}`);
+      throw new Error(
+        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
+      );
     }
 
     if (!this._isInitialized) {
@@ -680,7 +706,9 @@ export class Altertable {
     try {
       validateUserId(newUserId);
     } catch (error) {
-      throw new Error(`[Altertable] ${error.message}`);
+      throw new Error(
+        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
+      );
     }
 
     if (!this._isInitialized) {
@@ -1063,7 +1091,7 @@ export class Altertable {
   private _executeQueueItem(item: QueueItem) {
     if (item.type === 'event') {
       // Send pre-built payload directly (preserves original session context)
-      this._batcher.add(item.eventType, item.payload);
+      this._requireBatcher().add(item.eventType, item.payload);
       return;
     }
     // Execute command (pre-init path)
@@ -1077,7 +1105,7 @@ export class Altertable {
           this._identify(...cmd.args);
           break;
         case 'track':
-          this._track(...cmd.args, cmd.runtimeContext);
+          this._track(cmd.args[0], cmd.args[1] ?? {}, cmd.runtimeContext);
           break;
         case 'page':
           this._page(...cmd.args, cmd.runtimeContext);
@@ -1147,7 +1175,11 @@ export class Altertable {
   }
 
   private async _prepareDelivery(generation: number): Promise<boolean> {
-    const ready = await this._platform.prepareDelivery!();
+    invariant(
+      typeof this._platform.prepareDelivery === 'function',
+      'Delivery preparation is not available.'
+    );
+    const ready = await this._platform.prepareDelivery();
     return (
       ready !== false && generation === this._generation && this._canDeliver()
     );
@@ -1161,7 +1193,7 @@ export class Altertable {
 
   private _flushAutomatically(scheduleNextSnapshot: boolean): Promise<void> {
     if (!this._canDeliver()) return Promise.resolve();
-    if (!this._platform.prepareDelivery) return this._batcher!.flush();
+    if (!this._platform.prepareDelivery) return this._requireBatcher().flush();
     if (this._automaticFlushTask) {
       this._automaticFlushRequested ||= scheduleNextSnapshot;
       return this._automaticFlushTask;
@@ -1175,7 +1207,7 @@ export class Altertable {
         this._canDeliver()
       ) {
         this._automaticFlushRequested = false;
-        await this._batcher!.flush({
+        await this._requireBatcher().flush({
           drain: false,
           prepare: () => this._prepareDelivery(generation),
           onSnapshot: () => {
@@ -1205,10 +1237,11 @@ export class Altertable {
   }
 
   private _flushUnload() {
-    this._batcher.flushUnload((eventType, payloads) => {
-      if (this._platform.sendOnExit) {
+    this._requireBatcher().flushUnload((eventType, payloads) => {
+      const sendOnExit = this._platform.sendOnExit?.bind(this._platform);
+      if (sendOnExit) {
         this._requester.sendUnload(`/${eventType}`, payloads, request =>
-          this._platform.sendOnExit!(request)
+          sendOnExit(request)
         );
       }
     });
@@ -1228,6 +1261,7 @@ export class Altertable {
     if (!this._eventStorage) {
       return undefined;
     }
+    invariant(this._eventStorageKey, 'Event storage key is not available.');
     return {
       storage: this._eventStorage,
       storageKey: this._eventStorageKey,
@@ -1275,7 +1309,7 @@ export class Altertable {
 
     switch (trackingConsent) {
       case TrackingConsent.GRANTED:
-        this._batcher.add(eventType, payload);
+        this._requireBatcher().add(eventType, payload);
         break;
       case TrackingConsent.PENDING:
       case TrackingConsent.DISMISSED:

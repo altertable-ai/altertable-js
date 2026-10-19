@@ -82,7 +82,7 @@ function checkRequest(
     }
   }
 
-  return validateNetworkCall(path, options, beaconMock, fetchMock);
+  return validateNetworkCall(path, options ?? {}, beaconMock, fetchMock);
 }
 
 function validateNetworkCall(

@@ -54,12 +54,13 @@ Typechecking and declaration generation use TypeScript 7.0.2. Package scripts
 use `tsc --noEmit`; source-only build configs keep test helpers out of declarations.
 tsdown currently labels its TypeScript 7 API experimental; packed-consumer checks
 verify the emitted declarations. The local TypeScript and Vitest base configs
-hold shared defaults; native
-platform settings remain in their package.
-TypeScript 7 defaults to strict checking, so the base explicitly preserves the
-previous strictness of core/React; the native and Segment overlays stay strict.
-The nullability-dependent `no-useless-default-assignment` lint rule is disabled
-only in those non-strict packages and their shared test helpers.
+hold shared defaults; native platform settings remain in their package.
+
+Strict checking is enabled in the shared TypeScript base and retained by each
+platform overlay. The root project also checks scripts and integration tests.
+Type-aware lint rules run with strict null checking enabled.
+Tests that deliberately exercise malformed JavaScript inputs mark only those
+specific invalid arguments with `@ts-expect-error`, preserving the public types.
 
 SDK and Segment builds use upstream tsdown directly, with explicit targets and
 output names. The snippet uses the SWC CLI directly because tsdown/Rolldown

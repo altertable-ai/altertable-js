@@ -136,6 +136,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutUser: TrackPayload = {
         ...mockEventPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         distinct_id: undefined,
       };
 
@@ -164,6 +165,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutAnonymousId: TrackPayload = {
         ...mockEventPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         anonymous_id: undefined,
       };
 
@@ -352,6 +354,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutDistinctId: IdentifyPayload = {
         ...mockIdentifyPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         distinct_id: undefined,
       };
 
@@ -382,6 +385,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutAnonymousId: IdentifyPayload = {
         ...mockIdentifyPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         anonymous_id: undefined,
       };
 
@@ -481,6 +485,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutDistinctId: AliasPayload = {
         ...mockAliasPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         distinct_id: undefined,
       };
 
@@ -499,6 +504,7 @@ describe('Logger', () => {
       const logger = createLogger('TestLogger');
       const payloadWithoutAnonymousId: AliasPayload = {
         ...mockAliasPayload,
+        // @ts-expect-error Exercise defensive logging of a malformed external payload.
         new_user_id: undefined,
       };
 

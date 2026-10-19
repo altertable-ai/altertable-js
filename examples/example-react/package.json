@@ -9,7 +9,7 @@
     "build": "bun run typecheck && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.node.json"
   },
   "dependencies": {
     "@altertable/altertable-js": "workspace:*",

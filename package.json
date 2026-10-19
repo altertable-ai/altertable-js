@@ -16,7 +16,7 @@
     "dev:packages": "bun run --parallel --filter './packages/*' dev",
     "dev:examples": "bun run --parallel --filter './examples/*' dev",
     "clean": "bun run --filter '*' clean",
-    "typecheck": "bun run --filter '*' typecheck",
+    "typecheck": "tsc --noEmit && bun run --filter '*' typecheck",
     "lint": "oxlint --type-aware --deny-warnings .",
     "lint:fix": "oxlint --type-aware --fix .",
     "test": "bun run --filter './packages/*' test",

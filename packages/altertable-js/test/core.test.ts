@@ -61,6 +61,7 @@ function setupWindow({
 
 describe('Altertable', () => {
   let altertable: Altertable;
+  const cleanups: (() => void)[] = [];
   const apiKey = 'test-api-key';
   const viewPort = '1024x768';
 
@@ -85,6 +86,16 @@ describe('Altertable', () => {
   }
 
   beforeEach(async () => {
+    const init = Altertable.prototype.init;
+    vi.spyOn(Altertable.prototype, 'init').mockImplementation(function (
+      this: Altertable,
+      ...args: Parameters<Altertable['init']>
+    ) {
+      const cleanup = init.apply(this, args);
+      cleanups.push(cleanup);
+      return cleanup;
+    });
+
     // Mock crypto.randomUUID for deterministic testing
     let idCounter = 0;
     vi.spyOn(crypto, 'randomUUID').mockImplementation(() => {
@@ -122,10 +133,16 @@ describe('Altertable', () => {
     if (altertable?.['_isInitialized']) {
       altertable.reset({ resetDeviceId: true });
     }
+    localStorage.clear();
+    sessionStorage.clear();
+    for (const cookie of document.cookie.split(';')) {
+      document.cookie = `${cookie.split('=')[0].trim()}=; Max-Age=0; path=/`;
+    }
     altertable = new Altertable();
   });
 
   afterEach(() => {
+    for (const cleanup of cleanups.splice(0).reverse()) cleanup();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -1085,6 +1102,7 @@ describe('Altertable', () => {
       it('throws error for null user ID', () => {
         setupAltertable();
         expect(() => {
+          // @ts-expect-error Deliberately invalid JavaScript input must still fail at runtime.
           altertable.identify(null);
         }).toThrow(
           '[Altertable] User ID cannot be empty or contain only whitespace.'
@@ -1094,6 +1112,7 @@ describe('Altertable', () => {
       it('throws error for undefined user ID', () => {
         setupAltertable();
         expect(() => {
+          // @ts-expect-error Deliberately invalid JavaScript input must still fail at runtime.
           altertable.identify(undefined);
         }).toThrow(
           '[Altertable] User ID cannot be empty or contain only whitespace.'
@@ -1357,6 +1376,7 @@ describe('Altertable', () => {
     it('throws error for null new user ID', () => {
       setupAltertable();
       expect(() => {
+        // @ts-expect-error Deliberately invalid JavaScript input must still fail at runtime.
         altertable.alias(null);
       }).toThrow(
         '[Altertable] User ID cannot be empty or contain only whitespace.'
@@ -1366,6 +1386,7 @@ describe('Altertable', () => {
     it('throws error for undefined new user ID', () => {
       setupAltertable();
       expect(() => {
+        // @ts-expect-error Deliberately invalid JavaScript input must still fail at runtime.
         altertable.alias(undefined);
       }).toThrow(
         '[Altertable] User ID cannot be empty or contain only whitespace.'
