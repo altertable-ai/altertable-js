@@ -192,18 +192,58 @@ if (!rendered.includes('packed browser consumer')) throw new Error('Browser rend
     ]);
     const types = `
 import { Altertable, type AltertableConfig, type EventProperties } from '@altertable/altertable-js';
-import { AltertableProvider, useAltertable } from '@altertable/altertable-react';
+export { AltertableProvider, useAltertable } from '@altertable/altertable-react';
 const config: Partial<AltertableConfig> = { autoCapture: false };
 const client = new Altertable();
 client.configure(config);
 const props: EventProperties = { source: 'packed-consumer' };
 client.track('consumer', props);
-const provider: typeof AltertableProvider = AltertableProvider;
-const hook: typeof useAltertable = useAltertable;
-void [provider, hook];
 `;
     await writeFile(path.join(fixture, 'consumer.mts'), types);
     await writeFile(path.join(fixture, 'consumer.cts'), types);
+    await writeFile(
+      path.join(fixture, 'consumer.tsx'),
+      `
+import { Altertable } from '@altertable/altertable-js';
+import { AltertableProvider, useAltertable } from '@altertable/altertable-react';
+
+type Funnels = {
+  signup: [
+    { name: 'Email Entered'; properties: { email: string } },
+    { name: 'Account Created'; properties: { plan: 'free' | 'paid' } },
+  ];
+  checkout: [{ name: 'Order Completed'; properties: { total: number } }];
+};
+
+function Consumer() {
+  const analytics = useAltertable<Funnels>();
+  analytics.track('Email Entered', { email: 'user@example.com' });
+  analytics.track('Order Completed', { total: 42 });
+  const signup = analytics.selectFunnel('signup');
+  signup.trackStep('Email Entered', { email: 'user@example.com' });
+  signup.trackStep('Account Created', { plan: 'paid' });
+  // @ts-expect-error Unknown event names must be rejected.
+  analytics.track('Unknown Event', {});
+  // @ts-expect-error Event properties must retain their inferred types.
+  analytics.track('Email Entered', { email: 123 });
+  // @ts-expect-error Unknown funnel names must be rejected.
+  analytics.selectFunnel('missing');
+  // @ts-expect-error A selected funnel cannot track another funnel's steps.
+  signup.trackStep('Order Completed', { total: 42 });
+  // @ts-expect-error Step properties must retain their inferred types.
+  signup.trackStep('Email Entered', { email: 123 });
+  // @ts-expect-error Literal property types must be preserved.
+  signup.trackStep('Account Created', { plan: 'enterprise' });
+  return <span>Typed consumer</span>;
+}
+
+const client = new Altertable();
+const app = <AltertableProvider client={client}><Consumer /></AltertableProvider>;
+// @ts-expect-error The provider requires an Altertable client.
+const invalid = <AltertableProvider client={{}}><Consumer /></AltertableProvider>;
+void [app, invalid];
+`
+    );
     for (const [module, moduleResolution] of [
       ['NodeNext', 'NodeNext'],
       ['ESNext', 'Bundler'],
@@ -218,8 +258,11 @@ void [provider, hook];
         moduleResolution!,
         '--target',
         'ES2020',
+        '--jsx',
+        'react-jsx',
         'consumer.mts',
         'consumer.cts',
+        'consumer.tsx',
       ]);
     }
     console.log(
