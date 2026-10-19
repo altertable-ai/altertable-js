@@ -7,18 +7,17 @@ export interface AsyncStorageAdapter {
   removeItem(key: string): Promise<unknown>;
 }
 
+interface HydratedStorage extends StorageAdapter {
+  flush(): Promise<void>;
+  close(): Promise<void>;
+}
+
 /** Hydrate before core initialization; keep native writes ordered and retryable. */
 export async function hydrateStorage(
   backend: AsyncStorageAdapter,
   keys: string[],
   onError: (error: Error, operation: 'read' | 'write') => void
-): Promise<
-  StorageAdapter & {
-    hasPendingWrites(): boolean;
-    flush(): Promise<void>;
-    close(): Promise<void>;
-  }
-> {
+): Promise<HydratedStorage> {
   const entries = await Promise.all(
     keys.map(async key => [key, await backend.getItem(key)] as const)
   ).catch(error => {
@@ -30,14 +29,14 @@ export async function hydrateStorage(
   const cachedValues = new Map(entries);
   const pendingWrites = new Map<string, string | null>();
   let writeTask: Promise<void> | undefined;
-  let closed = false;
+  let isClosed = false;
 
   function startWriting() {
     if (writeTask || pendingWrites.size === 0) {
       return;
     }
 
-    let failed = false;
+    let writeFailed = false;
     writeTask = Promise.resolve()
       .then(async () => {
         while (pendingWrites.size > 0) {
@@ -55,7 +54,7 @@ export async function hydrateStorage(
               pendingWrites.set(key, value);
             }
 
-            failed = true;
+            writeFailed = true;
             throw error;
           }
         }
@@ -63,7 +62,7 @@ export async function hydrateStorage(
       })
       .finally(() => {
         writeTask = undefined;
-        if (!failed) {
+        if (!writeFailed) {
           startWriting();
         }
       });
@@ -78,7 +77,7 @@ export async function hydrateStorage(
   function update(key: string, value: string | null) {
     // Requests already in flight may finish after disposal. Preserve their
     // durable snapshot rather than letting an old client overwrite a new one.
-    if (closed) {
+    if (isClosed) {
       return;
     }
 
@@ -104,10 +103,9 @@ export async function hydrateStorage(
     removeItem(key) {
       update(key, null);
     },
-    hasPendingWrites: () => pendingWrites.size > 0 || writeTask !== undefined,
     flush,
     close() {
-      closed = true;
+      isClosed = true;
 
       return flush();
     },

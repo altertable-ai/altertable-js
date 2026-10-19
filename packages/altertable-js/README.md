@@ -295,7 +295,10 @@ altertable.reset({
 
 #### `altertable.configure(updates)`
 
-Updates the configuration after initialization.
+Updates the configuration after initialization. A `baseUrl` change applies to new
+requests; batches already in flight keep their original destination across retries.
+If enabling autocapture fails to subscribe, calling `configure({ autoCapture: true })`
+again retries registration.
 
 **Parameters:**
 
@@ -439,10 +442,16 @@ adapter. It must implement `getItem(key): string | null`,
 initialization and provide a synchronous in-memory adapter; do not pass an async
 storage API directly.
 
+Thrown custom write and deletion errors reach `onError`. Failed event writes leave
+events in memory, and storage errors do not requeue acknowledged events. Read
+errors propagate to `init()` or `configure()`; after a failed migration read, fix
+the backend and retry the same configuration.
+
 Use the exported `getStorageKeys(apiKey, environment?)` to resolve the `session`
 and `events` keys before hydration. The environment defaults to `production`.
-For custom runtimes, `isOnline: () => boolean` overrides browser connectivity
-detection. Returning `false` retains buffered events until a later flush.
+For custom runtimes, supply a [platform](#runtime-platforms) to the constructor.
+Its `isOnline()` method reads connectivity; returning `false` retains buffered
+events until a later flush.
 
 The `Altertable` constructor is exported for applications that need separate
 client instances. Call the cleanup function returned by `init()` when disposing
@@ -468,6 +477,80 @@ Available tracking consent states.
 | `"denied"`    | User has denied consent for tracking  |
 | `"pending"`   | User hasn't made a decision yet       |
 | `"dismissed"` | User dismissed the consent prompt     |
+
+## Runtime platforms
+
+`new Altertable()` uses `browserPlatform` by default. Supply a `Platform` to the
+constructor when hosting the core SDK in another runtime. The platform is fixed
+for the client's lifetime and is available before `init()`, so queued events keep
+the context captured when they were recorded.
+
+```typescript
+import { Altertable, type Platform } from '@altertable/altertable-js';
+
+const platform: Platform = {
+  getContext: () => ({ properties: { runtime: 'worker' } }),
+};
+
+const client = new Altertable(platform);
+client.track('Started');
+const cleanup = client.init('YOUR_API_KEY', { persistence: 'memory' });
+await client.flush();
+cleanup();
+```
+
+| Capability                      | Contract                                                                                                                                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext()`                  | Return the current URL, referrer, viewport, and default event `properties`. Omitted browser fields become `null`. Event properties can override defaults.                                                                           |
+| `isOnline()`                    | Read connectivity without side effects. Omitting it assumes connectivity.                                                                                                                                                           |
+| `subscribeLifecycle(listener)`  | Report `active`, `inactive`, `online`, or `exit`; return a cleanup function. Active, inactive, and online events request normal delivery.                                                                                           |
+| `subscribeUrlChanges(listener)` | Report subsequent URL changes; return a cleanup function. With `autoCapture` enabled, the SDK records the initial URL and tracks changes with the previous URL as referrer.                                                         |
+| `prepareDelivery()`             | Await prerequisites before sending each fixed normal delivery snapshot. Resolve with `true` or `undefined` to proceed, `false` to defer, or reject to prevent the attempt. This does not run for exit transport or each HTTP retry. |
+| `sendOnExit({ url, body })`     | Optionally provide synchronous best-effort exit delivery. Events remain persisted until normal delivery succeeds. Without this capability, an exit event requests normal delivery.                                                  |
+
+Only `getContext()` is required. Missing subscriptions disable those integrations;
+the SDK does not substitute browser implementations for an explicitly supplied
+platform. Storage remains a separate dependency through `persistence` and
+`eventPersistence`, which accept a `StorageAdapter`.
+
+Normal delivery respects tracking consent and connectivity. For platforms with
+asynchronous delivery preparation, overlapping automatic requests are coalesced;
+new threshold events trigger a subsequent snapshot, while failed requests wait
+for a later trigger. Overlapping lifecycle or interval requests share the current
+snapshot; events below the threshold remain batched until the next trigger.
+Snapshots select events before preparation starts; later arrivals require their
+own prepared snapshot. Explicit `flush()` continues draining, preparing every new
+snapshot. `flush({ drain: false })` shares the automatic delivery task on these
+platforms. Preparation failures reach `onError` for automatic attempts and reject
+explicit flushes.
+
+Cleanup stops platform subscriptions, timers, and further delivery. Subscription
+ownership is revoked before cleanup runs, so queued callbacks and callbacks
+retained by failed cleanup are ignored. Retired batchers cannot modify storage
+when old requests finish. Cleanup, reset, and consent denial cancel HTTP retries;
+cleanup and reinitialization also prevent pending preparation from starting stale
+delivery. Reinitialize before continuing to use a cleaned-up client.
+
+To extend browser behavior, compose the exported implementation directly:
+
+```typescript
+import { Altertable, browserPlatform } from '@altertable/altertable-js';
+
+const client = new Altertable({
+  ...browserPlatform,
+  getContext() {
+    return {
+      ...browserPlatform.getContext(),
+      properties: { application: 'dashboard' },
+    };
+  },
+});
+```
+
+The React Native package supplies native context, AppState lifecycle handling,
+optional connectivity, and asynchronous storage preparation through this same
+contract. Analytics-provider subscriptions are independent of browser detection;
+a configured provider must satisfy its own adapter contract.
 
 ## License
 

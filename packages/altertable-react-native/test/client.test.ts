@@ -1,6 +1,7 @@
 import { getStorageKeys } from '@altertable/altertable-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+import { lifecycleOwnershipConformanceTests } from '../../../test-utils/platformLifecycleConformance';
 import {
   createAltertable,
   type Connectivity,
@@ -764,3 +765,150 @@ it('warns once about repeated native persistence failures without an error callb
     warn.mockRestore();
   }
 });
+
+it('coalesces restored startup delivery with newly collected threshold events', async () => {
+  const first = await create({ connectivity });
+  first.track('Restored Event');
+  await first.dispose();
+  const response = deferred<Response>();
+  vi.mocked(fetch).mockReturnValueOnce(response.promise);
+  const second = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+  second.track('New Event');
+  emitAppState('active');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledOnce();
+  response.resolve({ ok: true } as Response);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual([
+    'Restored Event',
+    'New Event',
+  ]);
+});
+
+it('reports a native write failure once when automatic preparation observes it', async () => {
+  const errors: Error[] = [];
+  const client = await create({
+    flushEventThreshold: 1,
+    onError: error => errors.push(error),
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  const error = new Error('Write failed');
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events) throw error;
+    await setItem(key, value);
+  });
+  try {
+    client.track('Not Yet Durable');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(errors).toEqual([error]);
+  } finally {
+    storageMock.setItem.mockImplementation(setItem);
+  }
+});
+
+it('does not immediately retry a failed automatic snapshot after startup', async () => {
+  const onError = vi.fn();
+  const client = await create({ flushEventThreshold: 1, onError });
+  // Track before startup's automatic preparation has completed.
+  vi.mocked(fetch).mockRejectedValue(new Error('Offline'));
+  client.track('Joined Startup Snapshot');
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(onError).toHaveBeenCalledOnce();
+  vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+});
+
+it('prepares a fixed snapshot when another event arrives after native persistence completes', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  const secondWrite = deferred<void>();
+  const setItem = storageMock.setItem.getMockImplementation()!;
+  storageMock.setItem.mockImplementation(async (key, value) => {
+    if (key === keys.events && value.includes('Second'))
+      await secondWrite.promise;
+    await setItem(key, value);
+  });
+  try {
+    client.track('First');
+    const arrival = client
+      .flushPersistence()
+      .then(() => client.track('Second'));
+    await vi.advanceTimersByTimeAsync(0);
+    await arrival;
+    expect(payloads().map(payload => payload.event)).toEqual(['First']);
+    expect(storageMock.values.get(keys.events)).not.toContain('Second');
+  } finally {
+    secondWrite.resolve();
+  }
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads().map(payload => payload.event)).toEqual(['First', 'Second']);
+});
+
+// Native replacement creates a new core, so this verifies disposal isolation.
+// The core platform suite also exercises replacement on the same instance.
+lifecycleOwnershipConformanceTests(async () => {
+  const addEventListener = AppState.addEventListener.getMockImplementation()!;
+  const listeners: Array<Parameters<typeof AppState.addEventListener>[1]> = [];
+  const removals: Array<() => void> = [];
+  let staleListeners: typeof listeners = [];
+  let cleanupError: Error | undefined;
+  AppState.addEventListener.mockImplementation((event, listener) => {
+    listeners.push(listener);
+    const subscription = addEventListener(event, listener);
+    removals.push(subscription.remove);
+    return {
+      remove() {
+        if (cleanupError) throw cleanupError;
+        subscription.remove();
+      },
+    };
+  });
+  const first = await create();
+  return {
+    retire: () => first.dispose(),
+    replace: () => create(),
+    setCleanupError(error) {
+      staleListeners = [...listeners];
+      cleanupError = error;
+    },
+    emitStale: () => staleListeners.forEach(listener => listener('active')),
+    cleanup() {
+      cleanupError = undefined;
+      removals.forEach(remove => remove());
+      AppState.addEventListener.mockImplementation(addEventListener);
+    },
+  };
+});
+
+it.each(['denial', 'reset', 'disposal'] as const)(
+  'cancels native HTTP retry backoff on %s',
+  async action => {
+    const onError = vi.fn();
+    const client = await create({ flushEventThreshold: 1, onError });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Unavailable',
+      json: async () => ({}),
+    } as Response);
+    client.track('Withdrawn');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledOnce();
+    if (action === 'denial')
+      await client.configure({ trackingConsent: 'denied' });
+    else if (action === 'reset') await client.reset();
+    else await client.dispose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(onError).not.toHaveBeenCalled();
+    if (action === 'disposal') {
+      expect(storageMock.values.get(keys.events)).toContain('Withdrawn');
+    } else {
+      expect(storageMock.values.has(keys.events)).toBe(false);
+    }
+  }
+);

@@ -3,6 +3,12 @@ import { Altertable, type AltertableConfig } from './core';
 import { safelyRunOnBrowser } from './lib/safelyRunOnBrowser';
 
 export { Altertable };
+export { browserPlatform } from './platform/browser';
+export type {
+  Platform,
+  PlatformContext,
+  PlatformLifecycleEvent,
+} from './platform/types';
 export type { AltertableConfig };
 export { getStorageKeys } from './lib/getStorageKeys';
 export type { Persistence, StorageAdapter } from './lib/storage';

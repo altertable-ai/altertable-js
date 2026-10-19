@@ -9,14 +9,13 @@ export interface NavigationSource {
 
 type ScreenClient = Pick<ReactNativeClient, 'screen'>;
 
-// Effect cleanup removes listeners, but replay must retain the last visit.
-// Weak keys keep this state scoped to the client and navigator lifetimes.
+// Keep the last visit across effect replay without retaining the client or navigator.
 const lastRouteKeys = new WeakMap<
   NavigationSource,
   WeakMap<ScreenClient, string>
 >();
 
-/** Track the initial route and subsequent visits. Returns listener cleanup. */
+/** Track initial and subsequent visits. Cleanup invalidates callbacks before removing listeners. */
 export function trackNavigation(
   client: ScreenClient,
   navigation: NavigationSource
@@ -25,8 +24,12 @@ export function trackNavigation(
     lastRouteKeys.get(navigation) ?? new WeakMap<ScreenClient, string>();
   lastRouteKeys.set(navigation, routeKeys);
 
+  let active = true;
+  let removeReadyListener: (() => void) | undefined;
+  let removeStateListener: (() => void) | undefined;
+
   function trackCurrentRoute() {
-    if (!navigation.isReady()) {
+    if (!active || !navigation.isReady()) {
       return;
     }
 
@@ -39,18 +42,28 @@ export function trackNavigation(
     routeKeys.set(client, route.key);
   }
 
-  const removeReadyListener = navigation.addListener(
-    'ready',
-    trackCurrentRoute
-  );
-  const removeStateListener = navigation.addListener(
-    'state',
-    trackCurrentRoute
-  );
-  trackCurrentRoute();
+  function cleanup() {
+    if (!active) return;
+    active = false;
+    try {
+      removeReadyListener?.();
+    } finally {
+      removeStateListener?.();
+    }
+  }
 
-  return () => {
-    removeReadyListener();
-    removeStateListener();
-  };
+  try {
+    removeReadyListener = navigation.addListener('ready', trackCurrentRoute);
+    removeStateListener = navigation.addListener('state', trackCurrentRoute);
+    trackCurrentRoute();
+  } catch (error) {
+    try {
+      cleanup();
+    } catch {
+      // Preserve the setup failure after attempting every available removal.
+    }
+    throw error;
+  }
+
+  return cleanup;
 }

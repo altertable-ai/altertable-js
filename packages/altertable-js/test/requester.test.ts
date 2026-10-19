@@ -164,54 +164,6 @@ describe('Requester', () => {
     });
   });
 
-  describe('sendUnload()', () => {
-    it('should no-op when payloads are empty', () => {
-      requester.sendUnload('/track', []);
-
-      expect(mockSendBeacon).not.toHaveBeenCalled();
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('should use sendBeacon when available', () => {
-      const first = createTrackEventPayload({ event: 'a' });
-      const second = createTrackEventPayload({ event: 'b' });
-
-      requester.sendUnload('/track', [first, second]);
-
-      expect(mockSendBeacon).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledTimes(0);
-      const [url, blob] = mockSendBeacon.mock.calls[0];
-      expect(url).toBe('https://api.altertable.ai/track?apiKey=test-api-key');
-      expect(blob).toBeInstanceOf(Blob);
-    });
-
-    it('should fall back to fetch keepalive when sendBeacon returns false', () => {
-      mockSendBeacon.mockReturnValue(false);
-      const payload = createTrackEventPayload();
-
-      requester.sendUnload('/track', [payload]);
-
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.keepalive).toBe(true);
-      expect(JSON.parse(options.body)).toEqual([payload]);
-    });
-
-    it('should fall back to fetch keepalive when sendBeacon throws', () => {
-      mockSendBeacon.mockImplementation(() => {
-        throw new Error('sendBeacon failed');
-      });
-      const payload = createTrackEventPayload();
-
-      requester.sendUnload('/track', [payload]);
-
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.keepalive).toBe(true);
-      expect(JSON.parse(options.body)).toEqual([payload]);
-    });
-  });
-
   describe('fetch fallback behavior', () => {
     beforeEach(() => {
       setupBeaconUnavailable();
@@ -223,17 +175,6 @@ describe('Requester', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockSendBeacon).toHaveBeenCalledTimes(0);
-    });
-
-    it('sendUnload uses fetch keepalive when sendBeacon is not available', () => {
-      const payload = createTrackEventPayload();
-
-      requester.sendUnload('/track', [payload]);
-
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.keepalive).toBe(true);
-      expect(JSON.parse(options.body)).toEqual([payload]);
     });
 
     it('should configure fetch with correct options', async () => {
