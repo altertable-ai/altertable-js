@@ -1,7 +1,7 @@
 import { keyBuilder } from '../constants';
 import { createKeyBuilder } from './keyBuilder';
 
-const storageKeyBuilder = createKeyBuilder('atbl.2', '.');
+const storageKeyBuilder = createKeyBuilder('atbl.v2', '.');
 
 type StorageKeys = { session: string; events: string };
 
@@ -14,7 +14,7 @@ export function getStorageKeys(
 ): StorageKeys;
 export function getStorageKeys(apiKey: string, _environment?: string) {
   return {
-    session: storageKeyBuilder(apiKey),
+    session: storageKeyBuilder(apiKey, 'session'),
     events: storageKeyBuilder(apiKey, 'events'),
   };
 }

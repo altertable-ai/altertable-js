@@ -1211,14 +1211,14 @@ describe('Altertable', () => {
         setupAltertable();
         const sessionStorageCalls = () =>
           storageMock.setItem.mock.calls.filter(
-            ([key]) => key === 'atbl.2.test-api-key'
+            ([key]) => key === 'atbl.v2.test-api-key.session'
           );
         expect(sessionStorageCalls()).toHaveLength(1);
 
         altertable.identify('user123', { email: 'user@example.com' });
         expect(sessionStorageCalls()).toHaveLength(2);
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.2.test-api-key',
+          'atbl.v2.test-api-key.session',
           expect.stringContaining('"distinctId":"user123"')
         );
 
@@ -1432,7 +1432,9 @@ describe('Altertable', () => {
             getItem: vi
               .fn()
               .mockImplementation(key =>
-                key === 'atbl.2.test-api-key' ? existingSessionData : null
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
               ),
           })
         );
@@ -1466,7 +1468,9 @@ describe('Altertable', () => {
             getItem: vi
               .fn()
               .mockImplementation(key =>
-                key === 'atbl.2.test-api-key' ? existingSessionData : null
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
               ),
           })
         );
@@ -1518,7 +1522,9 @@ describe('Altertable', () => {
             getItem: vi
               .fn()
               .mockImplementation(key =>
-                key === 'atbl.2.test-api-key' ? existingSessionData : null
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
               ),
           })
         );
@@ -1627,12 +1633,12 @@ describe('Altertable', () => {
         altertable.identify('user123', { email: 'user@example.com' });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.2.test-api-key',
+          'atbl.v2.test-api-key.session',
           expect.stringContaining('"distinctId":"user123"')
         );
 
         const sessionStorageCalls = storageMock.setItem.mock.calls.filter(
-          ([key]) => key === 'atbl.2.test-api-key'
+          ([key]) => key === 'atbl.v2.test-api-key.session'
         );
         const storedData = JSON.parse(sessionStorageCalls.at(-1)![1]);
         expect(storedData).toMatchObject({
@@ -1657,7 +1663,7 @@ describe('Altertable', () => {
           getItem: vi
             .fn()
             .mockImplementation(key =>
-              key === 'atbl.2.test-api-key' ? existingData : null
+              key === 'atbl.v2.test-api-key.session' ? existingData : null
             ),
         });
 
@@ -1684,7 +1690,7 @@ describe('Altertable', () => {
           getItem: vi
             .fn()
             .mockImplementation(key =>
-              key === 'atbl.2.test-api-key' ? 'invalid-json' : null
+              key === 'atbl.v2.test-api-key.session' ? 'invalid-json' : null
             ),
         });
 
@@ -1722,7 +1728,7 @@ describe('Altertable', () => {
         });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.2.test-api-key',
+          'atbl.v2.test-api-key.session',
           expect.anything()
         );
       });
@@ -1740,7 +1746,7 @@ describe('Altertable', () => {
         });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.2.test-api-key',
+          'atbl.v2.test-api-key.session',
           expect.anything()
         );
       });
@@ -1775,10 +1781,10 @@ describe('Altertable', () => {
         altertable.configure({ persistence: 'memory' });
 
         expect(migrateSpy).toHaveBeenCalledWith(initialStorageMock, [
-          'atbl.2.test-api-key',
+          'atbl.v2.test-api-key.session',
         ]);
         expect(eventMigrateSpy).toHaveBeenCalledWith(initialEventStorageMock, [
-          'atbl.2.test-api-key.events',
+          'atbl.v2.test-api-key.events',
         ]);
       });
 
@@ -1855,7 +1861,7 @@ describe('Altertable', () => {
         altertable.configure({ eventPersistence: false });
 
         expect(eventStorageMock.removeItem).toHaveBeenCalledWith(
-          'atbl.2.test-api-key.events'
+          'atbl.v2.test-api-key.events'
         );
       });
 
@@ -3414,7 +3420,7 @@ describe('Altertable', () => {
   });
 
   describe('batching and flush()', () => {
-    const eventStorageKey = 'atbl.2.test-api-key.events';
+    const eventStorageKey = 'atbl.v2.test-api-key.events';
 
     function initPersistentClient(client: Altertable): () => void {
       return client.init(apiKey, {
