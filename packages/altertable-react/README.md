@@ -1,5 +1,7 @@
 # @altertable/altertable-react
 
+Requires React 16.14 or newer.
+
 React SDK for capturing and sending analytics events to Altertable with type-safe funnel tracking.
 
 ## Installation

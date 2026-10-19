@@ -5,7 +5,7 @@
     "noImplicitAny": true,
     "rootDir": "../..",
     "outDir": ".",
-    "jsx": "react",
+    "jsx": "react-jsx",
     "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],

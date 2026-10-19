@@ -91,7 +91,7 @@ try {
 
   // Keep the minimum runtime on maintained React 16 types, which include React.JSX.
   const reactTypeVersions = {
-    '16.8.0': '16.14.70',
+    '16.14.0': '16.14.70',
     '19.3.0': '19.3.0',
   };
 
