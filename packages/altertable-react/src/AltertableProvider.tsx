@@ -1,7 +1,9 @@
 import { type Altertable, altertable } from '@altertable/altertable-js';
-import React, { type ReactNode } from 'react';
+import React, { type ReactElement, type ReactNode } from 'react';
 
-const AltertableContext = React.createContext<Altertable>(altertable);
+const { createContext, useContext } = React;
+
+const AltertableContext = createContext<Altertable>(altertable);
 AltertableContext.displayName = 'AltertableContext';
 
 interface AltertableProviderProps {
@@ -35,7 +37,7 @@ export function AltertableProvider({
   /** The Altertable client instance */
   client,
   children,
-}: AltertableProviderProps): React.ReactElement<unknown> {
+}: AltertableProviderProps): ReactElement<unknown> {
   return (
     <AltertableContext.Provider value={client}>
       {children}
@@ -44,5 +46,5 @@ export function AltertableProvider({
 }
 
 export function useAltertableContext() {
-  return React.useContext(AltertableContext);
+  return useContext(AltertableContext);
 }

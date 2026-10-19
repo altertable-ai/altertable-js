@@ -9,6 +9,8 @@ import {
   FunnelTracker,
 } from './types';
 
+const { useCallback, useMemo } = React;
+
 /**
  * `useAltertable()` provides access to type-safe event and funnel tracking for Altertable.
  *
@@ -53,7 +55,7 @@ export function useAltertable<T extends FunnelMapping>() {
    * altertable.track('Email Entered', { email: 'user@example.com' });
    * ```
    */
-  const track = React.useCallback(
+  const track = useCallback(
     <Steps extends T[keyof T] = T[keyof T]>(
       eventName: FunnelStepName<Steps>,
       properties: FunnelStepProperties<Steps, typeof eventName> = {}
@@ -69,7 +71,7 @@ export function useAltertable<T extends FunnelMapping>() {
     [altertable]
   );
 
-  const funnelTracker = React.useMemo(
+  const funnelTracker = useMemo(
     (): FunnelTracker<T[keyof T]> => ({
       trackStep: track<T[keyof T]>,
     }),
@@ -90,7 +92,7 @@ export function useAltertable<T extends FunnelMapping>() {
    * signupFunnel.trackStep('Email Entered', { email: 'user@example.com' });
    * ```
    */
-  const selectFunnel = React.useCallback(
+  const selectFunnel = useCallback(
     <FunnelName extends keyof T>(
       _funnelName: FunnelName
     ): FunnelTracker<T[FunnelName]> =>
@@ -98,7 +100,7 @@ export function useAltertable<T extends FunnelMapping>() {
     [funnelTracker]
   );
 
-  return React.useMemo(
+  return useMemo(
     () => ({
       alias: altertable.alias.bind(altertable),
       configure: altertable.configure.bind(altertable),
