@@ -33,13 +33,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('stores identity and events under the public environment-scoped keys', async () => {
+it('stores identity and events under public API-key-scoped keys', async () => {
   const { storage, values } = createStorage();
   const keys = getStorageKeys('key', 'staging');
   const client = new Altertable();
   cleanup = client.init('key', {
     persistence: storage,
-    environment: 'staging',
   });
   client.track('Purchase');
   expect(values.has(keys.session)).toBe(true);
@@ -504,3 +503,169 @@ it.each(['session', 'events'] as const)(
     expect(source.values.has(keys.events)).toBe(false);
   }
 );
+
+it.each(['production', 'staging', 'events'])(
+  'migrates legacy %s identity, consent, and queued events before initialization',
+  async environment => {
+    const { storage, values } = createStorage();
+    const keys = getStorageKeys('key');
+    const legacySession = `atbl.key.${environment}`;
+    const legacyEvents = `${legacySession}.events`;
+    const identity = {
+      deviceId: 'device-saved',
+      distinctId: 'saved-user',
+      anonymousId: 'anonymous-saved',
+      sessionId: 'session-saved',
+      lastEventAt: new Date().toISOString(),
+      trackingConsent: 'pending',
+    };
+    values.set(legacySession, JSON.stringify(identity));
+    values.set(
+      legacyEvents,
+      JSON.stringify({
+        version: 1,
+        expiresAt: Date.now() + 60_000,
+        buffers: {
+          track: [
+            {
+              environment,
+              event: 'Saved',
+              distinct_id: 'saved-user',
+              anonymous_id: null,
+              timestamp: new Date().toISOString(),
+              properties: {},
+            },
+          ],
+        },
+        order: [{ eventType: 'track', index: 0 }],
+      })
+    );
+    const client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', { environment, persistence: storage });
+    expect(JSON.parse(values.get(keys.session)!)).toMatchObject(identity);
+    expect(values.has(legacySession)).toBe(false);
+    expect(values.has(legacyEvents)).toBe(false);
+    expect(client.getTrackingConsent()).toBe('pending');
+    await client.flush();
+    expect(fetch).not.toHaveBeenCalled();
+    client.configure({ trackingConsent: 'granted' });
+    client.track('Current');
+    await client.flush();
+    const payloads = vi
+      .mocked(fetch)
+      .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
+    expect(payloads.map(payload => payload.event)).toEqual([
+      'Saved',
+      'Current',
+    ]);
+    for (const payload of payloads)
+      expect(payload).not.toHaveProperty('environment');
+  }
+);
+
+it('keeps canonical identity and does not replay superseded legacy events after restart', async () => {
+  const { storage, values } = createStorage();
+  let client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', { persistence: storage });
+  client.identify('current-user');
+  client.track('Current');
+  cleanup();
+  const keys = getStorageKeys('key');
+  values.set('atbl.key.production', JSON.stringify({ distinctId: 'old-user' }));
+  values.set(
+    'atbl.key.production.events',
+    values.get(keys.events)!.replace('Current', 'Superseded')
+  );
+  client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', { persistence: storage });
+  expect(JSON.parse(values.get(keys.session)!)).toMatchObject({
+    distinctId: 'current-user',
+  });
+  await client.flush();
+  cleanup();
+  client = new Altertable({ getContext: () => ({}) });
+  cleanup = client.init('key', { persistence: storage });
+  await client.flush();
+  const events = vi
+    .mocked(fetch)
+    .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
+  expect(
+    events.filter(event => 'event' in event).map(event => event.event)
+  ).toEqual(['Current']);
+});
+
+it.each(['session', 'events'] as const)(
+  'retains legacy %s data when the destination write fails and retries on restart',
+  async failedKey => {
+    const { storage, values } = createStorage();
+    const keys = getStorageKeys('key');
+    let client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', { persistence: storage });
+    client.identify('saved-user');
+    client.track('Saved');
+    cleanup();
+    const legacyKeys = {
+      session: 'atbl.key.staging',
+      events: 'atbl.key.staging.events',
+    };
+    for (const name of ['session', 'events'] as const) {
+      values.set(legacyKeys[name], values.get(keys[name])!);
+      values.delete(keys[name]);
+    }
+    const setItem = storage.setItem;
+    storage.setItem = (key, value) =>
+      key === keys[failedKey] ? false : setItem(key, value);
+    client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', {
+      persistence: storage,
+      environment: 'staging',
+    });
+    expect(values.has(legacyKeys[failedKey])).toBe(true);
+    expect(client.getTrackingConsent()).toBe('granted');
+    cleanup();
+    storage.setItem = setItem;
+    client = new Altertable({ getContext: () => ({}) });
+    cleanup = client.init('key', {
+      persistence: storage,
+      environment: 'staging',
+    });
+    expect(JSON.parse(values.get(keys.session)!)).toMatchObject({
+      distinctId: 'saved-user',
+    });
+    await client.flush();
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.flatMap(([, options]) =>
+          JSON.parse(options!.body as string)
+        )
+        .filter(event => 'event' in event)
+        .map(event => event.event)
+    ).toEqual(['Saved']);
+    expect(values.has(legacyKeys[failedKey])).toBe(false);
+  }
+);
+
+it('stops initialization when legacy deletion fails so stale queued events cannot replay', async () => {
+  const { storage, values } = createStorage();
+  const client = new Altertable({ getContext: () => ({}) });
+  const keys = getStorageKeys('key');
+  values.set(
+    'atbl.key.production',
+    JSON.stringify({ distinctId: 'saved-user', trackingConsent: 'denied' })
+  );
+  const removeItem = storage.removeItem;
+  storage.removeItem = () => {
+    throw new Error('Cannot remove legacy data');
+  };
+  expect(() => client.init('key', { persistence: storage })).toThrow(
+    'Failed to remove legacy analytics storage'
+  );
+  expect(values.has('atbl.key.production')).toBe(true);
+  expect(values.has(keys.session)).toBe(true);
+  expect(fetch).not.toHaveBeenCalled();
+  storage.removeItem = removeItem;
+  cleanup = client.init('key', { persistence: storage });
+  expect(client.getTrackingConsent()).toBe('denied');
+  expect(values.has('atbl.key.production')).toBe(false);
+});

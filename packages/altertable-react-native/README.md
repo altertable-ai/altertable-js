@@ -150,7 +150,7 @@ await client.flush(); // Persist and attempt delivery; events stay queued offlin
 await client.dispose(); // Stop listeners/timers and persist remaining events.
 ```
 
-Keep one active client per API key, environment, and storage backend. Dispose it
+Keep one active client per API key and storage backend. Dispose it
 before creating a replacement. Storage failures reach `onError` and reject awaited
 operations; a later flush retries pending writes. Native storage and subscription
 failures also produce a console warning, deduplicated for each client.
@@ -169,7 +169,7 @@ For custom runtime integrations, see the core SDK's
 
 ### `ReactNativeConfig`
 
-Accepts core options for API endpoint, environment, release, consent, transformation,
+Accepts core options for API endpoint, release, consent, transformation,
 error handling, and batching, plus:
 
 | Option             | Required | Default | Description                                                       |
@@ -179,7 +179,7 @@ error handling, and batching, plus:
 | `connectivity`     | No       | —       | Optional app-provided network status subscription.                |
 
 `configure()` updates consent, release, debug, transformation, error handling, and
-batch settings. API key, `baseUrl`, environment, storage, connectivity, and
+batch settings. API key, `baseUrl`, storage, connectivity, and
 `eventPersistence` are fixed at creation. See the [core configuration reference](../altertable-js/README.md#altertableconfig)
 for shared options.
 

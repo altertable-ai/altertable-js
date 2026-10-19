@@ -15,7 +15,6 @@ it('accepts unprefixed source context and identity operations through the built 
     process.env.ALTERTABLE_API_KEY ?? 'valid_api_key',
     {
       baseUrl: process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001',
-      environment: process.env.ALTERTABLE_ENVIRONMENT ?? 'integration_env',
       persistence: 'memory',
       eventPersistence: false,
       adapters: {

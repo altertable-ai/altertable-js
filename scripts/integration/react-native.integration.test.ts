@@ -24,7 +24,6 @@ import {
 
 const endpoint = process.env.ALTERTABLE_ENDPOINT ?? 'http://127.0.0.1:15001';
 const apiKey = process.env.ALTERTABLE_API_KEY ?? 'valid_api_key';
-const environment = process.env.ALTERTABLE_ENVIRONMENT ?? 'integration_env';
 const interceptor = createFetchInterceptor();
 const clients: ReactNativeClient[] = [];
 const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -73,7 +72,6 @@ function createStorage() {
 async function create(options: Partial<ReactNativeConfig> = {}) {
   const client = await createAltertable(apiKey, {
     baseUrl: endpoint,
-    environment,
     storage: createStorage(),
     flushEventThreshold: 100,
     flushIntervalMs: 1_000_000,

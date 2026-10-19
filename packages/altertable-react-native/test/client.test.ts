@@ -912,3 +912,81 @@ it.each(['denial', 'reset', 'disposal'] as const)(
     }
   }
 );
+
+it.each([true, false])(
+  'migrates legacy native storage before returning the client (events=%s)',
+  async eventPersistence => {
+    const first = await create({ connectivity });
+    first.identify('saved-user');
+    first.track('Saved');
+    await first.dispose();
+    const savedIdentity = JSON.parse(storageMock.values.get(keys.session)!);
+    storageMock.values.set(
+      'atbl.key.staging',
+      storageMock.values.get(keys.session)!
+    );
+    storageMock.values.set(
+      'atbl.key.staging.events',
+      storageMock.values.get(keys.events)!
+    );
+    storageMock.values.delete(keys.session);
+    storageMock.values.delete(keys.events);
+    const restored = await create({ environment: 'staging', eventPersistence });
+    expect(JSON.parse(storageMock.values.get(keys.session)!)).toMatchObject(
+      savedIdentity
+    );
+    expect(storageMock.values.has('atbl.key.staging')).toBe(false);
+    expect(storageMock.values.has('atbl.key.staging.events')).toBe(false);
+    restored.track('Current');
+    await restored.flush();
+    expect(
+      payloads()
+        .filter(payload => 'event' in payload)
+        .map(payload => payload.event)
+    ).toEqual(eventPersistence ? ['Saved', 'Current'] : ['Current']);
+    for (const payload of payloads())
+      expect(payload).not.toHaveProperty('environment');
+  }
+);
+
+it.each(['session', 'events'] as const)(
+  'retains durable legacy %s data when the migration write fails',
+  async failedKey => {
+    const first = await create({ connectivity });
+    first.identify('saved-user');
+    first.track('Saved');
+    await first.dispose();
+    const legacyKeys = {
+      session: 'atbl.key.staging',
+      events: 'atbl.key.staging.events',
+    };
+    for (const name of ['session', 'events'] as const) {
+      storageMock.values.set(
+        legacyKeys[name],
+        storageMock.values.get(keys[name])!
+      );
+      storageMock.values.delete(keys[name]);
+    }
+    const setItem = storageMock.setItem.getMockImplementation()!;
+    const failure = new Error('Migration write failed');
+    storageMock.setItem.mockImplementation(async (key, value) => {
+      if (key === keys[failedKey]) throw failure;
+      return setItem(key, value);
+    });
+    await expect(create({ environment: 'staging' })).rejects.toThrow(failure);
+    expect(storageMock.values.has(legacyKeys[failedKey])).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+    storageMock.setItem.mockImplementation(setItem);
+    const restored = await create({ environment: 'staging' });
+    restored.track('Current');
+    await restored.flush();
+    expect(
+      payloads()
+        .filter(payload => 'event' in payload)
+        .map(payload => payload.event)
+    ).toEqual(['Saved', 'Current']);
+    expect(
+      payloads().find(payload => payload.event === 'Current').distinct_id
+    ).toBe('saved-user');
+  }
+);

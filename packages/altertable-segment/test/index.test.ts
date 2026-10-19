@@ -44,6 +44,39 @@ describe('Altertable Segment Destination', () => {
     apiKey: 'test-api-key',
   };
 
+  it('ignores legacy environment settings for every batch endpoint', async () => {
+    mockFetch.mockResolvedValue({ status: 200 });
+    const events: SegmentAnyEvent[] = [
+      {
+        type: 'track',
+        event: 'Saved',
+        userId: 'user',
+        messageId: 'track',
+        timestamp: '2026-10-19T00:00:00Z',
+      },
+      {
+        type: 'identify',
+        userId: 'user',
+        traits: {},
+        messageId: 'identify',
+        timestamp: '2026-10-19T00:00:00Z',
+      },
+      {
+        type: 'alias',
+        userId: 'new-user',
+        previousId: 'user',
+        messageId: 'alias',
+        timestamp: '2026-10-19T00:00:00Z',
+      },
+    ];
+    await onBatch(events, { ...defaultSettings, environment: 'staging' });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    for (const [, options] of mockFetch.mock.calls) {
+      for (const payload of JSON.parse(options.body))
+        expect(payload).not.toHaveProperty('environment');
+    }
+  });
+
   describe('onTrack', () => {
     it('should send track event to Altertable API', async () => {
       const event: SegmentTrackEvent = {

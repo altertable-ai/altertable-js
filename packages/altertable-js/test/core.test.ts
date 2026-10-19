@@ -155,7 +155,6 @@ describe('Altertable', () => {
             distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
             anonymous_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            environment: 'production',
             properties: {
               [PROPERTY_LIB]: 'TEST_LIB_NAME',
               [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
@@ -189,7 +188,6 @@ describe('Altertable', () => {
             timestamp: expect.stringMatching(REGEXP_DATE_ISO),
             anonymous_id: null,
             session_id: expect.stringMatching(REGEXP_SESSION_ID),
-            environment: 'production',
             properties: {
               [PROPERTY_LIB]: 'TEST_LIB_NAME',
               [PROPERTY_LIB_VERSION]: 'TEST_LIB_VERSION',
@@ -473,7 +471,6 @@ describe('Altertable', () => {
         expect(transformEvent).toHaveBeenCalledWith({
           event: EVENT_PAGEVIEW,
           timestamp: expect.stringMatching(REGEXP_DATE_ISO),
-          environment: 'production',
           device_id: expect.stringMatching(REGEXP_DEVICE_ID),
           distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
           anonymous_id: null,
@@ -866,7 +863,6 @@ describe('Altertable', () => {
         expect(logEventSpy).toHaveBeenCalledWith(
           expect.objectContaining({
             event: 'test-event',
-            environment: 'staging',
             properties: expect.objectContaining({
               [PROPERTY_RELEASE]: 'v1.0.0',
               foo: 'bar',
@@ -1043,7 +1039,6 @@ describe('Altertable', () => {
           altertable.identify(userId);
         }).toRequestApi('/identify', {
           payload: {
-            environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: {},
             distinct_id: userId,
@@ -1061,7 +1056,6 @@ describe('Altertable', () => {
           altertable.identify(userId, traits);
         }).toRequestApi('/identify', {
           payload: {
-            environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits,
             distinct_id: userId,
@@ -1158,10 +1152,9 @@ describe('Altertable', () => {
         altertable.identify('user123', { email: 'user@example.com' });
 
         expect(consoleSpy).toHaveBeenCalledWith(
-          '[Altertable] %cIdentify%c user123 %c[production] %c',
+          '[Altertable] %cIdentify%c user123 %c',
           'background: #a855f7; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
           'font-weight: 600;',
-          'color: #ef4444; font-weight: 400;',
           ''
         );
 
@@ -1190,7 +1183,6 @@ describe('Altertable', () => {
           altertable.identify(userId, { email: 'user@example.com' })
         ).toRequestApi('/identify', {
           payload: {
-            environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: { email: 'user@example.com' },
             distinct_id: userId,
@@ -1202,7 +1194,6 @@ describe('Altertable', () => {
           altertable.identify(userId, { email: 'user@example.com' })
         ).toRequestApi('/identify', {
           payload: {
-            environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: { email: 'user@example.com' },
             distinct_id: userId,
@@ -1220,14 +1211,14 @@ describe('Altertable', () => {
         setupAltertable();
         const sessionStorageCalls = () =>
           storageMock.setItem.mock.calls.filter(
-            ([key]) => key === 'atbl.test-api-key.production'
+            ([key]) => key === 'atbl.v2.test-api-key.session'
           );
         expect(sessionStorageCalls()).toHaveLength(1);
 
         altertable.identify('user123', { email: 'user@example.com' });
         expect(sessionStorageCalls()).toHaveLength(2);
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.test-api-key.production',
+          'atbl.v2.test-api-key.session',
           expect.stringContaining('"distinctId":"user123"')
         );
 
@@ -1246,7 +1237,6 @@ describe('Altertable', () => {
           altertable.updateTraits(newTraits);
         }).toRequestApi('/identify', {
           payload: {
-            environment: 'production',
             device_id: expect.stringMatching(REGEXP_DEVICE_ID),
             traits: newTraits,
             distinct_id: 'user123',
@@ -1292,10 +1282,9 @@ describe('Altertable', () => {
         altertable.updateTraits({ name: 'John Doe', plan: 'premium' });
 
         expect(consoleSpy).toHaveBeenCalledWith(
-          '[Altertable] %cIdentify%c user123 %c[production] %c',
+          '[Altertable] %cIdentify%c user123 %c',
           'background: #a855f7; color: #ffffff; padding: 2px 8px; border-radius: 6px; font-weight: 400;',
           'font-weight: 600;',
-          'color: #ef4444; font-weight: 400;',
           ''
         );
 
@@ -1328,7 +1317,6 @@ describe('Altertable', () => {
         expect.objectContaining({ method: 'POST' })
       );
       expect(getFetchCallBodyParsed(0)).toMatchObject({
-        environment: expect.any(String),
         device_id: expect.stringMatching(REGEXP_DEVICE_ID),
         new_user_id: 'user456',
         distinct_id: expect.stringMatching(REGEXP_ANONYMOUS_ID),
@@ -1441,7 +1429,13 @@ describe('Altertable', () => {
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
           createStorageMock({
-            getItem: vi.fn().mockReturnValue(existingSessionData),
+            getItem: vi
+              .fn()
+              .mockImplementation(key =>
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
+              ),
           })
         );
 
@@ -1471,7 +1465,13 @@ describe('Altertable', () => {
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
           createStorageMock({
-            getItem: vi.fn().mockReturnValue(existingSessionData),
+            getItem: vi
+              .fn()
+              .mockImplementation(key =>
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
+              ),
           })
         );
 
@@ -1519,7 +1519,13 @@ describe('Altertable', () => {
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(
           createStorageMock({
-            getItem: vi.fn().mockReturnValue(existingSessionData),
+            getItem: vi
+              .fn()
+              .mockImplementation(key =>
+                key === 'atbl.v2.test-api-key.session'
+                  ? existingSessionData
+                  : null
+              ),
           })
         );
 
@@ -1627,12 +1633,12 @@ describe('Altertable', () => {
         altertable.identify('user123', { email: 'user@example.com' });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.test-api-key.production',
+          'atbl.v2.test-api-key.session',
           expect.stringContaining('"distinctId":"user123"')
         );
 
         const sessionStorageCalls = storageMock.setItem.mock.calls.filter(
-          ([key]) => key === 'atbl.test-api-key.production'
+          ([key]) => key === 'atbl.v2.test-api-key.session'
         );
         const storedData = JSON.parse(sessionStorageCalls.at(-1)![1]);
         expect(storedData).toMatchObject({
@@ -1654,7 +1660,11 @@ describe('Altertable', () => {
         });
 
         const storageMock = createStorageMock({
-          getItem: vi.fn().mockReturnValue(existingData),
+          getItem: vi
+            .fn()
+            .mockImplementation(key =>
+              key === 'atbl.v2.test-api-key.session' ? existingData : null
+            ),
         });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1677,7 +1687,11 @@ describe('Altertable', () => {
 
       it('handles corrupted storage data gracefully', () => {
         const storageMock = createStorageMock({
-          getItem: vi.fn().mockReturnValue('invalid-json'),
+          getItem: vi
+            .fn()
+            .mockImplementation(key =>
+              key === 'atbl.v2.test-api-key.session' ? 'invalid-json' : null
+            ),
         });
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1702,7 +1716,7 @@ describe('Altertable', () => {
     });
 
     describe('storage key construction', () => {
-      it('constructs storage key with default environment when not specified', () => {
+      it('constructs storage key from the API key', () => {
         const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1714,12 +1728,12 @@ describe('Altertable', () => {
         });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.test-api-key.production',
+          'atbl.v2.test-api-key.session',
           expect.anything()
         );
       });
 
-      it('constructs storage key with development environment', () => {
+      it('ignores the deprecated environment when constructing storage keys', () => {
         const storageMock = createStorageMock();
 
         vi.spyOn(storageModule, 'selectStorage').mockReturnValue(storageMock);
@@ -1732,7 +1746,7 @@ describe('Altertable', () => {
         });
 
         expect(storageMock.setItem).toHaveBeenCalledWith(
-          'atbl.test-api-key.development',
+          'atbl.v2.test-api-key.session',
           expect.anything()
         );
       });
@@ -1767,10 +1781,10 @@ describe('Altertable', () => {
         altertable.configure({ persistence: 'memory' });
 
         expect(migrateSpy).toHaveBeenCalledWith(initialStorageMock, [
-          'atbl.test-api-key.production',
+          'atbl.v2.test-api-key.session',
         ]);
         expect(eventMigrateSpy).toHaveBeenCalledWith(initialEventStorageMock, [
-          'atbl.test-api-key.production.events',
+          'atbl.v2.test-api-key.events',
         ]);
       });
 
@@ -1847,7 +1861,7 @@ describe('Altertable', () => {
         altertable.configure({ eventPersistence: false });
 
         expect(eventStorageMock.removeItem).toHaveBeenCalledWith(
-          'atbl.test-api-key.production.events'
+          'atbl.v2.test-api-key.events'
         );
       });
 
@@ -2342,7 +2356,6 @@ describe('Altertable', () => {
       for (let i = 0; i < 10; i++) {
         altertable.configure({
           debug: i % 2 === 0,
-          environment: i % 2 === 0 ? 'production' : 'development',
         });
       }
 
@@ -2507,7 +2520,7 @@ describe('Altertable', () => {
   });
 
   describe('configuration validation', () => {
-    it('should handle custom environment values gracefully', () => {
+    it('ignores deprecated custom environment values', () => {
       setupAltertable({ environment: 'custom-env' });
 
       expect(() => {
@@ -2515,7 +2528,6 @@ describe('Altertable', () => {
       }).toRequestApi('/track', {
         payload: expect.objectContaining({
           event: 'test-event',
-          environment: 'custom-env',
           properties: expect.objectContaining({
             foo: 'bar',
           }),
@@ -2628,7 +2640,7 @@ describe('Altertable', () => {
       altertable['_requester'].sendBatch = originalSendBatch;
     });
 
-    it('shows helpful warning for environment-not-found error', () => {
+    it('reports legacy environment errors through generic API error handling', () => {
       setupAltertable({ environment: 'staging' });
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
@@ -2642,16 +2654,17 @@ describe('Altertable', () => {
 
       expect(() => {
         altertable.track('test-event', { foo: 'bar' });
-      }).toWarnDev(
-        '[Altertable] Environment "staging" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=staging before tracking events.'
+      }).not.toWarnDev();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to send event',
+        expect.objectContaining({ error: expect.any(ApiError) })
       );
-      expect(errorSpy).not.toHaveBeenCalled();
 
       altertable['_requester'].sendBatch = originalSendBatch;
     });
 
-    it('shows helpful warning for environment-not-found error with default environment', () => {
-      setupAltertable(); // Uses default 'production' environment
+    it('reports legacy environment errors without assuming a default environment', () => {
+      setupAltertable();
 
       const errorSpy = vi.spyOn(altertable['_logger'], 'error');
 
@@ -2664,10 +2677,11 @@ describe('Altertable', () => {
 
       expect(() => {
         altertable.track('test-event', { foo: 'bar' });
-      }).toWarnDev(
-        '[Altertable] Environment "production" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=production before tracking events.'
+      }).not.toWarnDev();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to send event',
+        expect.objectContaining({ error: expect.any(ApiError) })
       );
-      expect(errorSpy).not.toHaveBeenCalled();
 
       altertable['_requester'].sendBatch = originalSendBatch;
     });
@@ -2714,10 +2728,11 @@ describe('Altertable', () => {
 
       expect(() => {
         altertable.identify('user123', { email: 'user@example.com' });
-      }).toWarnDev(
-        '[Altertable] Environment "development" not found. Please create this environment in your Altertable dashboard at https://altertable.ai/dashboard/environments/new?name=development before tracking events.'
+      }).not.toWarnDev();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to send event',
+        expect.objectContaining({ error: expect.any(ApiError) })
       );
-      expect(errorSpy).not.toHaveBeenCalled();
 
       altertable['_requester'].sendBatch = originalSendBatch;
     });
@@ -3405,7 +3420,7 @@ describe('Altertable', () => {
   });
 
   describe('batching and flush()', () => {
-    const eventStorageKey = 'atbl.test-api-key.production.events';
+    const eventStorageKey = 'atbl.v2.test-api-key.events';
 
     function initPersistentClient(client: Altertable): () => void {
       return client.init(apiKey, {

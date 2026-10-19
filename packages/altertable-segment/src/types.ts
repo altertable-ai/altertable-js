@@ -136,6 +136,8 @@ export type SegmentAnyEvent =
  */
 export interface FunctionSettings {
   apiKey: string;
+  /** @deprecated The environment is determined by your API key. Ignored. */
+  environment?: string;
   endpoint?: string;
   [key: string]: any;
 }
