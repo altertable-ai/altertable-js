@@ -100,6 +100,7 @@ try {
       JSON.stringify({
         name: 'altertable-packed-consumer',
         private: true,
+        overrides: { '@altertable/altertable-js': core },
         dependencies: {
           '@altertable/altertable-js': core,
           '@altertable/altertable-react': react,
@@ -119,6 +120,16 @@ function Consumer() {
   assert.equal(typeof sdk.useAltertable().track, 'function');
   return React.createElement('span', null, 'packed consumer');
 }
+const track = core.altertable.track;
+const events = [];
+core.altertable.track = event => events.push(event);
+function DefaultConsumer() {
+  sdk.useAltertable().track('shared singleton');
+  return null;
+}
+renderToString(React.createElement(DefaultConsumer));
+core.altertable.track = track;
+assert.deepEqual(events, ['shared singleton']);
 assert.match(renderToString(React.createElement(sdk.AltertableProvider, { client: new core.Altertable() }, React.createElement(Consumer))), /packed consumer/);
 `;
     await writeFile(
@@ -131,6 +142,48 @@ assert.match(renderToString(React.createElement(sdk.AltertableProvider, { client
     );
     run('node', ['runtime.cjs']);
     run('node', ['runtime.mjs']);
+    const browserEntry = path.join(fixture, 'browser.mjs');
+    await writeFile(
+      browserEntry,
+      `
+import React from 'react';
+import { renderToString } from 'react-dom/server.browser';
+import { Altertable } from '@altertable/altertable-js';
+import { AltertableProvider, useAltertable } from '@altertable/altertable-react';
+function Consumer() {
+  if (typeof useAltertable().track !== 'function') throw new Error('Missing hook');
+  return React.createElement('span', null, 'packed browser consumer');
+}
+const rendered = renderToString(React.createElement(AltertableProvider, { client: new Altertable() }, React.createElement(Consumer)));
+if (!rendered.includes('packed browser consumer')) throw new Error('Browser rendering failed');
+`
+    );
+    const browserBuild = await Bun.build({
+      entrypoints: [browserEntry],
+      target: 'browser',
+      format: 'esm',
+      conditions: ['module'],
+      outdir: path.join(fixture, 'browser'),
+      naming: '[name].mjs',
+      define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+      metafile: true,
+    });
+    assert(browserBuild.success, 'Browser consumer must bundle successfully');
+    assert(browserBuild.metafile, 'Browser consumer must report its inputs');
+    for (const name of ['altertable-js', 'altertable-react']) {
+      assert(
+        Object.keys(browserBuild.metafile.inputs).some(input =>
+          input.endsWith(`@altertable/${name}/dist/index.mjs`)
+        ),
+        `Browser consumers must use the emitted ESM ${name}`
+      );
+    }
+    run('node', [
+      '--input-type=module',
+      '--eval',
+      // React's browser scheduler can keep MessagePorts alive in Node.
+      "await import('./browser/browser.mjs'); process.exit(0);",
+    ]);
     const types = `
 import { Altertable, type AltertableConfig, type EventProperties } from '@altertable/altertable-js';
 import { AltertableProvider, useAltertable } from '@altertable/altertable-react';
@@ -164,7 +217,7 @@ void [provider, hook];
       ]);
     }
     console.log(
-      `Passed packed CJS/ESM runtime and NodeNext/Bundler types with React ${version}`
+      `Passed packed Node CJS/ESM imports, browser ESM, and NodeNext/Bundler types with React ${version}`
     );
   }
 } finally {

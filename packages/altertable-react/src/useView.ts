@@ -1,4 +1,4 @@
-import React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import {
@@ -11,8 +11,6 @@ import {
   PROPERTY_VIEW_TYPE,
 } from './constants';
 import { logger } from './logger';
-
-const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
 type ViewProperties = Record<string, unknown>;
 type ViewType = 'screen' | 'view';

@@ -1,4 +1,4 @@
-import React from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
@@ -8,8 +8,6 @@ import {
   FunnelStepProperties,
   FunnelTracker,
 } from './types';
-
-const { useCallback, useMemo } = React;
 
 /**
  * `useAltertable()` provides access to type-safe event and funnel tracking for Altertable.

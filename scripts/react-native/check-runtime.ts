@@ -67,6 +67,7 @@ try {
         name: 'altertable-native-qualification',
         private: true,
         version: '0.0.0',
+        overrides: { '@altertable/altertable-js': core },
         dependencies: {
           '@altertable/altertable-js': core,
           '@altertable/altertable-react-native': native,

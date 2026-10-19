@@ -42,8 +42,10 @@ running tests; `bun run test:watch` keeps watching.
 `check:package`. Workspace dependency installation stays separate. `check:package` preserves
 the gzip budgets, parses the snippet as ES5, executes the browser global, and
 qualifies packed core/React consumers with React 16.8 and current React. Each
-consumer checks CJS/ESM execution and TypeScript NodeNext/Bundler resolution from
-an isolated installation. Native packed-consumer checks remain separate:
+consumer checks Node imports, browser ESM bundling, and TypeScript
+NodeNext/Bundler resolution from an isolated installation. Node selects the
+core/React SDK CJS builds for React 16.8 interoperability and a shared singleton;
+browser bundlers select ESM. Native packed-consumer checks remain separate:
 
 ```fish
 bun run check:react-native minimum
