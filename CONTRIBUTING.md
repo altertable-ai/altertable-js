@@ -36,7 +36,7 @@ This project uses Oxlint for linting and Oxfmt for formatting. Run `bun run lint
 `bun run build` builds workspaces in dependency order, including the React and
 Expo examples. `bun run dev` builds once before starting all watchers; use
 `dev:packages` or `dev:examples` to select a subset. `bun run test` exits after
-running tests.
+running tests; `bun run test:watch` keeps watching.
 
 `bun run check` runs builds, typechecking, linting, Knip, formatting, tests, and
 `check:package`. Workspace dependency installation stays separate. `check:package` preserves

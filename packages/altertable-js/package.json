@@ -43,6 +43,7 @@
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
