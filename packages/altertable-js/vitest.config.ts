@@ -1,14 +1,10 @@
-import { defineConfig } from 'vitest/config';
+import { mergeConfig } from 'vitest/config';
 
-export default defineConfig({
-  define: {
-    __DEV__: JSON.stringify(true),
-    __LIB__: JSON.stringify('TEST_LIB_NAME'),
-    __LIB_VERSION__: JSON.stringify('TEST_LIB_VERSION'),
-  },
+import base from '../../vitest.base';
+
+export default mergeConfig(base, {
   test: {
     environment: 'jsdom',
     setupFiles: ['../../test-utils/setup.ts'],
-    watch: false,
   },
 });

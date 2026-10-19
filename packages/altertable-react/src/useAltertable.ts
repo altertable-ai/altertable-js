@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import React from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
@@ -53,7 +53,7 @@ export function useAltertable<T extends FunnelMapping>() {
    * altertable.track('Email Entered', { email: 'user@example.com' });
    * ```
    */
-  const track = useCallback(
+  const track = React.useCallback(
     <Steps extends T[keyof T] = T[keyof T]>(
       eventName: FunnelStepName<Steps>,
       properties: FunnelStepProperties<Steps, typeof eventName> = {}
@@ -69,7 +69,7 @@ export function useAltertable<T extends FunnelMapping>() {
     [altertable]
   );
 
-  const funnelTracker = useMemo(
+  const funnelTracker = React.useMemo(
     (): FunnelTracker<T[keyof T]> => ({
       trackStep: track<T[keyof T]>,
     }),
@@ -90,7 +90,7 @@ export function useAltertable<T extends FunnelMapping>() {
    * signupFunnel.trackStep('Email Entered', { email: 'user@example.com' });
    * ```
    */
-  const selectFunnel = useCallback(
+  const selectFunnel = React.useCallback(
     <FunnelName extends keyof T>(
       _funnelName: FunnelName
     ): FunnelTracker<T[FunnelName]> =>
@@ -98,7 +98,7 @@ export function useAltertable<T extends FunnelMapping>() {
     [funnelTracker]
   );
 
-  return useMemo(
+  return React.useMemo(
     () => ({
       alias: altertable.alias.bind(altertable),
       configure: altertable.configure.bind(altertable),

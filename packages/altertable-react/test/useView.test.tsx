@@ -16,6 +16,7 @@ function installIntersectionObserverMock() {
   const observers: MockObserverRecord[] = [];
 
   class MockIntersectionObserver implements IntersectionObserver {
+    readonly scrollMargin = '0px';
     private readonly record: MockObserverRecord;
     readonly root: Element | Document | null;
     readonly rootMargin: string;

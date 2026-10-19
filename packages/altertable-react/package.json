@@ -36,10 +36,10 @@
     }
   },
   "scripts": {
-    "dev": "tsup --watch --env.mode development",
-    "build": "tsup --env.mode production",
+    "dev": "NODE_ENV=development tsdown --watch",
+    "build": "NODE_ENV=production tsdown",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun ../../node_modules/typescript-check/bin/tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"

@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'vitest/config';
+import { mergeConfig } from 'vitest/config';
 
-export default defineConfig({
+import base from '../../vitest.base';
+
+export default mergeConfig(base, {
   define: {
     __DEV__: 'true',
     __LIB__: JSON.stringify('TEST_NATIVE_LIB'),
@@ -20,7 +22,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    watch: false,
     coverage: { include: ['src/**/*.{ts,tsx}'] },
   },
 });

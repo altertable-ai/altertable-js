@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
 import {
@@ -82,21 +82,21 @@ type TrackedView = {
  */
 export function useScreenView(name: string, options: ScreenViewOptions = {}) {
   const altertable = useAltertableContext();
-  const latestViewRef = useRef<TrackedView>({
+  const latestViewRef = React.useRef<TrackedView>({
     id: options.id,
     name,
     properties: options.properties,
   });
-  const trackedKeysRef = useRef(new Set<string>());
+  const trackedKeysRef = React.useRef(new Set<string>());
 
   const { disabled = false, id, properties } = options;
   const viewKey = getViewKey(EVENT_SCREEN, name, id);
 
-  useEffect(() => {
+  React.useEffect(() => {
     latestViewRef.current = { id, name, properties };
   }, [id, name, properties]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (disabled || trackedKeysRef.current.has(viewKey)) {
       return;
     }
@@ -124,23 +124,23 @@ export function useView<TElement extends Element = HTMLElement>(
   options: ViewOptions = {}
 ): UseViewResult<TElement> {
   const altertable = useAltertableContext();
-  const latestViewRef = useRef<TrackedView>({
+  const latestViewRef = React.useRef<TrackedView>({
     id: options.id,
     name,
     properties: options.properties,
   });
-  const trackedKeysRef = useRef(new Set<string>());
-  const [node, setNode] = useState<TElement | null>(null);
+  const trackedKeysRef = React.useRef(new Set<string>());
+  const [node, setNode] = React.useState<TElement | null>(null);
 
   const { disabled = false, id, properties, visibility } = options;
   const { root = null, rootMargin, threshold = 0 } = visibility ?? {};
   const viewKey = getViewKey(EVENT_VIEW, name, id);
 
-  useEffect(() => {
+  React.useEffect(() => {
     latestViewRef.current = { id, name, properties };
   }, [id, name, properties]);
 
-  const trackView = useCallback(() => {
+  const trackView = React.useCallback(() => {
     if (trackedKeysRef.current.has(viewKey)) {
       return true;
     }
@@ -154,11 +154,11 @@ export function useView<TElement extends Element = HTMLElement>(
     return true;
   }, [altertable, viewKey]);
 
-  const viewRef = useCallback((nextNode: TElement | null) => {
+  const viewRef = React.useCallback((nextNode: TElement | null) => {
     setNode(nextNode);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!node || disabled) {
       return;
     }
@@ -189,7 +189,7 @@ export function useView<TElement extends Element = HTMLElement>(
     };
   }, [disabled, node, root, rootMargin, threshold, trackView]);
 
-  return useMemo(() => ({ viewRef }), [viewRef]);
+  return React.useMemo(() => ({ viewRef }), [viewRef]);
 }
 
 function getViewKey(event: string, name: string, id?: string) {

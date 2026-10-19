@@ -75,7 +75,7 @@ try {
           '@types/react': versions.reactTypes,
           '@react-native/metro-config': versions.native,
           '@react-native/babel-preset': versions.native,
-          typescript: '5.9.3',
+          typescript: '7.0.2',
         },
       },
       null,
@@ -110,7 +110,7 @@ try {
     path.join(fixture, 'metro.config.cjs'),
     "const { getDefaultConfig } = require('@react-native/metro-config');\nmodule.exports = getDefaultConfig(__dirname);\n"
   );
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund']);
+  run('bun', ['install', '--ignore-scripts']);
   run('node', [
     'node_modules/typescript/bin/tsc',
     '--project',

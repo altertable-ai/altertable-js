@@ -60,6 +60,16 @@
       "rules": {
         "typescript/unbound-method": "off"
       }
+    },
+    {
+      "files": [
+        "packages/altertable-js/**/*.{ts,tsx}",
+        "packages/altertable-react/**/*.{ts,tsx}",
+        "test-utils/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "typescript/no-useless-default-assignment": "off"
+      }
     }
   ]
 }
