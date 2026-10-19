@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.1...altertable-js-v1.4.0) (2026-10-19)
+
+
+### Features
+
+* deprecate environment options in favor of API-key routing ([#215](https://github.com/altertable-ai/altertable-js/issues/215)) ([b6702af](https://github.com/altertable-ai/altertable-js/commit/b6702afda953e24ca7b59ca06f225913d6594a99))
+
 ## [1.3.1](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.0...altertable-js-v1.3.1) (2026-10-19)
 
 ### Bug Fixes
