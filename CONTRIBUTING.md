@@ -50,18 +50,19 @@ bun run check:react-native minimum
 bun run check:react-native current
 ```
 
-Typechecking uses TypeScript 7.0.2 through the `typescript-check` alias. Package
-scripts invoke that compiler directly because its `tsc` binary conflicts with
-the legacy compiler's binary. TypeScript 5.9.3 remains installed for the build
-tools' stable compiler API and declaration generation; package typechecking and
-consumer qualifications use TypeScript 7. The local TypeScript and Vitest base
-configs hold shared defaults; native platform settings remain in their package.
+Typechecking and declaration generation use TypeScript 7.0.2. Package scripts
+use `tsc --noEmit`; source-only build configs keep test helpers out of declarations.
+tsdown currently labels its TypeScript 7 API experimental; packed-consumer checks
+verify the emitted declarations. The local TypeScript and Vitest base configs
+hold shared defaults; native
+platform settings remain in their package.
 TypeScript 7 defaults to strict checking, so the base explicitly preserves the
 previous strictness of core/React; the native and Segment overlays stay strict.
 The nullability-dependent `no-useless-default-assignment` lint rule is disabled
 only in those non-strict packages and their shared test helpers.
 
 SDK and Segment builds use upstream tsdown directly, with explicit targets and
-output names. The snippet alone retains tsup and SWC because tsdown/Rolldown
-reject ES5 targets. Preserve all public formats, global filenames, platform
-exports, and runtime limits when revisiting that exception.
+output names. The snippet uses the SWC CLI directly because tsdown/Rolldown
+reject ES5 targets. Its config preserves the IIFE boundary to avoid global names.
+Preserve all public formats, global filenames, platform exports, and runtime
+limits when revisiting that exception.

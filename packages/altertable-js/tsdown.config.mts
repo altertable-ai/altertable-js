@@ -16,7 +16,7 @@ export default defineConfig({
     esm: {},
     iife: { outputOptions: { entryFileNames: '[name].global.js' } },
   },
-  dts: true,
+  dts: { tsconfig: 'tsconfig.build.json' },
   platform: 'neutral',
   globalName: 'Altertable',
   banner: {

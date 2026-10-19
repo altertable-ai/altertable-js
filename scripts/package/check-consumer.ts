@@ -71,7 +71,7 @@ try {
   parse(snippet, { ecmaVersion: 5 });
   const window: { Altertable?: unknown[][] } = {};
   const inserted: unknown[] = [];
-  runInNewContext(snippet, {
+  const snippetContext = {
     window,
     document: {
       createElement: () => ({}),
@@ -83,7 +83,9 @@ try {
         },
       ],
     },
-  });
+  };
+  runInNewContext(snippet, snippetContext);
+  assert.deepEqual(Object.keys(snippetContext).sort(), ['document', 'window']);
   assert.equal(window.Altertable?.[0]?.[0], 'init');
   assert.equal(inserted.length, 1);
 

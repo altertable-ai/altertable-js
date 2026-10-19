@@ -42,9 +42,7 @@
     "oxlint-tsgolint": "7.0.2003",
     "tsdown": "0.23.1",
     "tslib": "2.8.1",
-    "tsup": "8.5.1",
-    "typescript": "5.9.3",
-    "typescript-check": "npm:typescript@7.0.2",
+    "typescript": "7.0.2",
     "vitest": "4.1.11"
   },
   "resolutions": {

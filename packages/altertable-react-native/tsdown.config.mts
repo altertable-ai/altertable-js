@@ -13,7 +13,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   minify: isProduction,
-  dts: true,
+  dts: { tsconfig: 'tsconfig.build.json' },
   deps: { neverBundle: ['react', 'react-native', '@altertable/altertable-js'] },
   banner: { js: generateBundleBanner(pkg) },
   define: {
