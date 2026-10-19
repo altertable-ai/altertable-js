@@ -432,6 +432,22 @@ type UserTraits = Record<string, unknown>;
 
 ### `StorageType`
 
+`persistence` and `eventPersistence` also accept a custom synchronous storage
+adapter. It must implement `getItem(key): string | null`,
+`setItem(key, value): boolean`, and `removeItem(key): void`. Return `false` from
+`setItem` when a write fails. Async backends must finish hydration before
+initialization and provide a synchronous in-memory adapter; do not pass an async
+storage API directly.
+
+Use the exported `getStorageKeys(apiKey, environment?)` to resolve the `session`
+and `events` keys before hydration. The environment defaults to `production`.
+For custom runtimes, `isOnline: () => boolean` overrides browser connectivity
+detection. Returning `false` retains buffered events until a later flush.
+
+The `Altertable` constructor is exported for applications that need separate
+client instances. Call the cleanup function returned by `init()` when disposing
+an instance.
+
 Available storage strategies.
 
 | Value                   | Description                           |

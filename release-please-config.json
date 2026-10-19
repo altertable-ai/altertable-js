@@ -10,7 +10,11 @@
     {
       "type": "linked-versions",
       "groupName": "altertable-sdk",
-      "components": ["altertable-js", "altertable-react"]
+      "components": [
+        "altertable-js",
+        "altertable-react",
+        "altertable-react-native"
+      ]
     }
   ],
   "packages": {
@@ -23,6 +27,11 @@
       "release-type": "node",
       "package-name": "@altertable/altertable-react",
       "component": "altertable-react"
+    },
+    "packages/altertable-react-native": {
+      "release-type": "node",
+      "package-name": "@altertable/altertable-react-native",
+      "component": "altertable-react-native"
     }
   }
 }
