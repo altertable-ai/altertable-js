@@ -3,7 +3,7 @@
 ## Development Setup
 
 1. Fork and clone the repository
-2. Use Bun 1.4.2 and Node 24.18.0 (see `.bun-version` and `.node-version`). Install dependencies: `bun install`
+2. Use Bun 1.4.3 and Node 24.18.0 (see `.bun-version` and `.node-version`). Install dependencies: `bun install`
 3. Run tests: `bun run test`
 
 ## Making Changes
