@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["bun", "node", "vitest/globals"]
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
+    "scripts/**/*.tsx",
+    "vitest.base.ts"
+  ]
+}

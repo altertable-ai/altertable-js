@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { AltertableProvider, type FunnelMapping, useAltertable } from '../src';

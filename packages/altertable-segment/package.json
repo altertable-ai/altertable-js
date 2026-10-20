@@ -15,15 +15,12 @@
   },
   "main": "dist/index.mjs",
   "scripts": {
-    "dev": "tsup --watch",
-    "build": "tsup",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
-  },
-  "devDependencies": {
-    "@swc/core": "^1.16.2"
   }
 }

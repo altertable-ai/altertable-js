@@ -15,11 +15,13 @@
   },
   "main": "dist/index.global.js",
   "scripts": {
-    "dev": "tsup --watch --env.mode development",
-    "build": "tsup --env.mode production",
+    "dev": "swc index.js --out-file dist/index.global.js --watch",
+    "build": "swc index.js --out-file dist/index.global.js",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@swc/core": "^1.16.2"
+    "@swc/cli": "0.8.1",
+    "@swc/core": "^1.16.2",
+    "chokidar": "5.0.0"
   }
 }

@@ -1,6 +1,6 @@
 import { cleanup, render } from '@testing-library/react';
 import posthog, { type PostHog, type PostHogConfig } from 'posthog-js';
-import React, { StrictMode } from 'react';
+import { StrictMode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 

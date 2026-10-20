@@ -4,11 +4,15 @@ Expo SDK 58 example using AsyncStorage, NetInfo, and React Navigation. It restor
 analytics before rendering the navigation tree, provides loading/error/retry
 states, tracks screen visits and custom events, and demonstrates identity reset.
 
+This is a workspace development example: it always uses the local SDK.
+The isolated packed-consumer fixtures in `scripts/react-native` qualify the
+publishable artifacts without workspace links.
+
 From the repository root:
 
 ```sh
 bun install
-bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native
+bun run --filter @altertable/altertable-js --filter @altertable/altertable-react-native build
 cd examples/example-react-native
 echo 'EXPO_PUBLIC_ALTERTABLE_API_KEY=YOUR_KEY' > .env.local
 bun run dev

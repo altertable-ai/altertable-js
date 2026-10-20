@@ -47,7 +47,7 @@ export interface SegmentContext {
 /**
  * Base interface for all Segment events
  */
-export interface SegmentEventBase {
+interface SegmentEventBase {
   messageId: string;
   timestamp: string;
   channel?: string;

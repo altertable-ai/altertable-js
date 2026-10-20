@@ -1,6 +1,6 @@
 type FunnelName = string;
 
-export type FunnelStep = { name: FunnelName; properties?: Record<string, any> };
+type FunnelStep = { name: FunnelName; properties?: Record<string, any> };
 
 export type FunnelStepName<T extends readonly FunnelStep[]> = T[number]['name'];
 

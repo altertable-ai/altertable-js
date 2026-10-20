@@ -30,22 +30,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": "./dist/index.js",
       "module": "./dist/index.mjs",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     }
   },
   "scripts": {
-    "dev": "tsup --watch --env.mode development",
-    "build": "tsup --env.mode production",
+    "dev": "NODE_ENV=development tsdown --watch",
+    "build": "NODE_ENV=production tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "react": "^16.8 || ^17.0 || ^18.0 || ^19.0"
+    "react": "^16.14 || ^17.0 || ^18.0 || ^19.0"
   },
   "dependencies": {
     "@altertable/altertable-js": "^1.4.0"
@@ -56,6 +57,7 @@
     "@types/react": "^19.3.0",
     "posthog-js": "1.434.14",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "@testing-library/dom": "10.4.2"
   }
 }

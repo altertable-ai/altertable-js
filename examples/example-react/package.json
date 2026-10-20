@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "bun run typecheck && vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.node.json"
   },
   "dependencies": {
     "@altertable/altertable-js": "workspace:*",
@@ -24,7 +25,6 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.1.1",
-    "typescript": "5.9.3",
     "vite": "7.3.5"
   }
 }

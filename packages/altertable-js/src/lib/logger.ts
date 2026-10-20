@@ -37,7 +37,8 @@ export function createLogger(prefix: string) {
       );
       const [eventTitleLabel, eventTitleStyle] = createEventTitleElement(
         payload.event === '$pageview'
-          ? String(payload.properties[PROPERTY_URL])
+          ? // oxlint-disable-next-line typescript/no-base-to-string -- Debug output intentionally stringifies arbitrary event properties.
+            String(payload.properties[PROPERTY_URL])
           : payload.event
       );
       const [timestampLabel, timestampStyle] = createTimestampElement(

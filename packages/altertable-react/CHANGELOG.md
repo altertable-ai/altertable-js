@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### ⚠ BREAKING CHANGES
+
+- Require React 16.14 or newer within React 16 to use the automatic JSX transform. React 17, 18, and 19 remain supported.
+
 ## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.3.1...altertable-react-v1.4.0) (2026-10-19)
 
 ### Dependencies

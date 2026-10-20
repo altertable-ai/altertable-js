@@ -1,19 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "esModuleInterop": true,
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "declaration": true,
     "noImplicitAny": true,
     "rootDir": "../..",
     "outDir": ".",
-    "target": "esnext",
-    "resolveJsonModule": true,
-    "jsx": "react",
-    "skipLibCheck": true,
-    "types": ["vitest/globals", "node"],
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "jsx": "react-jsx",
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*", "test/**/*", "../../test-utils/**/*"],
   "exclude": ["node_modules"]

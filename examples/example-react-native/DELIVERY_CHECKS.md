@@ -95,7 +95,7 @@ TypeScript and Metro bundles for both platforms. Run the same checks from the
 repository root after building both SDK packages:
 
 ```sh
-bun run build --scope=@altertable/altertable-js --scope=@altertable/altertable-react-native
+bun run --filter @altertable/altertable-js --filter @altertable/altertable-react-native build
 bun run check:react-native minimum
 bun run check:react-native current
 ```

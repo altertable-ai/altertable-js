@@ -55,7 +55,7 @@ bun run test
 | Start      | `bun run dev`        | Start all packages and examples in watch mode     |
 | Edit       | –                    | Modify files and changes auto-reflect in examples |
 | Test       | `bun run test:watch` | Run tests in watch mode                           |
-| Lint       | `bun run lint`       | Check code quality and formatting                 |
+| Lint       | `bun run lint`       | Check code quality                                |
 | Type check | `bun run typecheck`  | Verify TypeScript types                           |
 
 ### Monorepo Scripts
@@ -68,8 +68,8 @@ bun run test
 | `build`        | Build all packages                                           |
 | `clean`        | Clean all build artifacts                                    |
 | `typecheck`    | Run TypeScript type checking across all packages             |
-| `lint`         | Run Oxlint and check formatting across the monorepo          |
-| `lint:fix`     | Fix Oxlint issues and format the monorepo                    |
+| `lint`         | Run Oxlint across the monorepo                               |
+| `lint:fix`     | Fix Oxlint issues across the monorepo                        |
 | `format`       | Format the monorepo with Oxfmt                               |
 | `format:check` | Check formatting across the monorepo                         |
 | `test`         | Run tests across all packages                                |

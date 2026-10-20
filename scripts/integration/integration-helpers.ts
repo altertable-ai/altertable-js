@@ -20,11 +20,11 @@ export function isTrackPayload(row: EventPayload): row is TrackPayload {
   return 'event' in row;
 }
 
-export function isIdentifyPayload(row: EventPayload): row is IdentifyPayload {
+function isIdentifyPayload(row: EventPayload): row is IdentifyPayload {
   return 'traits' in row && !('event' in row);
 }
 
-export function isAliasPayload(row: EventPayload): row is AliasPayload {
+function isAliasPayload(row: EventPayload): row is AliasPayload {
   return 'new_user_id' in row;
 }
 

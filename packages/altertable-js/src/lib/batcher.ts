@@ -2,13 +2,13 @@ import type { EventPayload, EventType } from '../types';
 import { invariant } from './invariant';
 import type { StorageApi } from './storage';
 
-export type BatcherSendFn = (
+type BatcherSendFn = (
   eventType: EventType,
   payloads: EventPayload[],
   signal: AbortSignal
 ) => Promise<void>;
 
-export type FlushTrigger = 'interval' | 'threshold' | 'manual';
+type FlushTrigger = 'interval' | 'threshold' | 'manual';
 
 export type BatcherConfig = {
   flushEventThreshold: number;
@@ -29,7 +29,7 @@ export type BatcherConfig = {
   isOnline?: () => boolean;
 };
 
-export type BatcherConfigurableKeys =
+type BatcherConfigurableKeys =
   | 'flushEventThreshold'
   | 'flushIntervalMs'
   | 'maxBatchSize'

@@ -31,17 +31,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": "./dist/index.js",
       "module": "./dist/index.mjs",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     }
   },
   "scripts": {
-    "build": "tsup --env.mode production",
-    "dev": "tsup --watch --env.mode development",
+    "build": "NODE_ENV=production tsdown",
+    "dev": "NODE_ENV=development tsdown --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "coverage": "vitest run --coverage"
   },

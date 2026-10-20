@@ -1,6 +1,6 @@
 import { altertable } from '@altertable/altertable-js';
 import { cleanup, render, screen } from '@testing-library/react';
-import React, { type ComponentProps } from 'react';
+import { type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
