@@ -47,7 +47,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "posthog-js": "1.434.14",
+    "posthog-js": "1.438.13",
     "posthog-js-minimum": "npm:posthog-js@1.230.0"
   }
 }
