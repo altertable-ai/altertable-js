@@ -2,10 +2,10 @@
   "name": "altertable-js-workspace",
   "private": true,
   "engines": {
-    "bun": "1.4.3",
+    "bun": "1.4.4",
     "node": "24.18.0"
   },
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "workspaces": [
     "packages/*",
     "examples/*"
