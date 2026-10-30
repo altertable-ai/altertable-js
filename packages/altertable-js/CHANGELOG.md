@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+- Add `trackingMode: 'audience'` for audience measurement without browser persistence,
+  identification calls, URL queries, or credentialed browser requests. Each event requests backend audience processing through `processing_mode`.
+  The SDK does not persist or transmit client identity fields. Consent
+  requirements remain separate from the selected collection mode.
+
 ## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.3.1...altertable-js-v1.4.0) (2026-10-19)
 
 ### Features

@@ -300,9 +300,9 @@ again retries registration.
 
 **Parameters:**
 
-| Parameter | Type                                             | Required | Description           |
-| --------- | ------------------------------------------------ | -------- | --------------------- |
-| `updates` | [`Partial<AltertableConfig>`](#altertableconfig) | Yes      | Configuration updates |
+| Parameter | Type                                                  | Required | Description           |
+| --------- | ----------------------------------------------------- | -------- | --------------------- |
+| `updates` | [`AltertableConfigUpdates`](#altertableconfigupdates) | Yes      | Configuration updates |
 
 **Example:**
 
@@ -335,21 +335,55 @@ if (consent === 'granted') {
 
 Configuration options for the Altertable SDK.
 
-| Property              | Type                                          | Default                             | Description                                            |
-| --------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
-| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"`       | The base URL of the Altertable API                     |
-| `adapters`            | `Adapters`                                    | -                                   | Existing analytics instances; currently `{ posthog }`  |
-| `autoCapture`         | `boolean`                                     | `true`; off while an adapter is set | Whether to automatically capture page views and events |
-| `release`             | `string`                                      | -                                   | The release ID of the application                      |
-| `debug`               | `boolean`                                     | `false`                             | Whether to log events to the console                   |
-| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`             | The persistence strategy for IDs                       |
-| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`               | The persistence strategy for unsent event payloads     |
-| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                         | The tracking consent state                             |
-| `onError`             | `(error: Error) => void`                      | -                                   | Optional handler for SDK errors                        |
-| `transformEvent`      | [`TransformEvent`](#transformevent)           | -                                   | Transform or discard track and page-view events        |
-| `flushEventThreshold` | `number`                                      | `20`                                | Flush when combined buffered events reach this count   |
-| `flushIntervalMs`     | `number`                                      | `150`                               | Periodic batch flush interval (ms)                     |
-| `maxBatchSize`        | `number`                                      | `20`                                | Max payloads per HTTP request                          |
+| Property              | Type                                          | Default                             | Description                                                                         |
+| --------------------- | --------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `baseUrl`             | `string`                                      | `"https://api.altertable.ai"`       | The base URL of the Altertable API                                                  |
+| `adapters`            | `Adapters`                                    | -                                   | Existing analytics instances; currently `{ posthog }`                               |
+| `trackingMode`        | [`TrackingMode`](#trackingmode)               | `"product"`                         | Product analytics or restricted audience measurement; fixed until the next `init()` |
+| `autoCapture`         | `boolean`                                     | `true`; off while an adapter is set | Whether to automatically capture page views and events                              |
+| `release`             | `string`                                      | -                                   | The release ID of the application                                                   |
+| `debug`               | `boolean`                                     | `false`                             | Whether to log events to the console                                                |
+| `persistence`         | [`StorageType`](#storagetype)                 | `"localStorage+cookie"`             | The persistence strategy for IDs                                                    |
+| `eventPersistence`    | [`StorageType`](#storagetype) or `false`      | Same as `persistence`               | The persistence strategy for unsent event payloads                                  |
+| `trackingConsent`     | [`TrackingConsentType`](#trackingconsenttype) | `"granted"`                         | The tracking consent state                                                          |
+| `onError`             | `(error: Error) => void`                      | -                                   | Optional handler for SDK errors                                                     |
+| `transformEvent`      | [`TransformEvent`](#transformevent)           | -                                   | Transform or discard track and page-view events                                     |
+| `flushEventThreshold` | `number`                                      | `20`                                | Flush when combined buffered events reach this count                                |
+| `flushIntervalMs`     | `number`                                      | `150`                               | Periodic batch flush interval (ms)                                                  |
+| `maxBatchSize`        | `number`                                      | `20`                                | Max payloads per HTTP request                                                       |
+
+#### Audience measurement
+
+Use audience mode to collect aggregate usage statistics without persistent
+client identifiers:
+
+```javascript
+altertable.init('YOUR_API_KEY', { trackingMode: 'audience' });
+altertable.track('Install Copied', { package: 'react' });
+```
+
+Page views and custom events automatically use audience processing. In this mode,
+the SDK:
+
+- Omits user, anonymous, session, and device IDs from events.
+- Keeps identity, consent, and unsent events in memory, overriding persistence
+  options. Saved data is not restored, and unsent events are lost on reload.
+- Ignores `identify()`, `alias()`, and `updateTraits()` calls.
+- Removes URL credentials, query parameters, fragments, referrer paths, and
+  viewport data. Invalid, relative, and non-HTTP URLs become `null`.
+- Omits browser request credentials and the HTTP referrer on all deliveries.
+
+Event names, custom properties, and URL paths can contain personal data. Use
+`transformEvent` to remove it before transmission. The SDK applies audience
+restrictions after the transform. Adapters forward source identities and
+properties and do not support audience mode.
+
+`trackingConsent` controls delivery: pending or dismissed events wait in memory,
+and denied events are discarded. Supply the consent state on each `init()`.
+
+To change modes, call `init()`. `configure()` cannot change `trackingMode`.
+Reinitialization discards buffered events; call `flush()` first if you want to
+send them.
 
 #### Offline Delivery
 
@@ -362,6 +396,11 @@ altertable.init('YOUR_API_KEY', {
   eventPersistence: false,
 });
 ```
+
+### `AltertableConfigUpdates`
+
+Options accepted by `configure()`. Includes the fields in `AltertableConfig`
+except `trackingMode`, which is set through `init()`.
 
 ### `EventProperties`
 
@@ -385,7 +424,9 @@ type EventProperties = Record<string, unknown>;
 
 ### `TrackPayload`
 
-The complete payload passed to `transformEvent` and sent to the track API.
+The complete payload passed to `transformEvent` in both tracking modes. Product
+mode sends the transformed `TrackPayload`; audience mode applies its restrictions
+and sends an `AudienceTrackPayload` without identity fields.
 
 ```typescript
 type TrackPayload = {
@@ -399,14 +440,27 @@ type TrackPayload = {
 };
 ```
 
+### `AudienceTrackPayload`
+
+The audience payload sent to the track API after `transformEvent`:
+
+```typescript
+type AudienceTrackPayload = {
+  processing_mode: 'audience';
+  event: string;
+  properties: EventProperties;
+  timestamp: string;
+};
+```
+
 ### `TransformEvent`
 
 ```typescript
 type TransformEvent = (event: TrackPayload) => TrackPayload | null;
 ```
 
-`EventProperties`, `TrackPayload`, and `TransformEvent` are exported from
-`@altertable/altertable-js` for use in application code.
+`EventProperties`, `TrackPayload`, `AudienceTrackPayload`, and `TransformEvent`
+are exported from `@altertable/altertable-js` for use in application code.
 
 ### `UserTraits`
 
@@ -462,6 +516,13 @@ Available storage strategies.
 | `"cookie"`              | Use cookies only                      |
 | `"memory"`              | Use in-memory storage (not persisted) |
 | `"localStorage+cookie"` | Use localStorage with cookie fallback |
+
+### `TrackingMode`
+
+| Value        | Behavior                                                                 |
+| ------------ | ------------------------------------------------------------------------ |
+| `"product"`  | Product analytics with identity, profiles, and configurable persistence. |
+| `"audience"` | Aggregate usage measurement without persistent client identifiers.       |
 
 ### `TrackingConsentType`
 
