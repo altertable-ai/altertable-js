@@ -385,6 +385,21 @@ To change modes, call `init()`. `configure()` cannot change `trackingMode`.
 Reinitialization discards buffered events; call `flush()` first if you want to
 send them.
 
+##### Search measurement
+
+Audience mode strips search query parameters such as `q` from automatic page
+tracking. Track searches explicitly to measure usage and result counts:
+
+```javascript
+altertable.track('Search Performed', {
+  category: 'documentation',
+  result_count: results.length,
+});
+```
+
+Search terms can contain personal data. If you need to collect them, explicitly
+add a `search_term` property after reviewing which values are safe to send.
+
 #### Offline Delivery
 
 Altertable can persist unsent event payloads so they survive reloads and send when the browser comes back online. By default, event payloads use the same storage strategy as [`persistence`](#altertableconfig), but cookie-backed strategies store event payloads in `localStorage` only.
