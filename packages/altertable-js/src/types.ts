@@ -4,6 +4,9 @@ export type EventType = 'track' | 'identify' | 'alias';
 
 export type EventProperties = Record<string, unknown>;
 
+/** Collection intent; audience measurement requests restricted backend processing. */
+export type TrackingMode = 'product' | 'audience';
+
 export type UserId = string;
 export type DistinctId = StringWithAutocomplete<AnonymousId>;
 export type DeviceId = `device-${string}`;
@@ -28,6 +31,7 @@ export type AltertableContext = {
 
 export type EventPayload =
   | TrackPayload
+  | AudienceTrackPayload
   | AdapterTrackPayload
   | IdentifyPayload
   | AliasPayload;
@@ -53,6 +57,19 @@ export type TrackPayload = AltertableContext & {
   event: string;
   properties: EventProperties;
   timestamp: string;
+};
+
+/** Audience processing request. Identity fields must be absent, never a shared placeholder. */
+export type AudienceTrackPayload = Pick<
+  TrackPayload,
+  'event' | 'properties' | 'timestamp'
+> & {
+  processing_mode: 'audience';
+  environment?: never;
+  device_id?: never;
+  distinct_id?: never;
+  anonymous_id?: never;
+  session_id?: never;
 };
 
 /**

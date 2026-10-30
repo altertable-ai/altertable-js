@@ -17,6 +17,7 @@ import {
   TrackingConsent,
   TrackingConsentType,
 } from './constants';
+import { prepareAudienceEvent } from './lib/audience';
 import { type BatcherApi, createBatcher } from './lib/batcher';
 import {
   isAltertableError,
@@ -44,6 +45,7 @@ import {
   AdapterTrackPayload,
   AliasPayload,
   AltertableContext,
+  AudienceTrackPayload,
   DistinctId,
   Environment,
   EventPayload,
@@ -51,11 +53,20 @@ import {
   EventType,
   IdentifyPayload,
   TrackPayload,
+  TrackingMode,
   TransformEvent,
   UserTraits,
 } from './types';
 
 export interface AltertableConfig {
+  /**
+   * Select product analytics or audience measurement. Audience mode omits client
+   * identity fields, disables persistence and identity calls, and reduces automatic
+   * context. Audience mode cannot be combined with adapters.
+   * Call init() to change modes; configure() cannot change trackingMode.
+   * @default "product"
+   */
+  trackingMode?: TrackingMode;
   /** Existing analytics instances to receive events from. While one is set, native track, identify, and alias calls are ignored and autocapture stays off. */
   adapters?: Adapters;
   /**
@@ -127,7 +138,13 @@ export interface AltertableConfig {
   maxBatchSize?: number;
 }
 
+/** Options accepted by configure(). Set trackingMode through init(). */
+export type AltertableConfigUpdates = Omit<AltertableConfig, 'trackingMode'> & {
+  trackingMode?: never;
+};
+
 type ResolvedAltertableConfigKeys =
+  | 'trackingMode'
   | 'baseUrl'
   | 'autoCapture'
   | 'debug'
@@ -147,6 +164,7 @@ type ResolvedAltertableConfig = Omit<
   };
 
 const DEFAULT_CONFIG: ResolvedAltertableConfig = {
+  trackingMode: 'product',
   autoCapture: true,
   baseUrl: 'https://api.altertable.ai',
   debug: false,
@@ -164,9 +182,22 @@ function resolveAltertableConfig(
 ): ResolvedAltertableConfig {
   const { environment: _environment, ...options } = partial;
   const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...options };
-  const persistence = merged.persistence ?? DEFAULT_CONFIG.persistence;
+  const trackingMode = merged.trackingMode ?? DEFAULT_CONFIG.trackingMode;
+  invariant(
+    trackingMode === 'product' || trackingMode === 'audience',
+    'Invalid tracking mode. Use "product" or "audience".'
+  );
+  invariant(
+    trackingMode !== 'audience' || !hasConfiguredAdapter(merged.adapters),
+    'Audience measurement cannot be combined with analytics adapters.'
+  );
+  const persistence =
+    trackingMode === 'audience'
+      ? 'memory'
+      : (merged.persistence ?? DEFAULT_CONFIG.persistence);
   return {
     ...merged,
+    trackingMode,
     baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
     autoCapture: hasConfiguredAdapter(partial.adapters)
       ? false
@@ -174,9 +205,11 @@ function resolveAltertableConfig(
     debug: merged.debug ?? DEFAULT_CONFIG.debug,
     persistence,
     eventPersistence:
-      partial.eventPersistence === undefined
-        ? persistence
-        : partial.eventPersistence,
+      trackingMode === 'audience'
+        ? false
+        : partial.eventPersistence === undefined
+          ? persistence
+          : partial.eventPersistence,
     trackingConsent: merged.trackingConsent ?? DEFAULT_CONFIG.trackingConsent,
     flushEventThreshold: Math.max(
       1,
@@ -247,7 +280,7 @@ export class Altertable {
             ? droppedItem.method
             : droppedItem.eventType;
         this._logger.warnDev(
-          `Queue is full (${MAX_QUEUE_SIZE} items). Dropping ${method} call.`
+          `Queue is full (${MAX_QUEUE_SIZE.toLocaleString('en-US')} items). Dropping ${method}() call.`
         );
       },
     });
@@ -274,6 +307,7 @@ export class Altertable {
    */
   init(apiKey: string, config: AltertableConfig = {}) {
     invariant(apiKey, 'Missing API key');
+    const resolvedConfig = resolveAltertableConfig(config);
     const generation = ++this._generation;
     this._stopRuntime();
     this._automaticFlushTask = undefined;
@@ -289,7 +323,7 @@ export class Altertable {
 
     this._warnDeprecatedEnvironment(config);
     this._requestedAutoCapture = config.autoCapture;
-    this._config = resolveAltertableConfig(config);
+    this._config = resolvedConfig;
     this._hasExplicitEventPersistence = config.eventPersistence !== undefined;
     const storageKeys = getStorageKeys(apiKey);
     this._identityStorageKey = storageKeys.session;
@@ -321,6 +355,10 @@ export class Altertable {
       baseUrl: this._config.baseUrl,
       apiKey,
       requestTimeout: REQUEST_TIMEOUT_MS,
+      requestOptions:
+        this._config.trackingMode === 'audience'
+          ? { credentials: 'omit', referrerPolicy: 'no-referrer' }
+          : undefined,
     });
     // Non-retryable failures are logged in _handleSendError and not rethrown, so the
     // batcher does not requeue those chunks. Retryable failures rethrow so batcher.ts
@@ -412,10 +450,16 @@ export class Altertable {
    * });
    * ```
    */
-  configure(updates: Partial<AltertableConfig>) {
+  configure(updates: AltertableConfigUpdates) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before configuring.'
+    );
+    // JavaScript callers can supply initialization-only options.
+    const trackingMode = (updates as Partial<AltertableConfig>).trackingMode;
+    invariant(
+      trackingMode === undefined || trackingMode === this._config.trackingMode,
+      'Call init() to change the tracking mode. Events and identities cannot be migrated between modes.'
     );
 
     invariant(
@@ -425,9 +469,10 @@ export class Altertable {
       'Storage is not available.'
     );
 
-    if ('autoCapture' in updates) {
-      this._requestedAutoCapture = updates.autoCapture;
-    }
+    const requestedAutoCapture =
+      'autoCapture' in updates
+        ? updates.autoCapture
+        : this._requestedAutoCapture;
     this._warnDeprecatedEnvironment(updates);
     const nextUpdates = { ...updates };
     if (
@@ -440,7 +485,8 @@ export class Altertable {
     const nextConfig = resolveAltertableConfig({
       ...this._config,
       ...nextUpdates,
-      autoCapture: this._requestedAutoCapture,
+      trackingMode: this._config.trackingMode,
+      autoCapture: requestedAutoCapture,
     });
 
     const autoCaptureChanged =
@@ -487,6 +533,7 @@ export class Altertable {
     }
 
     this._config = nextConfig;
+    this._requestedAutoCapture = requestedAutoCapture;
     this._requester.setBaseUrl(nextConfig.baseUrl);
 
     const currentTrackingConsent = this._sessionManager.getTrackingConsent();
@@ -620,7 +667,10 @@ export class Altertable {
    * ```
    */
   identify(userId: DistinctId, traits: UserTraits = {}) {
-    if (this._isInitialized && this._rejectAltertableCall()) {
+    if (
+      this._isInitialized &&
+      (this._rejectAltertableCall() || this._rejectIdentityCall())
+    ) {
       return;
     }
 
@@ -649,13 +699,13 @@ export class Altertable {
       return false;
     }
     this._logger.warnDev(
-      'Altertable track, page, identify, alias, updateTraits, and reset calls were ignored because an analytics adapter is configured.'
+      'Altertable track(), page(), identify(), alias(), updateTraits(), and reset() calls were ignored because an analytics adapter is configured.'
     );
     return true;
   }
 
   private _identify(userId: DistinctId, traits: UserTraits = {}) {
-    if (this._rejectAltertableCall()) {
+    if (this._rejectAltertableCall() || this._rejectIdentityCall()) {
       return;
     }
     if (
@@ -699,7 +749,10 @@ export class Altertable {
    * ```
    */
   alias(newUserId: DistinctId) {
-    if (this._isInitialized && this._rejectAltertableCall()) {
+    if (
+      this._isInitialized &&
+      (this._rejectAltertableCall() || this._rejectIdentityCall())
+    ) {
       return;
     }
 
@@ -724,7 +777,7 @@ export class Altertable {
   }
 
   private _alias(newUserId: DistinctId) {
-    if (this._rejectAltertableCall()) {
+    if (this._rejectAltertableCall() || this._rejectIdentityCall()) {
       return;
     }
     const context = this._getContext();
@@ -770,7 +823,7 @@ export class Altertable {
   }
 
   private _updateTraits(traits: UserTraits) {
-    if (this._rejectAltertableCall()) {
+    if (this._rejectAltertableCall() || this._rejectIdentityCall()) {
       return;
     }
     const context = this._getContext();
@@ -887,7 +940,8 @@ export class Altertable {
         [PROPERTY_URL]: baseUrl,
         [PROPERTY_VIEWPORT]: viewport,
         [PROPERTY_REFERER]: referrer,
-        ...parsedUrl?.searchParams,
+        ...(this._config.trackingMode !== 'audience' &&
+          parsedUrl?.searchParams),
       },
       context
     );
@@ -946,10 +1000,7 @@ export class Altertable {
     const payload: TrackPayload = {
       timestamp: runtimeContext.timestamp,
       event,
-      device_id: context.device_id,
-      distinct_id: context.distinct_id,
-      anonymous_id: context.anonymous_id,
-      session_id: context.session_id,
+      ...context,
       properties: {
         [PROPERTY_LIB]: __LIB__,
         [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
@@ -970,7 +1021,26 @@ export class Altertable {
     if (!transformed) {
       return;
     }
-    this._deliverTrack(transformed);
+    // Processing policy belongs to the client, never to a caller transform.
+    const { processing_mode: _processingMode, ...event } =
+      transformed as TrackPayload & {
+        processing_mode?: unknown;
+      };
+    this._deliverTrack(
+      this._config.trackingMode === 'audience'
+        ? prepareAudienceEvent(event)
+        : event
+    );
+  }
+
+  private _rejectIdentityCall(): boolean {
+    if (this._config.trackingMode !== 'audience') {
+      return false;
+    }
+    this._logger.warnDev(
+      'Altertable identify(), alias(), and updateTraits() calls were ignored because audience measurement is configured.'
+    );
+    return true;
   }
 
   private _processAdapterTrack(
@@ -984,7 +1054,9 @@ export class Altertable {
     this._deliverTrack(request);
   }
 
-  private _deliverTrack(request: TrackPayload | AdapterTrackPayload) {
+  private _deliverTrack(
+    request: TrackPayload | AudienceTrackPayload | AdapterTrackPayload
+  ) {
     this._processEvent('track', request);
 
     if (this._config.debug) {

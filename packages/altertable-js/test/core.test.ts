@@ -3330,7 +3330,7 @@ describe('Altertable', () => {
       expect(() => {
         uninitializedAltertable.track('new-event', {});
       }).toWarnDev(
-        '[Altertable] Queue is full (1000 items). Dropping track call.'
+        '[Altertable] Queue is full (1,000 items). Dropping track() call.'
       );
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1000);
@@ -3348,7 +3348,7 @@ describe('Altertable', () => {
       expect(() => {
         uninitializedAltertable.identify('user123');
       }).toWarnDev(
-        '[Altertable] Queue is full (1000 items). Dropping track call.'
+        '[Altertable] Queue is full (1,000 items). Dropping track() call.'
       );
 
       expect(uninitializedAltertable['_queue'].getAll()).toHaveLength(1000);

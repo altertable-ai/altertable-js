@@ -80,6 +80,11 @@ function SignupPage() {
 
 ## Features
 
+For audience measurement, initialize the shared client with
+`altertable.init('YOUR_API_KEY', { trackingMode: 'audience' })`. Existing hooks and
+view tracking use that client and automatically mark outgoing events for audience
+processing. See the core SDK's [audience measurement guide](../altertable-js/README.md#audience-measurement).
+
 - **Automatic page view tracking** – Captures page views automatically
 - **Session management** – Handles anonymous and session IDs automatically
 - **Event queuing** – Queues events when offline or consent is pending

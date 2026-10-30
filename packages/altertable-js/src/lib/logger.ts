@@ -8,6 +8,7 @@ import {
 import {
   AdapterTrackPayload,
   AliasPayload,
+  AudienceTrackPayload,
   IdentifyPayload,
   TrackPayload,
 } from '../types';
@@ -29,7 +30,7 @@ export function createLogger(prefix: string) {
       }
     },
     logEvent: (
-      payload: TrackPayload | AdapterTrackPayload,
+      payload: TrackPayload | AudienceTrackPayload | AdapterTrackPayload,
       { trackingConsent }: { trackingConsent: TrackingConsentType }
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(
