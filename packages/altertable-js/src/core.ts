@@ -247,7 +247,7 @@ export class Altertable {
             ? droppedItem.method
             : droppedItem.eventType;
         this._logger.warnDev(
-          `Queue is full (${MAX_QUEUE_SIZE} items). Dropping ${method} call.`
+          `Queue is full (${MAX_QUEUE_SIZE.toLocaleString('en-US')} items). Dropping ${method}() call.`
         );
       },
     });
@@ -649,7 +649,7 @@ export class Altertable {
       return false;
     }
     this._logger.warnDev(
-      'Altertable track, page, identify, alias, updateTraits, and reset calls were ignored because an analytics adapter is configured.'
+      'Altertable track(), page(), identify(), alias(), updateTraits(), and reset() calls were ignored because an analytics adapter is configured.'
     );
     return true;
   }
