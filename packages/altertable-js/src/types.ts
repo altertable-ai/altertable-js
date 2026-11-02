@@ -64,7 +64,7 @@ export type AudienceTrackPayload = Pick<
   TrackPayload,
   'event' | 'properties' | 'timestamp'
 > & {
-  processing_mode: 'audience';
+  mode: 'audience';
   environment?: never;
   device_id?: never;
   distinct_id?: never;

@@ -63,10 +63,10 @@ export interface AltertableConfig {
    * Select product analytics or audience measurement. Audience mode omits client
    * identity fields, disables persistence and identity calls, and reduces automatic
    * context. Audience mode cannot be combined with adapters.
-   * Call init() to change modes; configure() cannot change trackingMode.
+   * Call init() to change modes; configure() cannot change mode.
    * @default "product"
    */
-  trackingMode?: TrackingMode;
+  mode?: TrackingMode;
   /** Existing analytics instances to receive events from. While one is set, native track, identify, and alias calls are ignored and autocapture stays off. */
   adapters?: Adapters;
   /**
@@ -138,13 +138,13 @@ export interface AltertableConfig {
   maxBatchSize?: number;
 }
 
-/** Options accepted by configure(). Set trackingMode through init(). */
-export type AltertableConfigUpdates = Omit<AltertableConfig, 'trackingMode'> & {
-  trackingMode?: never;
+/** Options accepted by configure(). Set mode through init(). */
+export type AltertableConfigUpdates = Omit<AltertableConfig, 'mode'> & {
+  mode?: never;
 };
 
 type ResolvedAltertableConfigKeys =
-  | 'trackingMode'
+  | 'mode'
   | 'baseUrl'
   | 'autoCapture'
   | 'debug'
@@ -164,7 +164,7 @@ type ResolvedAltertableConfig = Omit<
   };
 
 const DEFAULT_CONFIG: ResolvedAltertableConfig = {
-  trackingMode: 'product',
+  mode: 'product',
   autoCapture: true,
   baseUrl: 'https://api.altertable.ai',
   debug: false,
@@ -182,22 +182,22 @@ function resolveAltertableConfig(
 ): ResolvedAltertableConfig {
   const { environment: _environment, ...options } = partial;
   const merged: AltertableConfig = { ...DEFAULT_CONFIG, ...options };
-  const trackingMode = merged.trackingMode ?? DEFAULT_CONFIG.trackingMode;
+  const mode = merged.mode ?? DEFAULT_CONFIG.mode;
   invariant(
-    trackingMode === 'product' || trackingMode === 'audience',
+    mode === 'product' || mode === 'audience',
     'Invalid tracking mode. Use "product" or "audience".'
   );
   invariant(
-    trackingMode !== 'audience' || !hasConfiguredAdapter(merged.adapters),
+    mode !== 'audience' || !hasConfiguredAdapter(merged.adapters),
     'Audience measurement cannot be combined with analytics adapters.'
   );
   const persistence =
-    trackingMode === 'audience'
+    mode === 'audience'
       ? 'memory'
       : (merged.persistence ?? DEFAULT_CONFIG.persistence);
   return {
     ...merged,
-    trackingMode,
+    mode,
     baseUrl: merged.baseUrl ?? DEFAULT_CONFIG.baseUrl,
     autoCapture: hasConfiguredAdapter(partial.adapters)
       ? false
@@ -205,7 +205,7 @@ function resolveAltertableConfig(
     debug: merged.debug ?? DEFAULT_CONFIG.debug,
     persistence,
     eventPersistence:
-      trackingMode === 'audience'
+      mode === 'audience'
         ? false
         : partial.eventPersistence === undefined
           ? persistence
@@ -356,7 +356,7 @@ export class Altertable {
       apiKey,
       requestTimeout: REQUEST_TIMEOUT_MS,
       requestOptions:
-        this._config.trackingMode === 'audience'
+        this._config.mode === 'audience'
           ? { credentials: 'omit', referrerPolicy: 'no-referrer' }
           : undefined,
     });
@@ -456,9 +456,9 @@ export class Altertable {
       'The client must be initialized with init() before configuring.'
     );
     // JavaScript callers can supply initialization-only options.
-    const trackingMode = (updates as Partial<AltertableConfig>).trackingMode;
+    const mode = (updates as Partial<AltertableConfig>).mode;
     invariant(
-      trackingMode === undefined || trackingMode === this._config.trackingMode,
+      mode === undefined || mode === this._config.mode,
       'Call init() to change the tracking mode. Events and identities cannot be migrated between modes.'
     );
 
@@ -485,7 +485,7 @@ export class Altertable {
     const nextConfig = resolveAltertableConfig({
       ...this._config,
       ...nextUpdates,
-      trackingMode: this._config.trackingMode,
+      mode: this._config.mode,
       autoCapture: requestedAutoCapture,
     });
 
@@ -940,8 +940,7 @@ export class Altertable {
         [PROPERTY_URL]: baseUrl,
         [PROPERTY_VIEWPORT]: viewport,
         [PROPERTY_REFERER]: referrer,
-        ...(this._config.trackingMode !== 'audience' &&
-          parsedUrl?.searchParams),
+        ...(this._config.mode !== 'audience' && parsedUrl?.searchParams),
       },
       context
     );
@@ -1022,19 +1021,16 @@ export class Altertable {
       return;
     }
     // Processing policy belongs to the client, never to a caller transform.
-    const { processing_mode: _processingMode, ...event } =
-      transformed as TrackPayload & {
-        processing_mode?: unknown;
-      };
+    const { mode: _mode, ...event } = transformed as TrackPayload & {
+      mode?: unknown;
+    };
     this._deliverTrack(
-      this._config.trackingMode === 'audience'
-        ? prepareAudienceEvent(event)
-        : event
+      this._config.mode === 'audience' ? prepareAudienceEvent(event) : event
     );
   }
 
   private _rejectIdentityCall(): boolean {
-    if (this._config.trackingMode !== 'audience') {
+    if (this._config.mode !== 'audience') {
       return false;
     }
     this._logger.warnDev(

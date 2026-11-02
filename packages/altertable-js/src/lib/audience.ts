@@ -28,7 +28,7 @@ export function prepareAudienceEvent(
   );
   delete properties[PROPERTY_VIEWPORT];
   return {
-    processing_mode: 'audience',
+    mode: 'audience',
     event: payload.event,
     timestamp: payload.timestamp,
     properties,

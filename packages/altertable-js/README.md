@@ -339,7 +339,7 @@ Configuration options for the Altertable SDK.
 | --------------------- | --------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | `baseUrl`             | `string`                                      | `"https://api.altertable.ai"`       | The base URL of the Altertable API                                                  |
 | `adapters`            | `Adapters`                                    | -                                   | Existing analytics instances; currently `{ posthog }`                               |
-| `trackingMode`        | [`TrackingMode`](#trackingmode)               | `"product"`                         | Product analytics or restricted audience measurement; fixed until the next `init()` |
+| `mode`                | [`TrackingMode`](#trackingmode)               | `"product"`                         | Product analytics or restricted audience measurement; fixed until the next `init()` |
 | `autoCapture`         | `boolean`                                     | `true`; off while an adapter is set | Whether to automatically capture page views and events                              |
 | `release`             | `string`                                      | -                                   | The release ID of the application                                                   |
 | `debug`               | `boolean`                                     | `false`                             | Whether to log events to the console                                                |
@@ -358,7 +358,7 @@ Use audience mode to collect aggregate usage statistics without persistent
 client identifiers:
 
 ```javascript
-altertable.init('YOUR_API_KEY', { trackingMode: 'audience' });
+altertable.init('YOUR_API_KEY', { mode: 'audience' });
 altertable.track('Install Copied', { package: 'react' });
 ```
 
@@ -381,7 +381,7 @@ properties and do not support audience mode.
 `trackingConsent` controls delivery: pending or dismissed events wait in memory,
 and denied events are discarded. Supply the consent state on each `init()`.
 
-To change modes, call `init()`. `configure()` cannot change `trackingMode`.
+To change modes, call `init()`. `configure()` cannot change `mode`.
 Reinitialization discards buffered events; call `flush()` first if you want to
 send them.
 
@@ -415,7 +415,7 @@ altertable.init('YOUR_API_KEY', {
 ### `AltertableConfigUpdates`
 
 Options accepted by `configure()`. Includes the fields in `AltertableConfig`
-except `trackingMode`, which is set through `init()`.
+except `mode`, which is set through `init()`.
 
 ### `EventProperties`
 
@@ -461,7 +461,7 @@ The audience payload sent to the track API after `transformEvent`:
 
 ```typescript
 type AudienceTrackPayload = {
-  processing_mode: 'audience';
+  mode: 'audience';
   event: string;
   properties: EventProperties;
   timestamp: string;

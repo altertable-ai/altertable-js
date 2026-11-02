@@ -4,8 +4,8 @@
 
 ### Features
 
-- Add `trackingMode: 'audience'` for audience measurement without browser persistence,
-  identification calls, URL queries, or credentialed browser requests. Each event requests backend audience processing through `processing_mode`.
+- Add `mode: 'audience'` for audience measurement without browser persistence,
+  identification calls, URL queries, or credentialed browser requests. Each event requests backend audience processing through `mode`.
   The SDK does not persist or transmit client identity fields. Consent
   requirements remain separate from the selected collection mode.
 

@@ -194,9 +194,9 @@ if (!rendered.includes('packed browser consumer')) throw new Error('Browser rend
 import { Altertable, type AltertableConfig, type AltertableConfigUpdates, type AudienceTrackPayload, type EventProperties, type TrackingMode } from '@altertable/altertable-js';
 export { AltertableProvider, useAltertable } from '@altertable/altertable-react';
 const mode: TrackingMode = 'audience';
-const config: AltertableConfig = { trackingMode: mode, debug: true };
+const config: AltertableConfig = { mode, debug: true };
 const audienceEvent: AudienceTrackPayload = {
-  processing_mode: 'audience', event: 'consumer', timestamp: new Date().toISOString(), properties: {},
+  mode: 'audience', event: 'consumer', timestamp: new Date().toISOString(), properties: {},
 };
 // @ts-expect-error Audience wire events cannot contain identity fields.
 audienceEvent.distinct_id = 'user';
@@ -205,8 +205,8 @@ const client = new Altertable();
 client.init('key', config);
 client.configure(updates);
 // @ts-expect-error Set the tracking mode through init(), not configure().
-client.configure({ trackingMode: 'audience' });
-// @ts-expect-error Initialization configs can contain trackingMode even when passed as a variable.
+client.configure({ mode: 'audience' });
+// @ts-expect-error Initialization configs can contain mode even when passed as a variable.
 client.configure(config);
 const props: EventProperties = { source: 'packed-consumer' };
 client.track('consumer', props);
@@ -231,7 +231,7 @@ function Consumer() {
   const analytics = useAltertable<Funnels>();
   analytics.configure({ trackingConsent: 'granted' });
   // @ts-expect-error The React hook must preserve initialization-only mode restrictions.
-  analytics.configure({ trackingMode: 'audience' });
+  analytics.configure({ mode: 'audience' });
   analytics.track('Email Entered', { email: 'user@example.com' });
   analytics.track('Order Completed', { total: 42 });
   const signup = analytics.selectFunnel('signup');

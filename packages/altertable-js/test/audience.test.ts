@@ -30,7 +30,7 @@ afterEach(() => {
 function start(config: AltertableConfig = {}, client = new Altertable()) {
   cleanups.push(
     client.init('key', {
-      trackingMode: 'audience',
+      mode: 'audience',
       autoCapture: false,
       flushIntervalMs: 1_000_000,
       ...config,
@@ -49,7 +49,7 @@ function events(): Array<TrackPayload | AudienceTrackPayload> {
 }
 
 function expectNoIdentity(payload: TrackPayload | AudienceTrackPayload) {
-  expect(payload).toHaveProperty('processing_mode', 'audience');
+  expect(payload).toHaveProperty('mode', 'audience');
   for (const field of [
     'distinct_id',
     'anonymous_id',
@@ -78,7 +78,7 @@ it('does not access existing identity, consent, or offline events in browser sto
   client.configure({
     persistence: 'cookie',
     eventPersistence: 'localStorage',
-    trackingMode: undefined,
+    mode: undefined,
   });
   client.track('Install Copied');
   await client.flush();
@@ -174,9 +174,9 @@ it('reduces automatic page context on initial load and client-side navigation', 
 
 it('enforces the mode after transforms and retains the caller properties', async () => {
   const transform = vi.fn(
-    (event: TrackPayload): TrackPayload & { processing_mode: string } => ({
+    (event: TrackPayload): TrackPayload & { mode: string } => ({
       ...event,
-      processing_mode: 'product',
+      mode: 'product',
       distinct_id: 'injected-user',
       anonymous_id: 'anonymous-injected',
       device_id: 'device-injected',
@@ -214,22 +214,22 @@ it('enforces the mode after transforms and retains the caller properties', async
 
 it('does not let a product transform request audience processing for identified events', async () => {
   const client = start({
-    trackingMode: 'product',
+    mode: 'product',
     persistence: 'localStorage',
     transformEvent: event => ({
       ...event,
-      processing_mode: 'audience',
+      mode: 'audience',
     }),
   });
   client.identify('signed-in');
-  client.track('Account Opened', { processing_mode: 'business-value' });
+  client.track('Account Opened', { mode: 'business-value' });
   await client.flush();
   const event = events().find(payload => payload.event === 'Account Opened');
   expect(event).toMatchObject({
     distinct_id: 'signed-in',
-    properties: { processing_mode: 'business-value' },
+    properties: { mode: 'business-value' },
   });
-  expect(event).not.toHaveProperty('processing_mode');
+  expect(event).not.toHaveProperty('mode');
 });
 
 it.each([
@@ -303,10 +303,8 @@ it('rejects mode changes through configure and starts a fresh mode through init'
   const client = start();
   client.track('Discarded Buffer');
   // @ts-expect-error Exercise a mode change from an untyped JavaScript caller.
-  expect(() => client.configure({ trackingMode: 'product' })).toThrow(
-    'Call init()'
-  );
-  start({ trackingMode: 'product', persistence: 'memory' }, client);
+  expect(() => client.configure({ mode: 'product' })).toThrow('Call init()');
+  start({ mode: 'product', persistence: 'memory' }, client);
   client.identify('signed-in');
   client.track('Identified');
   await client.flush();
@@ -318,7 +316,7 @@ it('rejects mode changes through configure and starts a fresh mode through init'
   ).toBe('signed-in');
   expect(
     events().find(event => event.event === 'Identified')
-  ).not.toHaveProperty('processing_mode');
+  ).not.toHaveProperty('mode');
   start({}, client);
   client.track('Audience Again');
   await client.flush();
@@ -328,7 +326,7 @@ it('rejects mode changes through configure and starts a fresh mode through init'
 it('rejects unsupported tracking modes before replacing an active client', async () => {
   const client = start();
   // @ts-expect-error Exercise an invalid mode supplied by an untyped JavaScript caller.
-  expect(() => client.init('key', { trackingMode: 'anonymous' })).toThrow(
+  expect(() => client.init('key', { mode: 'anonymous' })).toThrow(
     'Invalid tracking mode. Use "product" or "audience".'
   );
   client.track('Still Active');
@@ -340,7 +338,7 @@ it('rejects adapters before replacing an active client', async () => {
   const client = start();
   const posthog = { on: vi.fn(() => () => {}) };
   expect(() =>
-    client.init('key', { trackingMode: 'audience', adapters: { posthog } })
+    client.init('key', { mode: 'audience', adapters: { posthog } })
   ).toThrow('adapters');
   expect(() => client.configure({ adapters: { posthog } })).toThrow('adapters');
   client.track('Still Active');
@@ -350,12 +348,12 @@ it('rejects adapters before replacing an active client', async () => {
 });
 
 it('keeps product events and identity when an audience initialization is rejected', async () => {
-  const client = start({ trackingMode: 'product', persistence: 'memory' });
+  const client = start({ mode: 'product', persistence: 'memory' });
   client.identify('signed-in');
   client.track('Before Rejected Init');
   expect(() =>
     client.init('key', {
-      trackingMode: 'audience',
+      mode: 'audience',
       adapters: { posthog: { on: () => () => {} } },
     })
   ).toThrow('adapters');
@@ -367,14 +365,14 @@ it('keeps product events and identity when an audience initialization is rejecte
   ]);
   for (const event of events()) {
     expect(event.distinct_id).toBe('signed-in');
-    expect(event).not.toHaveProperty('processing_mode');
+    expect(event).not.toHaveProperty('mode');
   }
 });
 
 it('preserves beacon delivery for product events on browser exit', () => {
   const beacon = vi.fn(() => true);
   vi.stubGlobal('navigator', { sendBeacon: beacon });
-  const client = start({ trackingMode: 'product', persistence: 'memory' });
+  const client = start({ mode: 'product', persistence: 'memory' });
   client.track('Exit');
   window.dispatchEvent(new Event('pagehide'));
   expect(beacon).toHaveBeenCalledOnce();
