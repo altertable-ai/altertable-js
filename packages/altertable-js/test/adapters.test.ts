@@ -6,7 +6,7 @@ import { PREFIX_ANONYMOUS_ID } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
 
 const IGNORED_ALTERTABLE_CALL_WARNING =
-  '[Altertable] Altertable track, page, identify, alias, updateTraits, and reset calls were ignored because an analytics adapter is configured.';
+  '[Altertable] Altertable track(), page(), identify(), alias(), updateTraits(), and reset() calls were ignored because an analytics adapter is configured.';
 
 function event(overrides: Record<string, unknown> = {}) {
   return {

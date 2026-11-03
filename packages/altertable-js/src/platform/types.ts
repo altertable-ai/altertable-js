@@ -17,8 +17,16 @@ export type PlatformLifecycleEvent = 'active' | 'inactive' | 'online' | 'exit';
 
 /** Runtime capabilities, fixed for the lifetime of a client. */
 export interface Platform {
-  /** Best-effort transport for runtimes that can deliver while exiting. */
-  sendOnExit?(request: { url: string; body: string }): void;
+  /**
+   * Best-effort transport for runtimes that can deliver while exiting.
+   * Forward credentials and referrerPolicy to the transport when supplied.
+   */
+  sendOnExit?(
+    request: { url: string; body: string } & Pick<
+      RequestInit,
+      'credentials' | 'referrerPolicy'
+    >
+  ): void;
   /** Read current runtime values and default event properties. */
   getContext(): PlatformContext;
   isOnline?(): boolean;

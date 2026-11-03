@@ -4,9 +4,11 @@ import type { Platform } from './types';
 
 /** Browser capabilities are discovered when used, so importing during SSR is safe. */
 export const browserPlatform: Platform = {
-  sendOnExit({ url, body }) {
+  sendOnExit({ url, body, ...options }) {
     try {
       if (
+        options.credentials === undefined &&
+        options.referrerPolicy === undefined &&
         typeof globalThis.navigator?.sendBeacon === 'function' &&
         globalThis.navigator.sendBeacon(
           url,
@@ -19,6 +21,7 @@ export const browserPlatform: Platform = {
       // A rejected beacon still permits a keepalive request.
     }
     void fetch(url, {
+      ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,

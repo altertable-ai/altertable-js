@@ -11,6 +11,8 @@ export type RequesterConfig = {
   baseUrl: string;
   apiKey: string;
   requestTimeout: number;
+  /** Applied to normal, retry, and exit delivery. */
+  requestOptions?: Pick<RequestInit, 'credentials' | 'referrerPolicy'>;
   /** @internal Override for tests — defaults to {@link HTTP_REQUEST_MAX_ATTEMPTS}; clamped to at least 1. */
   maxHttpAttempts?: number;
   /** @internal Override for tests — defaults to {@link RETRY_BASE_DELAY_MS}. */
@@ -36,17 +38,23 @@ function getRetryDelayMs(baseDelayMs: number, attemptIndex: number): number {
 }
 
 export class Requester<TPayload extends EventPayload> {
-  private _config: Required<RequesterConfig>;
+  private _config: Required<Omit<RequesterConfig, 'requestOptions'>>;
+  private readonly _requestOptions: Pick<
+    RequestInit,
+    'credentials' | 'referrerPolicy'
+  >;
 
   constructor(config: RequesterConfig) {
+    const { requestOptions, ...options } = config;
     this._config = {
-      ...config,
+      ...options,
       maxHttpAttempts: Math.max(
         1,
         config.maxHttpAttempts ?? HTTP_REQUEST_MAX_ATTEMPTS
       ),
       retryBaseDelayMs: config.retryBaseDelayMs ?? RETRY_BASE_DELAY_MS,
     };
+    this._requestOptions = { ...requestOptions };
   }
 
   /** Apply to future sends; ongoing batches keep their captured URL across retries. */
@@ -83,10 +91,16 @@ export class Requester<TPayload extends EventPayload> {
   sendUnload(
     path: string,
     payloads: TPayload[],
-    send: (request: { url: string; body: string }) => void
+    send: (
+      request: { url: string; body: string } & Pick<
+        RequestInit,
+        'credentials' | 'referrerPolicy'
+      >
+    ) => void
   ): void {
     if (payloads.length > 0) {
       send({
+        ...this._requestOptions,
         url: this._constructUrl(path),
         body: JSON.stringify(
           payloads.map(({ environment: _environment, ...payload }) => payload)
@@ -148,6 +162,7 @@ export class Requester<TPayload extends EventPayload> {
 
     try {
       const response = await fetch(url, {
+        ...this._requestOptions,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
