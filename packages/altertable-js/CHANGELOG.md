@@ -2,10 +2,9 @@
 
 ## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.4.0...altertable-js-v1.5.0) (2026-11-03)
 
-
 ### Features
 
-* **analytics:** add restricted audience measurement ([71411b4](https://github.com/altertable-ai/altertable-js/commit/71411b443691ec531f4698702a7721f518042c64))
+- **analytics:** add restricted audience measurement ([71411b4](https://github.com/altertable-ai/altertable-js/commit/71411b443691ec531f4698702a7721f518042c64))
 
 ## [Unreleased]
 
