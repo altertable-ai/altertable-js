@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.4.0...altertable-react-v1.5.0) (2026-11-03)
+
+
+### Features
+
+* **analytics:** add restricted audience measurement ([71411b4](https://github.com/altertable-ai/altertable-js/commit/71411b443691ec531f4698702a7721f518042c64))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.4.0 to ^1.5.0
+
 ## [Unreleased]
 
 ### ⚠ BREAKING CHANGES
