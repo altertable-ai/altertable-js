@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.4.0...altertable-react-native-v1.5.0) (2026-11-03)
+
+### Miscellaneous Chores
+
+- **altertable-react-native:** Synchronize altertable-sdk versions
+
+### Dependencies
+
+- The following workspace dependencies were updated
+  - dependencies
+    - @altertable/altertable-js bumped from ^1.4.0 to ^1.5.0
+
 ## [1.4.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.3.1...altertable-react-native-v1.4.0) (2026-10-19)
 
 ### Features
