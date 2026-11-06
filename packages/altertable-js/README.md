@@ -78,6 +78,24 @@ altertable.init('YOUR_API_KEY');
 
 Calling `init` again replaces configuration and **discards** any events still in the outbound batch buffer. If you need them sent first (for example before switching API keys), `await altertable.flush()` before calling `init` again.
 
+### Migrating environment configuration
+
+Use a Product Analytics API key bound to the environment you want to collect into:
+
+```javascript
+// Before
+altertable.init('LEGACY_API_KEY', { environment: 'staging' });
+
+// After
+altertable.init('STAGING_PRODUCT_ANALYTICS_API_KEY');
+```
+
+`environment` remains accepted but is deprecated and ignored for routing, including in `configure()`. Requests omit the top-level field even if a transform adds it. Properties and traits named `environment` are unchanged. This applies in product and audience modes.
+
+Replace unbound legacy keys before upgrading: they require an explicit payload environment and cannot deliver with this SDK. To switch environments, use a different environment-bound key. If replacing an unbound key, flush pending events with the previous SDK before upgrading; a replacement key does not inherit the old key's identity or queue.
+
+When keeping the same key, keep the old option for the first initialization after upgrading if you need to restore identity or queued events from a non-production namespace. After that migration, remove it. New storage is scoped to the API key; existing new-format data takes precedence, and changing keys starts a separate identity and queue.
+
 ### Event Tracking
 
 #### `altertable.track(event, properties?)`
