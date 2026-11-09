@@ -2,6 +2,9 @@
 
 React Native SDK for capturing and sending analytics events to Altertable.
 
+This wrapper supports product analytics. Audience mode is not supported; an
+untyped `mode: 'audience'` option is rejected before native storage is accessed.
+
 ## Installation
 
 ```sh

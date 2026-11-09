@@ -49,6 +49,18 @@ export type ScreenOptions = { id?: string; properties?: EventProperties };
 /** A hydrated client. Keep one active instance per API key and storage backend. */
 export type ReactNativeClient = Awaited<ReturnType<typeof createAltertable>>;
 
+function assertProductMode(config: object) {
+  if (
+    'mode' in config &&
+    config.mode !== undefined &&
+    config.mode !== 'product'
+  ) {
+    throw new Error(
+      '[Altertable] React Native supports product analytics only. Audience mode is not supported by this wrapper.'
+    );
+  }
+}
+
 /**
  * Restore identity, consent, and unsent events before returning a ready client.
  * Initialize once during app startup, then share it through AltertableProvider.
@@ -70,6 +82,8 @@ export async function createAltertable(
       '[Altertable] Missing storage. Pass an async storage backend, such as AsyncStorage, to createAltertable().'
     );
   }
+
+  assertProductMode(options);
 
   const {
     storage: backend,
@@ -222,6 +236,7 @@ export async function createAltertable(
     /** Update mutable options and await native writes. Consent grants are persisted before delivery. */
     async configure(updates: ReactNativeConfigUpdates) {
       assertNotDisposed();
+      assertProductMode(updates);
       const grantingConsent =
         updates.trackingConsent === TrackingConsent.GRANTED;
       if (grantingConsent) deliveryReady = false;
