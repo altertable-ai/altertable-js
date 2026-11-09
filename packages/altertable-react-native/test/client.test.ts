@@ -60,6 +60,41 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+it.each(['audience', 'unsupported'])(
+  'rejects an untyped mode %s before accessing native storage',
+  async mode => {
+    // @ts-expect-error Exercise options supplied by an untyped JavaScript caller.
+    await expect(create({ mode })).rejects.toThrow(
+      'React Native supports product analytics only'
+    );
+    expect(storageMock.getItem).not.toHaveBeenCalled();
+    expect(storageMock.setItem).not.toHaveBeenCalled();
+    expect(storageMock.removeItem).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  }
+);
+
+it('rejects an untyped mode change without pausing product delivery', async () => {
+  const client = await create({ flushEventThreshold: 1 });
+  await vi.advanceTimersByTimeAsync(0);
+  await expect(
+    client.configure({
+      // @ts-expect-error Exercise updates supplied by an untyped JavaScript caller.
+      mode: 'audience',
+      trackingConsent: 'granted',
+    })
+  ).rejects.toThrow();
+  client.track('Still Product');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(payloads()).toEqual([
+    expect.objectContaining({
+      event: 'Still Product',
+      distinct_id: expect.any(String),
+    }),
+  ]);
+  expect(payloads()[0]).not.toHaveProperty('mode');
+});
+
 it('restores anonymous identity, identified identity, and unsent events across restarts', async () => {
   const first = await create({ connectivity });
   first.track('Before Login');
