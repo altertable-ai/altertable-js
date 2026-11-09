@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.5.0...altertable-react-native-v1.6.0) (2026-11-09)
+
+
+### Features
+
+* **react-native:** support audience mode ([#230](https://github.com/altertable-ai/altertable-js/issues/230)) ([3a46dc1](https://github.com/altertable-ai/altertable-js/commit/3a46dc1f65bc0561d1728791ab476c4f497de279))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.5.0 to ^1.6.0
+
 ## [Unreleased]
 
 ### Features

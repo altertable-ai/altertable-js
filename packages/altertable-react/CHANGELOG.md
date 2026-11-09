@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.5.0...altertable-react-v1.6.0) (2026-11-09)
+
+
+### Miscellaneous Chores
+
+* **altertable-react:** Synchronize altertable-sdk versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.5.0 to ^1.6.0
+
 ## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-v1.4.0...altertable-react-v1.5.0) (2026-11-03)
 
 ### Features
