@@ -60,13 +60,11 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it.each(['audience', 'unsupported'])(
+it.each(['unsupported'])(
   'rejects an untyped mode %s before accessing native storage',
   async mode => {
     // @ts-expect-error Exercise options supplied by an untyped JavaScript caller.
-    await expect(create({ mode })).rejects.toThrow(
-      'React Native supports product analytics only'
-    );
+    await expect(create({ mode })).rejects.toThrow('Invalid tracking mode');
     expect(storageMock.getItem).not.toHaveBeenCalled();
     expect(storageMock.setItem).not.toHaveBeenCalled();
     expect(storageMock.removeItem).not.toHaveBeenCalled();
