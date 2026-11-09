@@ -1,4 +1,4 @@
-import type { Platform } from '@altertable/altertable-js';
+import type { Platform, TrackingMode } from '@altertable/altertable-js';
 import { AppState, Platform as ReactNativePlatform } from 'react-native';
 
 import { createLogger } from './logger';
@@ -15,10 +15,12 @@ export interface Connectivity {
 
 /** @internal Compose React Native runtime capabilities for createAltertable. */
 export function createReactNativePlatform({
+  mode,
   connectivity,
   prepareDelivery,
   onError,
 }: {
+  mode: TrackingMode;
   connectivity?: Connectivity;
   prepareDelivery: () => Promise<boolean>;
   onError: (error: Error) => void;
@@ -28,8 +30,11 @@ export function createReactNativePlatform({
   return {
     getContext: () => ({
       properties: {
-        $os: ReactNativePlatform.OS,
-        $os_version: String(ReactNativePlatform.Version),
+        // Audience measurement must not attach automatic OS or device details.
+        ...(mode === 'product' && {
+          $os: ReactNativePlatform.OS,
+          $os_version: String(ReactNativePlatform.Version),
+        }),
         $lib: __LIB__,
         $lib_version: __LIB_VERSION__,
       },

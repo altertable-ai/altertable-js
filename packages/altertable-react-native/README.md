@@ -172,16 +172,20 @@ For custom runtime integrations, see the core SDK's
 Accepts core options for API endpoint, release, consent, transformation,
 error handling, and batching, plus:
 
-| Option             | Required | Default | Description                                                       |
-| ------------------ | -------- | ------- | ----------------------------------------------------------------- |
-| `storage`          | Yes      | —       | Async backend with `getItem`, `setItem`, and `removeItem`.        |
-| `eventPersistence` | No       | `true`  | Persist unsent events. Identity and consent are always persisted. |
-| `connectivity`     | No       | —       | Optional app-provided network status subscription.                |
+| Option             | Required | Default   | Description                                                                                                     |
+| ------------------ | -------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| `mode`             | No       | `product` | `audience` sends events without identity or OS context, keeps them in memory only, and never touches `storage`. |
+| `storage`          | Product  | —         | Async backend with `getItem`, `setItem`, and `removeItem`.                                                      |
+| `eventPersistence` | No       | `true`    | Persist unsent events. Identity and consent are always persisted.                                               |
+| `connectivity`     | No       | —         | Optional app-provided network status subscription.                                                              |
 
 `configure()` updates consent, release, debug, transformation, error handling, and
-batch settings. API key, `baseUrl`, storage, connectivity, and
+batch settings. API key, `mode`, `baseUrl`, storage, connectivity, and
 `eventPersistence` are fixed at creation. See the [core configuration reference](../altertable-js/README.md#altertableconfig)
 for shared options.
+
+Audience requests use `credentials: 'omit'`; Android cookie isolation relies on
+React Native's networking honoring it.
 
 ## License
 

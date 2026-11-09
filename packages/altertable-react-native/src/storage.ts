@@ -12,6 +12,17 @@ interface HydratedStorage extends StorageAdapter {
   close(): Promise<void>;
 }
 
+/** Audience clients keep state in memory and never touch native storage. */
+export function createMemoryStorage(): HydratedStorage {
+  return {
+    getItem: () => null,
+    setItem: () => true,
+    removeItem() {},
+    flush: async () => {},
+    close: async () => {},
+  };
+}
+
 /** Hydrate before core initialization; keep native writes ordered and retryable. */
 export async function hydrateStorage(
   backend: AsyncStorageAdapter,
