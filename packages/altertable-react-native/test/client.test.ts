@@ -60,19 +60,18 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it.each(['unsupported'])(
-  'rejects an untyped mode %s before accessing native storage',
-  async mode => {
-    // @ts-expect-error Exercise options supplied by an untyped JavaScript caller.
-    await expect(create({ mode })).rejects.toThrow('Invalid tracking mode');
-    expect(storageMock.getItem).not.toHaveBeenCalled();
-    expect(storageMock.setItem).not.toHaveBeenCalled();
-    expect(storageMock.removeItem).not.toHaveBeenCalled();
-    expect(fetch).not.toHaveBeenCalled();
-  }
-);
+it('rejects an unsupported mode before accessing native storage', async () => {
+  // @ts-expect-error Exercise options supplied by an untyped JavaScript caller.
+  await expect(create({ mode: 'unsupported' })).rejects.toThrow(
+    'Invalid tracking mode'
+  );
+  expect(storageMock.getItem).not.toHaveBeenCalled();
+  expect(storageMock.setItem).not.toHaveBeenCalled();
+  expect(storageMock.removeItem).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
+});
 
-it('rejects an untyped mode change without pausing product delivery', async () => {
+it('rejects a mode change without pausing product delivery', async () => {
   const client = await create({ flushEventThreshold: 1 });
   await vi.advanceTimersByTimeAsync(0);
   await expect(
@@ -81,7 +80,7 @@ it('rejects an untyped mode change without pausing product delivery', async () =
       mode: 'audience',
       trackingConsent: 'granted',
     })
-  ).rejects.toThrow();
+  ).rejects.toThrow('new client');
   client.track('Still Product');
   await vi.advanceTimersByTimeAsync(0);
   expect(payloads()).toEqual([

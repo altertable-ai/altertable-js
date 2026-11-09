@@ -69,13 +69,16 @@ it('tracks audience screens without storage and applies policy after transforms'
         nested: { environment: 'business' },
         $view_name: 'Home',
         $view_type: 'screen',
-        $os: 'ios',
+        $lib: expect.any(String),
+        $lib_version: expect.any(String),
         $url: 'https://example.com/docs',
         $referer: 'https://search.example',
       }),
     },
   ]);
   expect(payloads()[0].properties).not.toHaveProperty('$viewport');
+  expect(payloads()[0].properties).not.toHaveProperty('$os');
+  expect(payloads()[0].properties).not.toHaveProperty('$os_version');
   expect(properties).toEqual({ nested: { environment: 'business' } });
   expect(fetch).toHaveBeenCalledWith(
     'https://api.altertable.ai/track?apiKey=key',

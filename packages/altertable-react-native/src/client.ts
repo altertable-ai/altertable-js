@@ -5,11 +5,16 @@ import {
   getStorageKeys,
   getLegacyStorageKeys,
   TrackingConsent,
+  type TrackingMode,
 } from '@altertable/altertable-js';
 
 import { createLogger } from './logger';
 import { createReactNativePlatform, type Connectivity } from './platform';
-import { type AsyncStorageAdapter, hydrateStorage } from './storage';
+import {
+  type AsyncStorageAdapter,
+  createMemoryStorage,
+  hydrateStorage,
+} from './storage';
 
 export type { Connectivity } from './platform';
 
@@ -28,13 +33,24 @@ type CoreOptions = Pick<
 >;
 /** Core event options plus the native storage and optional connectivity adapters. */
 export type ReactNativeConfig = CoreOptions & {
-  /** Native async storage backend used to restore and persist identity and events. */
-  storage: AsyncStorageAdapter;
   /** Persist unsent events. Defaults to true. Identity and consent remain durable. */
   eventPersistence?: boolean;
   /** Retry on reconnection and skip delivery while known offline. */
   connectivity?: Connectivity;
-};
+} & (
+    | {
+        /** Product analytics (default). */
+        mode?: 'product';
+        /** Native async storage backend used to restore and persist identity and events. */
+        storage: AsyncStorageAdapter;
+      }
+    | {
+        /** Audience measurement: memory-only, without identity or OS context. Fixed for the client. */
+        mode: 'audience';
+        /** Ignored: audience clients never read or write native storage. */
+        storage?: AsyncStorageAdapter;
+      }
+  );
 
 /**
  * Mutable event options. Endpoint, storage, connectivity, and
@@ -49,20 +65,9 @@ export type ScreenOptions = { id?: string; properties?: EventProperties };
 /** A hydrated client. Keep one active instance per API key and storage backend. */
 export type ReactNativeClient = Awaited<ReturnType<typeof createAltertable>>;
 
-function assertProductMode(config: object) {
-  if (
-    'mode' in config &&
-    config.mode !== undefined &&
-    config.mode !== 'product'
-  ) {
-    throw new Error(
-      '[Altertable] React Native supports product analytics only. Audience mode is not supported by this wrapper.'
-    );
-  }
-}
-
 /**
  * Restore identity, consent, and unsent events before returning a ready client.
+ * Audience clients start empty and never access native storage.
  * Initialize once during app startup, then share it through AltertableProvider.
  * Rejects on storage read or initial write failure; calling again retries startup.
  * Dispose the previous client before creating a replacement with the same storage.
@@ -77,13 +82,19 @@ export async function createAltertable(
     );
   }
 
-  if (!options?.storage) {
+  // Validate before touching storage; core would only reject after hydration.
+  const mode: TrackingMode = options?.mode ?? 'product';
+  if (mode !== 'product' && mode !== 'audience') {
+    throw new Error(
+      '[Altertable] Invalid tracking mode. Use "product" or "audience".'
+    );
+  }
+
+  if (mode === 'product' && !options.storage) {
     throw new Error(
       '[Altertable] Missing storage. Pass an async storage backend, such as AsyncStorage, to createAltertable().'
     );
   }
-
-  assertProductMode(options);
 
   const {
     storage: backend,
@@ -112,21 +123,25 @@ export async function createAltertable(
     [legacyKeys.session, keys.session],
   ];
   if (eventPersistence) migrations.push([legacyKeys.events, keys.events]);
-  const storage = await hydrateStorage(
-    backend,
-    [keys.session, keys.events, legacyKeys.session, legacyKeys.events],
-    (error, operation) => {
-      logger.warnOnce(
-        operation === 'read'
-          ? 'Failed to restore analytics from storage. Retry createAltertable() after storage recovers.'
-          : 'Failed to persist analytics. Recent changes are not durable; call flushPersistence() to retry.',
-        error
-      );
-      reportError(error);
-    },
-    migrations
-  );
-  if (!eventPersistence) {
+  // Audience clients must not read, migrate, write, or clear product storage.
+  const storage =
+    mode === 'audience'
+      ? createMemoryStorage()
+      : await hydrateStorage(
+          backend!,
+          [keys.session, keys.events, legacyKeys.session, legacyKeys.events],
+          (error, operation) => {
+            logger.warnOnce(
+              operation === 'read'
+                ? 'Failed to restore analytics from storage. Retry createAltertable() after storage recovers.'
+                : 'Failed to persist analytics. Recent changes are not durable; call flushPersistence() to retry.',
+              error
+            );
+            reportError(error);
+          },
+          migrations
+        );
+  if (mode === 'product' && !eventPersistence) {
     storage.removeItem(keys.events);
     storage.removeItem(legacyKeys.events);
   }
@@ -135,6 +150,7 @@ export async function createAltertable(
   // Startup and consent grants must persist before delivery can resume.
   let deliveryReady = false;
   const platform = createReactNativePlatform({
+    mode,
     connectivity,
     async prepareDelivery() {
       await storage.flush();
@@ -236,7 +252,13 @@ export async function createAltertable(
     /** Update mutable options and await native writes. Consent grants are persisted before delivery. */
     async configure(updates: ReactNativeConfigUpdates) {
       assertNotDisposed();
-      assertProductMode(updates);
+      // Reject before consent or error-handler changes take effect.
+      const requestedMode = (updates as { mode?: unknown }).mode;
+      if (requestedMode !== undefined && requestedMode !== mode) {
+        throw new Error(
+          '[Altertable] The tracking mode is fixed for a client. Dispose it and create a new client with createAltertable() to change modes.'
+        );
+      }
       const grantingConsent =
         updates.trackingConsent === TrackingConsent.GRANTED;
       if (grantingConsent) deliveryReady = false;

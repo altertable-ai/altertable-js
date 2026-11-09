@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-### Fixed
+### Features
 
-- Reject unsupported tracking modes before accessing native storage or changing delivery state.
+- Support `mode: 'audience'`: memory-only audience measurement without identity, native storage, or OS context.
 
 ## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.4.0...altertable-react-native-v1.5.0) (2026-11-03)
 
