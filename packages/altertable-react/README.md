@@ -14,8 +14,6 @@ yarn add @altertable/altertable-js @altertable/altertable-react
 bun add @altertable/altertable-js @altertable/altertable-react
 ```
 
-Initialize the core SDK with an environment-bound Product Analytics API key. If upgrading from an `environment` option, follow the [core SDK migration](../altertable-js/README.md#migrating-environment-configuration); the provider uses that client's configuration.
-
 ## Quick Start
 
 ```tsx

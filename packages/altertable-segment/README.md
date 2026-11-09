@@ -15,14 +15,10 @@ In Segment, create a new Destination Function and copy/paste the content of `dis
 The destination requires the following settings:
 
 - **apiKey** (required): Your environment-bound Product Analytics API key
-- **environment** (deprecated): Ignored. The API key determines the environment.
+- **environment** (deprecated): Ignored and omitted from payloads. The API key determines the environment; replace legacy keys with one bound to the target environment, then remove this setting.
 - **endpoint** (optional): Custom Altertable API endpoint (defaults to `https://api.altertable.ai`)
 - **samplingRate** (optional): Sampling rate for events (defaults to `1`)
 - **skip5xxErrors** (optional): Skip 5xx errors (defaults to `false`)
-
-### Migrating environment settings
-
-Replace the old `apiKey` plus `environment: "staging"` settings with a Product Analytics API key bound to staging, then remove `environment`. The deprecated setting remains accepted but is ignored; track, identify, and alias payloads omit it. Unbound legacy keys require a payload environment and cannot deliver through this destination.
 
 ## Unsupported Events
 

@@ -58,25 +58,6 @@ initialized. See the [Expo example](../../examples/example-react-native) for a
 complete app with loading, error, and retry states. Failed initialization can be
 retried by calling `createAltertable()` again with the same storage.
 
-## Migrating environment configuration
-
-Use a Product Analytics API key bound to your target environment:
-
-```tsx
-// Before
-await createAltertable('LEGACY_API_KEY', {
-  storage: AsyncStorage,
-  environment: 'staging',
-});
-
-// After
-await createAltertable('STAGING_PRODUCT_ANALYTICS_API_KEY', {
-  storage: AsyncStorage,
-});
-```
-
-The deprecated `environment` option is accepted and ignored for routing. Unbound legacy keys require a payload environment and cannot deliver with this SDK. Flush pending events with the previous SDK before replacing an unbound key; a replacement key does not inherit the old key's identity or queue. When keeping the same key, retain the old option for the first initialization to restore a non-production identity and queue, then remove it. New storage is scoped to the API key; existing migrated data wins, and different keys keep separate identities and queues. Await initialization and retry if storage migration fails.
-
 ## Features
 
 - Persistent identity and offline event delivery
