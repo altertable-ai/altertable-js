@@ -20,8 +20,8 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@swc/cli": "0.8.1",
-    "@swc/core": "^1.16.2",
+    "@swc/cli": "0.8.2",
+    "@swc/core": "^1.16.22",
     "chokidar": "5.0.0"
   }
 }
