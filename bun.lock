@@ -60,7 +60,7 @@
     },
     "packages/altertable-js": {
       "name": "@altertable/altertable-js",
-      "version": "1.4.0",
+      "version": "1.6.0",
       "devDependencies": {
         "posthog-js": "1.434.14",
         "posthog-js-minimum": "npm:posthog-js@1.230.0",
@@ -68,9 +68,9 @@
     },
     "packages/altertable-react": {
       "name": "@altertable/altertable-react",
-      "version": "1.4.0",
+      "version": "1.6.0",
       "dependencies": {
-        "@altertable/altertable-js": "^1.4.0",
+        "@altertable/altertable-js": "^1.6.0",
       },
       "devDependencies": {
         "@posthog/react": "1.11.2",
@@ -87,9 +87,9 @@
     },
     "packages/altertable-react-native": {
       "name": "@altertable/altertable-react-native",
-      "version": "1.4.0",
+      "version": "1.6.0",
       "dependencies": {
-        "@altertable/altertable-js": "^1.4.0",
+        "@altertable/altertable-js": "^1.6.0",
       },
       "devDependencies": {
         "@testing-library/dom": "10.4.2",
