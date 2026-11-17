@@ -2,10 +2,9 @@
 
 ## [1.6.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.5.0...altertable-js-v1.6.0) (2026-11-09)
 
-
 ### Miscellaneous Chores
 
-* **altertable-js:** Synchronize altertable-sdk versions
+- **altertable-js:** Synchronize altertable-sdk versions
 
 ## [1.5.0](https://github.com/altertable-ai/altertable-js/compare/altertable-js-v1.4.0...altertable-js-v1.5.0) (2026-11-03)
 
