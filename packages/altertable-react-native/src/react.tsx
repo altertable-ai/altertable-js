@@ -24,10 +24,7 @@ export function AltertableProvider({
   );
 }
 
-/**
- * Return the client API for the nearest AltertableProvider. Throws outside a provider.
- * The result is stable for a given client but is not the provider's client object.
- */
+/** Return the client API for the nearest AltertableProvider. Throws outside a provider. */
 export function useAltertable(): ReactNativeClient {
   const client = useContext(AltertableContext);
   if (!client) {
