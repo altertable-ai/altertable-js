@@ -1,13 +1,10 @@
-import { mergeEventProperties } from '@altertable/altertable-react-shared';
-import { useCallback, useMemo } from 'react';
+import {
+  type FunnelMapping,
+  useTrackingApi,
+} from '@altertable/altertable-react-shared';
+import { useMemo } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
-import {
-  FunnelMapping,
-  FunnelStepName,
-  FunnelStepProperties,
-  FunnelTracker,
-} from './types';
 
 /**
  * `useAltertable()` provides access to type-safe event and funnel tracking for Altertable.
@@ -39,58 +36,7 @@ import {
  */
 export function useAltertable<T extends FunnelMapping>() {
   const altertable = useAltertableContext();
-
-  /**
-   * Type-safe track method for funnel steps.
-   *
-   * @template Steps The funnel steps type
-   * @param eventName The name of the funnel step to track
-   * @param properties Properties associated with the step (type-checked based on step definition)
-   *
-   * @example
-   * ```typescript
-   * const altertable = useAltertable<MyFunnels>();
-   * altertable.track('Email Entered', { email: 'user@example.com' });
-   * ```
-   */
-  const track = useCallback(
-    <Steps extends T[keyof T] = T[keyof T]>(
-      eventName: FunnelStepName<Steps>,
-      properties: FunnelStepProperties<Steps, typeof eventName> = {}
-    ) => {
-      altertable.track(eventName, mergeEventProperties(properties));
-    },
-    [altertable]
-  );
-
-  const funnelTracker = useMemo(
-    (): FunnelTracker<T[keyof T]> => ({
-      trackStep: track<T[keyof T]>,
-    }),
-    [track]
-  );
-
-  /**
-   * Selects a specific funnel for type-safe step tracking.
-   *
-   * @template FunnelName The name of the funnel to select
-   * @param funnelName The name of the funnel (used for type inference only)
-   * @returns An object with a `trackStep` method for tracking steps in the selected funnel
-   *
-   * @example
-   * ```typescript
-   * const altertable = useAltertable<MyFunnels>();
-   * const signupFunnel = altertable.selectFunnel('signup');
-   * signupFunnel.trackStep('Email Entered', { email: 'user@example.com' });
-   * ```
-   */
-  const selectFunnel = useCallback(
-    <FunnelName extends keyof T>(
-      _funnelName: FunnelName
-    ): FunnelTracker<T[FunnelName]> =>
-      funnelTracker as FunnelTracker<T[FunnelName]>,
-    [funnelTracker]
-  );
+  const { track, selectFunnel } = useTrackingApi<T>(altertable);
 
   return useMemo(
     () => ({

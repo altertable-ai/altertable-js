@@ -62,6 +62,7 @@
       "name": "@altertable/altertable-js",
       "version": "1.6.0",
       "devDependencies": {
+        "@altertable/altertable-shared": "workspace:*",
         "posthog-js": "1.434.14",
         "posthog-js-minimum": "npm:posthog-js@1.230.0",
       },
@@ -74,6 +75,7 @@
       },
       "devDependencies": {
         "@altertable/altertable-react-shared": "workspace:*",
+        "@altertable/altertable-shared": "workspace:*",
         "@posthog/react": "1.11.2",
         "@testing-library/dom": "10.4.2",
         "@testing-library/react": "^16.3.3",
@@ -93,7 +95,7 @@
         "@altertable/altertable-js": "^1.6.0",
       },
       "devDependencies": {
-        "@altertable/altertable-react-shared": "workspace:*",
+        "@altertable/altertable-shared": "workspace:*",
         "@testing-library/dom": "10.4.2",
         "@testing-library/react": "^16.3.3",
         "@types/react": "^19.3.0",
@@ -109,13 +111,24 @@
     "packages/altertable-react-shared": {
       "name": "@altertable/altertable-react-shared",
       "version": "0.0.0",
+      "dependencies": {
+        "@altertable/altertable-shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/react": "^19.3.0",
+        "react": "^19.3.1",
+      },
       "peerDependencies": {
-        "@altertable/altertable-js": "^1.6.0",
+        "react": "^16.14 || ^17.0 || ^18.0 || ^19.0",
       },
     },
     "packages/altertable-segment": {
       "name": "@altertable/altertable-segment",
       "version": "0.1.0",
+    },
+    "packages/altertable-shared": {
+      "name": "@altertable/altertable-shared",
+      "version": "0.0.0",
     },
     "packages/altertable-snippet": {
       "name": "@altertable/altertable-snippet",
@@ -145,6 +158,8 @@
     "@altertable/altertable-react-shared": ["@altertable/altertable-react-shared@workspace:packages/altertable-react-shared"],
 
     "@altertable/altertable-segment": ["@altertable/altertable-segment@workspace:packages/altertable-segment"],
+
+    "@altertable/altertable-shared": ["@altertable/altertable-shared@workspace:packages/altertable-shared"],
 
     "@altertable/altertable-snippet": ["@altertable/altertable-snippet@workspace:packages/altertable-snippet"],
 

@@ -1,4 +1,8 @@
 import '../../../test-utils/matchers/toRequestApi';
+import {
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+} from '@altertable/altertable-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStorageMock } from '../../../test-utils/mocks/storageMock';
@@ -12,8 +16,6 @@ import {
   PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
-  PROPERTY_LIB,
-  PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
   PROPERTY_URL,

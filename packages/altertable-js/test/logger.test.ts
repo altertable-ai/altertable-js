@@ -26,7 +26,7 @@ describe('Logger', () => {
     console.groupEnd = vi.fn();
     console.table = vi.fn();
 
-    loggerCache.current = {};
+    loggerCache.clear();
   });
 
   afterEach(() => {
@@ -620,16 +620,16 @@ describe('Logger', () => {
       }).toWarnDev('[TestLogger] Development warning');
     });
 
-    it('passes additional arguments', () => {
+    it('passes the error', () => {
       const logger = createLogger('TestLogger');
       const message = 'Development warning';
-      const additionalArg = { debug: 'info' };
+      const error = new Error('Cause');
 
-      logger.warnDev(message, additionalArg);
+      logger.warnDev(message, error);
 
       expect(console.warn).toHaveBeenCalledWith(
         '[TestLogger] Development warning',
-        additionalArg
+        error
       );
     });
 

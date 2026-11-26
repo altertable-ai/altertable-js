@@ -1,5 +1,7 @@
 /* oxlint-disable no-console */
 
+import { createWarningLogger } from '@altertable/altertable-shared';
+
 import {
   PROPERTY_URL,
   TrackingConsent,
@@ -16,16 +18,16 @@ import {
 export type Logger = ReturnType<typeof createLogger>;
 
 export function createLogger(prefix: string) {
+  const warnings = createWarningLogger(prefix, loggerCache);
+
   return {
     log: (...args: unknown[]) => {
       console.log(`[${prefix}]`, ...args);
     },
     logHeader: () => {
       const header = `Altertable v${__LIB_VERSION__} %c• Debug mode enabled`;
-      const hasAlreadyPrinted = loggerCache.current[header];
-
-      if (!hasAlreadyPrinted) {
-        loggerCache.current[header] = true;
+      if (!loggerCache.has(header)) {
+        loggerCache.add(header);
         console.log(header, 'color: #64748b;');
       }
     },
@@ -172,30 +174,9 @@ export function createLogger(prefix: string) {
     warn: (...args: unknown[]) => {
       console.warn(`[${prefix}]`, ...args);
     },
-    warnDev: (message: string, ...args: unknown[]) => {
-      if (!__DEV__) {
-        return;
-      }
-
-      const sanitizedMessage = message.trim();
-      const hasAlreadyPrinted = loggerCache.current[sanitizedMessage];
-
-      if (!hasAlreadyPrinted) {
-        loggerCache.current[sanitizedMessage] = true;
-        const warning = `[${prefix}] ${sanitizedMessage}`;
-
-        console.warn(warning, ...args);
-
-        try {
-          // Welcome to debugging Altertable.
-          //
-          // This error was thrown as a convenience so that you can find the source
-          // of the warning that appears in the console by enabling "Pause on exceptions"
-          // in your debugger.
-          throw new Error(warning);
-        } catch {
-          // Do nothing
-        }
+    warnDev: (message: string, error?: Error) => {
+      if (__DEV__) {
+        warnings.warnOnce(message, error);
       }
     },
     error: (...args: unknown[]) => {
@@ -204,9 +185,8 @@ export function createLogger(prefix: string) {
   };
 }
 
-export const loggerCache: { current: Record<string, boolean> } = {
-  current: {},
-};
+/** Messages already printed, shared by every logger so each prints once. */
+export const loggerCache = new Set<string>();
 
 function formatEventTime(timestamp: string) {
   return new Date(timestamp).toLocaleTimeString('en-US', {

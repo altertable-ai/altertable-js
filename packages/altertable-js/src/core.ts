@@ -1,3 +1,9 @@
+import {
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+  toError,
+} from '@altertable/altertable-shared';
+
 import { connectAdapters, hasConfiguredAdapter } from './adapters/providers';
 import type { AdapterSubscription } from './adapters/subscription';
 import type { AdapterEvent, Adapters, SourceMetadata } from './adapters/types';
@@ -7,8 +13,6 @@ import {
   DEFAULT_MAX_BATCH_SIZE,
   EVENT_PAGEVIEW,
   MAX_QUEUE_SIZE,
-  PROPERTY_LIB,
-  PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
   PROPERTY_URL,
@@ -613,9 +617,7 @@ export class Altertable {
     try {
       cleanup?.();
     } catch (error) {
-      this._notifyError(
-        error instanceof Error ? error : new Error(String(error))
-      );
+      this._notifyError(toError(error));
     }
 
     if (enableAutoCapture && this._platform.subscribeUrlChanges) {
@@ -677,9 +679,7 @@ export class Altertable {
     try {
       validateUserId(userId);
     } catch (error) {
-      throw new Error(
-        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw new Error(`[Altertable] ${toError(error).message}`);
     }
 
     if (!this._isInitialized) {
@@ -759,9 +759,7 @@ export class Altertable {
     try {
       validateUserId(newUserId);
     } catch (error) {
-      throw new Error(
-        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw new Error(`[Altertable] ${toError(error).message}`);
     }
 
     if (!this._isInitialized) {
@@ -1069,8 +1067,7 @@ export class Altertable {
     try {
       return this._config.transformEvent(payload);
     } catch (error) {
-      const transformError =
-        error instanceof Error ? error : new Error(String(error));
+      const transformError = toError(error);
       this._notifyError(transformError);
       this._logger.error('Failed to transform event', {
         error: transformError,
@@ -1186,8 +1183,7 @@ export class Altertable {
           break;
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = toError(error).message;
       this._logger.warnDev(
         `Failed to process queued ${cmd.method}() command:\n${errorMessage}`
       );
@@ -1210,9 +1206,7 @@ export class Altertable {
       try {
         cleanup?.();
       } catch (error) {
-        this._notifyError(
-          error instanceof Error ? error : new Error(String(error))
-        );
+        this._notifyError(toError(error));
       }
     }
   }
@@ -1289,9 +1283,7 @@ export class Altertable {
       .catch(error => {
         if (generation === this._generation) {
           this._automaticFlushRequested = false;
-          this._notifyError(
-            error instanceof Error ? error : new Error(String(error))
-          );
+          this._notifyError(toError(error));
         }
         throw error;
       })

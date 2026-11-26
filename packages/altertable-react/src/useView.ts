@@ -1,15 +1,15 @@
-import { mergeEventProperties } from '@altertable/altertable-react-shared';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { useAltertableContext } from './AltertableProvider';
 import {
   EVENT_SCREEN,
   EVENT_VIEW,
-  PROPERTY_VIEW_ID,
-  PROPERTY_VIEW_NAME,
-  PROPERTY_VIEW_TYPE,
-} from './constants';
-import { logger } from './logger';
+  getViewProperties,
+  createWarningLogger,
+  mergeEventProperties,
+} from '@altertable/altertable-shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useAltertableContext } from './AltertableProvider';
+
+const logger = createWarningLogger('Altertable React');
 
 type ViewProperties = Record<string, unknown>;
 type ViewType = 'screen' | 'view';
@@ -196,9 +196,8 @@ function getViewKey(event: string, name: string, id?: string) {
 }
 
 function buildViewProperties(view: TrackedView, type: ViewType) {
-  return mergeEventProperties(view.properties, {
-    [PROPERTY_VIEW_NAME]: view.name,
-    ...(view.id === undefined ? {} : { [PROPERTY_VIEW_ID]: view.id }),
-    [PROPERTY_VIEW_TYPE]: type,
-  });
+  return mergeEventProperties(
+    view.properties,
+    getViewProperties({ name: view.name, id: view.id, type })
+  );
 }

@@ -51,5 +51,5 @@ class TestBlob extends Blob {
 
 beforeEach(() => {
   // Reset the logger cache to get deterministic behaviors in the tests.
-  loggerCache.current = {};
+  loggerCache.clear();
 });

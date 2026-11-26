@@ -1,4 +1,4 @@
-import { mergeEventProperties } from '@altertable/altertable-react-shared';
+import { mergeEventProperties } from '@altertable/altertable-shared';
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
 import type { ReactNativeClient } from './client';

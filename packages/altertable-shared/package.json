@@ -1,0 +1,14 @@
+{
+  "name": "@altertable/altertable-shared",
+  "description": "Internal platform-neutral helpers bundled into the Altertable SDK packages. Never published.",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
