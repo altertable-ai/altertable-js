@@ -1,6 +1,4 @@
-import { PROPERTY_URL } from '@altertable/altertable-shared';
-
-import { PROPERTY_REFERER } from '../constants';
+import { PROPERTY_REFERER, PROPERTY_URL } from '../constants';
 import { isRecord } from '../lib/isRecord';
 import type { EventContext, EventProperties } from '../types';
 import type { AdapterIngress } from './subscription';

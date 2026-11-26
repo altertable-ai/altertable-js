@@ -1,9 +1,6 @@
 import {
-  createDebugLogger,
-  EVENT_PAGEVIEW,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
-  PROPERTY_URL,
   toError,
 } from '@altertable/altertable-shared';
 
@@ -14,9 +11,11 @@ import {
   DEFAULT_FLUSH_EVENT_THRESHOLD,
   DEFAULT_FLUSH_INTERVAL_MS,
   DEFAULT_MAX_BATCH_SIZE,
+  EVENT_PAGEVIEW,
   MAX_QUEUE_SIZE,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
+  PROPERTY_URL,
   PROPERTY_VIEWPORT,
   REQUEST_TIMEOUT_MS,
   TrackingConsent,
@@ -24,6 +23,7 @@ import {
 } from './constants';
 import { prepareAudienceEvent } from './lib/audience';
 import { type BatcherApi, createBatcher } from './lib/batcher';
+import { createDebugLogger } from './lib/debugLogger';
 import {
   isAltertableError,
   isNetworkError,

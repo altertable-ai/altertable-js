@@ -1,9 +1,7 @@
-import {
-  createDebugLogger as createLogger,
-  loggerCache,
-} from '@altertable/altertable-shared';
+import { loggerCache } from '@altertable/altertable-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createDebugLogger as createLogger } from '../src/lib/debugLogger';
 import type {
   AliasPayload,
   EventPayload,
