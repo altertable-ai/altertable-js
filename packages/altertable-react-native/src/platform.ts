@@ -1,7 +1,12 @@
 import type { Platform, TrackingMode } from '@altertable/altertable-js';
+import {
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+  toError,
+} from '@altertable/altertable-shared';
 import { AppState, Platform as ReactNativePlatform } from 'react-native';
 
-import { createLogger } from './logger';
+import { logger } from './logger';
 
 /** Structurally compatible with @react-native-community/netinfo. */
 export interface Connectivity {
@@ -25,7 +30,6 @@ export function createReactNativePlatform({
   prepareDelivery: () => Promise<boolean>;
   onError: (error: Error) => void;
 }): Platform {
-  const logger = createLogger();
   let online = true;
   return {
     getContext: () => ({
@@ -35,8 +39,8 @@ export function createReactNativePlatform({
           $os: ReactNativePlatform.OS,
           $os_version: String(ReactNativePlatform.Version),
         }),
-        $lib: __LIB__,
-        $lib_version: __LIB_VERSION__,
+        [PROPERTY_LIB]: __LIB__,
+        [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
       },
     }),
     isOnline: () => online,
@@ -46,8 +50,7 @@ export function createReactNativePlatform({
         try {
           cleanup();
         } catch (error) {
-          const sourceError =
-            error instanceof Error ? error : new Error(String(error));
+          const sourceError = toError(error);
           logger.warnOnce(
             'Failed to remove a native subscription. Remaining cleanup will continue.',
             sourceError

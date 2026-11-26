@@ -1,0 +1,11 @@
+{
+  // Declaration build. It sits above the packages so tsdown can inline the
+  // types of the private shared modules.
+  "extends": "./altertable-react/tsconfig.json",
+  "include": [
+    "altertable-react/src/**/*",
+    "altertable-react-shared/src/**/*",
+    "altertable-shared/src/**/*"
+  ],
+  "exclude": ["**/node_modules", "**/dist"]
+}

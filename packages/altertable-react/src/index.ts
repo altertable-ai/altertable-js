@@ -1,5 +1,5 @@
 export { AltertableProvider } from './AltertableProvider';
-export type { FunnelMapping } from './types';
+export type { FunnelMapping } from '@altertable/altertable-react-shared';
 export { useAltertable } from './useAltertable';
 export type {
   ScreenViewOptions,

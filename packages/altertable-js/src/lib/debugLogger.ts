@@ -1,11 +1,14 @@
 /* oxlint-disable no-console */
 
+import { createLogger, loggerCache } from '@altertable/altertable-shared';
+
 import {
+  EVENT_PAGEVIEW,
   PROPERTY_URL,
   TrackingConsent,
-  TrackingConsentType,
+  type TrackingConsentType,
 } from '../constants';
-import {
+import type {
   AdapterTrackPayload,
   AliasPayload,
   AudienceTrackPayload,
@@ -13,19 +16,17 @@ import {
   TrackPayload,
 } from '../types';
 
-export type Logger = ReturnType<typeof createLogger>;
-
-export function createLogger(prefix: string) {
+/**
+ * Extends the shared logger with the debug output that the core package prints
+ * for each event when `debug` is enabled.
+ */
+export function createDebugLogger(prefix: string) {
   return {
-    log: (...args: unknown[]) => {
-      console.log(`[${prefix}]`, ...args);
-    },
+    ...createLogger(prefix),
     logHeader: () => {
       const header = `Altertable v${__LIB_VERSION__} %c• Debug mode enabled`;
-      const hasAlreadyPrinted = loggerCache.current[header];
-
-      if (!hasAlreadyPrinted) {
-        loggerCache.current[header] = true;
+      if (!loggerCache.has(header)) {
+        loggerCache.add(header);
         console.log(header, 'color: #64748b;');
       }
     },
@@ -34,10 +35,10 @@ export function createLogger(prefix: string) {
       { trackingConsent }: { trackingConsent: TrackingConsentType }
     ) => {
       const [eventBadgeLabel, eventBadgeStyle] = createEventBadgeElement(
-        payload.event === '$pageview' ? 'Page' : 'Track'
+        payload.event === EVENT_PAGEVIEW ? 'Page' : 'Track'
       );
       const [eventTitleLabel, eventTitleStyle] = createEventTitleElement(
-        payload.event === '$pageview'
+        payload.event === EVENT_PAGEVIEW
           ? // oxlint-disable-next-line typescript/no-base-to-string -- Debug output intentionally stringifies arbitrary event properties.
             String(payload.properties[PROPERTY_URL])
           : payload.event
@@ -169,44 +170,8 @@ export function createLogger(prefix: string) {
       );
       console.groupEnd();
     },
-    warn: (...args: unknown[]) => {
-      console.warn(`[${prefix}]`, ...args);
-    },
-    warnDev: (message: string, ...args: unknown[]) => {
-      if (!__DEV__) {
-        return;
-      }
-
-      const sanitizedMessage = message.trim();
-      const hasAlreadyPrinted = loggerCache.current[sanitizedMessage];
-
-      if (!hasAlreadyPrinted) {
-        loggerCache.current[sanitizedMessage] = true;
-        const warning = `[${prefix}] ${sanitizedMessage}`;
-
-        console.warn(warning, ...args);
-
-        try {
-          // Welcome to debugging Altertable.
-          //
-          // This error was thrown as a convenience so that you can find the source
-          // of the warning that appears in the console by enabling "Pause on exceptions"
-          // in your debugger.
-          throw new Error(warning);
-        } catch {
-          // Do nothing
-        }
-      }
-    },
-    error: (...args: unknown[]) => {
-      console.error(`[${prefix}]`, ...args);
-    },
   };
 }
-
-export const loggerCache: { current: Record<string, boolean> } = {
-  current: {},
-};
 
 function formatEventTime(timestamp: string) {
   return new Date(timestamp).toLocaleTimeString('en-US', {

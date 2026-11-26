@@ -111,6 +111,36 @@ Saved consent takes precedence over the creation default (`granted`). Use
 Pending events stay in memory until granted; denial clears queued events. Reset
 and account switching clear unsent events while preserving device ID and consent.
 
+### Typed funnels
+
+Pass a funnel mapping to `useAltertable()` to type event names and their
+properties, and to track the steps of one funnel. The mapping must match the
+exported `FunnelMapping` type:
+
+```tsx
+import { Button } from 'react-native';
+import { useAltertable } from '@altertable/altertable-react-native';
+
+type AppFunnels = {
+  checkout: [
+    { name: 'Cart Viewed'; properties: { itemCount: number } },
+    { name: 'Order Completed'; properties: { total: number } },
+  ];
+};
+
+function Checkout() {
+  const client = useAltertable<AppFunnels>();
+  const checkout = client.selectFunnel('checkout');
+
+  return (
+    <Button
+      title="Purchase"
+      onPress={() => checkout.trackStep('Order Completed', { total: 42 })}
+    />
+  );
+}
+```
+
 ### Screen tracking
 
 Call `screen()` when a screen becomes active:

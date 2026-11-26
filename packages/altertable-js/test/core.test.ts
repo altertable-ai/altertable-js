@@ -1,4 +1,8 @@
 import '../../../test-utils/matchers/toRequestApi';
+import {
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+} from '@altertable/altertable-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStorageMock } from '../../../test-utils/mocks/storageMock';
@@ -12,16 +16,14 @@ import {
   PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
   PREFIX_SESSION_ID,
-  PROPERTY_LIB,
-  PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
   PROPERTY_URL,
   PROPERTY_VIEWPORT,
 } from '../src/constants';
 import { Altertable, type AltertableConfig } from '../src/core';
+import * as loggerModule from '../src/lib/debugLogger';
 import { ApiError, NetworkError } from '../src/lib/error';
-import * as loggerModule from '../src/lib/logger';
 import * as storageModule from '../src/lib/storage';
 import { UserId, UserTraits } from '../src/types';
 
@@ -103,22 +105,24 @@ describe('Altertable', () => {
       return `test-uuid-${idCounter}-${Date.now()}` as `${string}-${string}-${string}-${string}-${string}`;
     });
 
-    // Mock createLogger noise; keep warn / warnDev real so .toWarnDev() can assert on console.warn
+    // Mock createDebugLogger noise; keep warn / warnDev real so .toWarnDev() can assert on console.warn
     const realLoggerFactory = (
-      await vi.importActual<typeof import('../src/lib/logger')>(
-        '../src/lib/logger'
+      await vi.importActual<typeof import('../src/lib/debugLogger')>(
+        '../src/lib/debugLogger'
       )
-    ).createLogger;
-    vi.spyOn(loggerModule, 'createLogger').mockImplementation((...args) => {
-      const logger = realLoggerFactory(...args);
-      return {
-        ...logger,
-        log: vi.fn(),
-        error: vi.fn(),
-        logHeader: vi.fn(),
-        logEvent: vi.fn(),
-      };
-    });
+    ).createDebugLogger;
+    vi.spyOn(loggerModule, 'createDebugLogger').mockImplementation(
+      (...args) => {
+        const logger = realLoggerFactory(...args);
+        return {
+          ...logger,
+          log: vi.fn(),
+          error: vi.fn(),
+          logHeader: vi.fn(),
+          logEvent: vi.fn(),
+        };
+      }
+    );
 
     // Default to beacon available
     setupBeaconAvailable();

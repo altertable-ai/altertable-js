@@ -1,3 +1,5 @@
+import type { Logger } from '@altertable/altertable-shared';
+
 import {
   PREFIX_ANONYMOUS_ID,
   PREFIX_DEVICE_ID,
@@ -14,7 +16,6 @@ import type {
   UserId,
 } from '../types';
 import { generateId } from './generateId';
-import { Logger } from './logger';
 import { type StorageApi } from './storage';
 
 type SessionData = {

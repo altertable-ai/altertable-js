@@ -7,8 +7,9 @@ import {
   TrackingConsent,
   type TrackingMode,
 } from '@altertable/altertable-js';
+import { EVENT_SCREEN, getViewProperties } from '@altertable/altertable-shared';
 
-import { createLogger } from './logger';
+import { logger } from './logger';
 import { createReactNativePlatform, type Connectivity } from './platform';
 import {
   type AsyncStorageAdapter,
@@ -102,7 +103,6 @@ export async function createAltertable(
     eventPersistence = true,
     ...config
   } = options;
-  const logger = createLogger();
   let onError = config.onError;
   const reportedErrors = new WeakSet<Error>();
 
@@ -223,11 +223,9 @@ export async function createAltertable(
     track,
     /** Record a screen visit with native metadata. Call on navigation or focus changes. */
     screen(name: string, { id, properties }: ScreenOptions = {}) {
-      track('$screen', {
+      track(EVENT_SCREEN, {
         ...properties,
-        $view_name: name,
-        $view_type: 'screen',
-        ...(id === undefined ? {} : { $view_id: id }),
+        ...getViewProperties({ name, id, type: 'screen' }),
       });
     },
     identify(...args: Parameters<Altertable['identify']>) {

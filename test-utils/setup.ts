@@ -1,7 +1,7 @@
+import { loggerCache } from '@altertable/altertable-shared';
 import { beforeEach, expect } from 'vitest';
 import type {} from 'vitest/jsdom';
 
-import { loggerCache } from '../packages/altertable-js/src/lib/logger';
 import type { RequestOptions } from './matchers/toRequestApi';
 import { toRequestApi } from './matchers/toRequestApi';
 import { toWarnDev } from './matchers/toWarnDev';
@@ -51,5 +51,5 @@ class TestBlob extends Blob {
 
 beforeEach(() => {
   // Reset the logger cache to get deterministic behaviors in the tests.
-  loggerCache.current = {};
+  loggerCache.clear();
 });

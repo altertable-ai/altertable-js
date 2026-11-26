@@ -1,4 +1,5 @@
 import type { StorageAdapter } from '@altertable/altertable-js';
+import { toError } from '@altertable/altertable-shared';
 
 /** Compatible with AsyncStorage and other asynchronous key-value stores. */
 export interface AsyncStorageAdapter {
@@ -33,8 +34,7 @@ export async function hydrateStorage(
   const entries = await Promise.all(
     keys.map(async key => [key, await backend.getItem(key)] as const)
   ).catch(error => {
-    const sourceError =
-      error instanceof Error ? error : new Error(String(error));
+    const sourceError = toError(error);
     onError(sourceError, 'read');
     throw sourceError;
   });
@@ -53,8 +53,7 @@ export async function hydrateStorage(
       cachedValues.set(from, null);
     }
   } catch (error) {
-    const sourceError =
-      error instanceof Error ? error : new Error(String(error));
+    const sourceError = toError(error);
     onError(sourceError, 'write');
     throw sourceError;
   }
@@ -97,12 +96,7 @@ export async function hydrateStorage(
           startWriting();
         }
       });
-    void writeTask.catch(error =>
-      onError(
-        error instanceof Error ? error : new Error(String(error)),
-        'write'
-      )
-    );
+    void writeTask.catch(error => onError(toError(error), 'write'));
   }
 
   function update(key: string, value: string | null) {

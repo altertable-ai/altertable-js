@@ -18,3 +18,10 @@ export function createAsyncStorageMock() {
 export function deferred<T>() {
   return Promise.withResolvers<T>();
 }
+
+/** Event payloads sent through the stubbed `fetch`, in order. */
+export function payloads() {
+  return vi
+    .mocked(fetch)
+    .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
+}

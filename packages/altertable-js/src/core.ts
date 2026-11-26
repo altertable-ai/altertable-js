@@ -1,3 +1,9 @@
+import {
+  PROPERTY_LIB,
+  PROPERTY_LIB_VERSION,
+  toError,
+} from '@altertable/altertable-shared';
+
 import { connectAdapters, hasConfiguredAdapter } from './adapters/providers';
 import type { AdapterSubscription } from './adapters/subscription';
 import type { AdapterEvent, Adapters, SourceMetadata } from './adapters/types';
@@ -7,8 +13,6 @@ import {
   DEFAULT_MAX_BATCH_SIZE,
   EVENT_PAGEVIEW,
   MAX_QUEUE_SIZE,
-  PROPERTY_LIB,
-  PROPERTY_LIB_VERSION,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
   PROPERTY_URL,
@@ -19,6 +23,7 @@ import {
 } from './constants';
 import { prepareAudienceEvent } from './lib/audience';
 import { type BatcherApi, createBatcher } from './lib/batcher';
+import { createDebugLogger } from './lib/debugLogger';
 import {
   isAltertableError,
   isNetworkError,
@@ -26,7 +31,6 @@ import {
 } from './lib/error';
 import { getLegacyStorageKeys, getStorageKeys } from './lib/getStorageKeys';
 import { invariant } from './lib/invariant';
-import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
 import { Queue } from './lib/queue';
 import { Requester } from './lib/requester';
@@ -241,7 +245,7 @@ export class Altertable {
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
   private _lastUrl: string | null;
-  private _logger = createLogger('Altertable');
+  private _logger = createDebugLogger('Altertable');
   private _referrer: string | null;
   private _requesterState: Requester<EventPayload> | undefined;
   private _sessionManagerState: SessionManager | undefined;
@@ -289,8 +293,6 @@ export class Altertable {
   /**
    * Initializes the Altertable SDK with your API key and optional configuration.
    *
-   * @param apiKey Your Altertable API key
-   * @param config Configuration options
    * @returns A cleanup function to remove event listeners
    *
    * @example
@@ -305,7 +307,10 @@ export class Altertable {
    * new API key. Await `flush()` first if you need those events
    * delivered before re-initializing.
    */
-  init(apiKey: string, config: AltertableConfig = {}) {
+  init(
+    /** Your Altertable API key */ apiKey: string,
+    /** Configuration options */ config: AltertableConfig = {}
+  ) {
     invariant(apiKey, 'Missing API key');
     const resolvedConfig = resolveAltertableConfig(config);
     const generation = ++this._generation;
@@ -441,8 +446,6 @@ export class Altertable {
   /**
    * Updates the configuration after initialization.
    *
-   * @param updates Configuration updates to apply
-   *
    * @example
    * ```javascript
    * altertable.configure({
@@ -450,7 +453,9 @@ export class Altertable {
    * });
    * ```
    */
-  configure(updates: AltertableConfigUpdates) {
+  configure(
+    /** Configuration updates to apply */ updates: AltertableConfigUpdates
+  ) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before configuring.'
@@ -613,9 +618,7 @@ export class Altertable {
     try {
       cleanup?.();
     } catch (error) {
-      this._notifyError(
-        error instanceof Error ? error : new Error(String(error))
-      );
+      this._notifyError(toError(error));
     }
 
     if (enableAutoCapture && this._platform.subscribeUrlChanges) {
@@ -653,9 +656,6 @@ export class Altertable {
    * - To change traits, use {@link updateTraits} instead.
    * - To switch to a new user ID, call {@link reset} first.
    *
-   * @param userId The user's unique identifier
-   * @param traits User properties
-   *
    * @example
    * ```javascript
    * altertable.identify('u_01jza857w4f23s1hf2s61befmw', {
@@ -666,7 +666,10 @@ export class Altertable {
    * });
    * ```
    */
-  identify(userId: DistinctId, traits: UserTraits = {}) {
+  identify(
+    /** The user's unique identifier */ userId: DistinctId,
+    /** User properties */ traits: UserTraits = {}
+  ) {
     if (
       this._isInitialized &&
       (this._rejectAltertableCall() || this._rejectIdentityCall())
@@ -677,9 +680,7 @@ export class Altertable {
     try {
       validateUserId(userId);
     } catch (error) {
-      throw new Error(
-        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw new Error(`[Altertable] ${toError(error).message}`);
     }
 
     if (!this._isInitialized) {
@@ -741,14 +742,12 @@ export class Altertable {
   /**
    * Link a new ID to the current identity.
    *
-   * @param newUserId The new user ID
-   *
    * @example
    * ```javascript
    * altertable.alias('u_01jza857w4f23s1hf2s61befmw');
    * ```
    */
-  alias(newUserId: DistinctId) {
+  alias(/** The new user ID */ newUserId: DistinctId) {
     if (
       this._isInitialized &&
       (this._rejectAltertableCall() || this._rejectIdentityCall())
@@ -759,9 +758,7 @@ export class Altertable {
     try {
       validateUserId(newUserId);
     } catch (error) {
-      throw new Error(
-        `[Altertable] ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw new Error(`[Altertable] ${toError(error).message}`);
     }
 
     if (!this._isInitialized) {
@@ -800,8 +797,6 @@ export class Altertable {
   /**
    * Updates user traits for the current user.
    *
-   * @param traits User properties to update
-   *
    * @example
    * ```javascript
    * altertable.updateTraits({
@@ -809,7 +804,7 @@ export class Altertable {
    * });
    * ```
    */
-  updateTraits(traits: UserTraits) {
+  updateTraits(/** User properties to update */ traits: UserTraits) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',
@@ -892,8 +887,6 @@ export class Altertable {
    *
    * When `autoCapture` is enabled (default), this method is automatically called when the page URL changes.
    *
-   * @param url The page URL
-   *
    * @example
    * ```javascript
    * altertable.page('https://example.com/products');
@@ -912,7 +905,7 @@ export class Altertable {
    * - Virtual page views that don't trigger URL changes (modals, step changes)
    * - Server-side tracking where auto-capture isn't available
    */
-  page(url: string) {
+  page(/** The page URL */ url: string) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',
@@ -949,9 +942,6 @@ export class Altertable {
   /**
    * Tracks a custom event with optional properties.
    *
-   * @param event The event name
-   * @param properties Custom event properties
-   *
    * @example
    * ```javascript
    * altertable.track('Purchase Completed', {
@@ -961,7 +951,10 @@ export class Altertable {
    * });
    * ```
    */
-  track(event: string, properties: EventProperties = {}) {
+  track(
+    /** The event name */ event: string,
+    /** Custom event properties */ properties: EventProperties = {}
+  ) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',
@@ -1069,8 +1062,7 @@ export class Altertable {
     try {
       return this._config.transformEvent(payload);
     } catch (error) {
-      const transformError =
-        error instanceof Error ? error : new Error(String(error));
+      const transformError = toError(error);
       this._notifyError(transformError);
       this._logger.error('Failed to transform event', {
         error: transformError,
@@ -1186,8 +1178,7 @@ export class Altertable {
           break;
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = toError(error).message;
       this._logger.warnDev(
         `Failed to process queued ${cmd.method}() command:\n${errorMessage}`
       );
@@ -1210,9 +1201,7 @@ export class Altertable {
       try {
         cleanup?.();
       } catch (error) {
-        this._notifyError(
-          error instanceof Error ? error : new Error(String(error))
-        );
+        this._notifyError(toError(error));
       }
     }
   }
@@ -1289,9 +1278,7 @@ export class Altertable {
       .catch(error => {
         if (generation === this._generation) {
           this._automaticFlushRequested = false;
-          this._notifyError(
-            error instanceof Error ? error : new Error(String(error))
-          );
+          this._notifyError(toError(error));
         }
         throw error;
       })

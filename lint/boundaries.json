@@ -1,0 +1,153 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "overrides": [
+    {
+      "files": ["packages/altertable-shared/src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "react",
+                  "react-dom",
+                  "react-native",
+                  "@altertable/*"
+                ],
+                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/altertable-react-shared/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "importNames": [
+                  "default",
+                  "use",
+                  "useId",
+                  "useSyncExternalStore",
+                  "useTransition",
+                  "useDeferredValue",
+                  "useInsertionEffect",
+                  "startTransition",
+                  "useActionState",
+                  "useOptimistic",
+                  "useEffectEvent",
+                  "cache",
+                  "act",
+                  "Activity"
+                ],
+                "message": "This code supports React 16.14. Import only APIs that React 16.14 provides, by name."
+              },
+              {
+                "name": "@altertable/altertable-js",
+                "allowTypeImports": true,
+                "message": "altertable-react-shared may only import types from the core package; each binding provides its own client."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "react-dom",
+                  "react-native",
+                  "@altertable/altertable-react",
+                  "@altertable/altertable-react-native"
+                ],
+                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/altertable-js/src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "react",
+                  "react-dom",
+                  "react-native",
+                  "@altertable/*",
+                  "!@altertable/altertable-shared"
+                ],
+                "message": "The core package must not depend on React, React Native or the bindings."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/altertable-react/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "importNames": [
+                  "default",
+                  "use",
+                  "useId",
+                  "useSyncExternalStore",
+                  "useTransition",
+                  "useDeferredValue",
+                  "useInsertionEffect",
+                  "startTransition",
+                  "useActionState",
+                  "useOptimistic",
+                  "useEffectEvent",
+                  "cache",
+                  "act",
+                  "Activity"
+                ],
+                "message": "This code supports React 16.14. Import only APIs that React 16.14 provides, by name."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "react-native",
+                  "@altertable/altertable-react-native"
+                ],
+                "message": "The web React package must not depend on React Native."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/altertable-react-native/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["react-dom", "@altertable/altertable-react"],
+                "message": "The React Native package must not depend on React DOM or the web React package."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

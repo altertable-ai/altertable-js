@@ -1,3 +1,5 @@
+import { toError } from '@altertable/altertable-shared';
+
 import { STORAGE_KEY_TEST } from '../constants';
 import { safelyRunOnBrowser } from './safelyRunOnBrowser';
 
@@ -181,8 +183,7 @@ export function selectStorage(
 
   if (typeof type === 'object' && type !== null) {
     const reportStorageError = (operation: string, error: unknown) => {
-      const sourceError =
-        error instanceof Error ? error : new Error(String(error));
+      const sourceError = toError(error);
       onFallback(
         `Failed to ${operation} persisted data: ${sourceError.message}`
       );
