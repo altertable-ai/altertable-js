@@ -10,18 +10,12 @@ import {
   type ReactNativeClient,
   useAltertable,
 } from '../src';
-import { createAsyncStorageMock } from './helpers';
+import { createAsyncStorageMock, payloads } from './helpers';
 
 let client: ReactNativeClient;
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AltertableProvider client={client}>{children}</AltertableProvider>;
-}
-
-function payloads() {
-  return vi
-    .mocked(fetch)
-    .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
 }
 
 beforeEach(async () => {
