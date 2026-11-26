@@ -1,4 +1,5 @@
-import { createContext, type ReactNode, useContext } from 'react';
+import { mergeEventProperties } from '@altertable/altertable-react-shared';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
 import type { ReactNativeClient } from './client';
 
@@ -23,7 +24,10 @@ export function AltertableProvider({
   );
 }
 
-/** Return the ready client from the nearest AltertableProvider. Throws outside a provider. */
+/**
+ * Return the client API for the nearest AltertableProvider. Throws outside a provider.
+ * The result is stable for a given client but is not the provider's client object.
+ */
 export function useAltertable(): ReactNativeClient {
   const client = useContext(AltertableContext);
   if (!client) {
@@ -32,5 +36,25 @@ export function useAltertable(): ReactNativeClient {
     );
   }
 
-  return client;
+  return useMemo(
+    (): ReactNativeClient => ({
+      track: (event, properties) =>
+        client.track(event, mergeEventProperties(properties)),
+      screen: (name, options) =>
+        client.screen(name, {
+          ...options,
+          properties: mergeEventProperties(options?.properties),
+        }),
+      identify: (...args) => client.identify(...args),
+      alias: (...args) => client.alias(...args),
+      updateTraits: (...args) => client.updateTraits(...args),
+      getTrackingConsent: () => client.getTrackingConsent(),
+      reset: (...args) => client.reset(...args),
+      configure: updates => client.configure(updates),
+      flush: () => client.flush(),
+      flushPersistence: () => client.flushPersistence(),
+      dispose: () => client.dispose(),
+    }),
+    [client]
+  );
 }

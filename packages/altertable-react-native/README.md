@@ -99,6 +99,12 @@ function Checkout() {
 
 The provider shares the client without reinitializing it. Tracking and identity
 methods follow the [core SDK API](../altertable-js/README.md#api-reference).
+
+`useAltertable()` returns an object with the same methods and type as
+`ReactNativeClient`, which delegates to the provider's client. It stays the same
+object across renders while the provider's client is unchanged, but it is not the
+client object itself, so compare clients by the value you pass to
+`AltertableProvider` rather than with `useAltertable() === client`.
 `reset()` and `configure()` also wait for native writes:
 
 ```tsx
