@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@altertable/altertable-shared": "workspace:*",
-    "posthog-js": "1.434.14",
+    "posthog-js": "1.454.0",
     "posthog-js-minimum": "npm:posthog-js@1.230.0"
   }
 }

@@ -54,11 +54,11 @@
   "devDependencies": {
     "@altertable/altertable-react-shared": "workspace:*",
     "@altertable/altertable-shared": "workspace:*",
-    "@posthog/react": "1.11.2",
+    "@posthog/react": "1.11.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/react": "19.3.0",
-    "posthog-js": "1.434.14",
+    "posthog-js": "1.454.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   }
