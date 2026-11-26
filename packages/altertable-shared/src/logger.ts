@@ -1,13 +1,16 @@
 /**
- * Creates a logger that prints each warning once. A warning that comes with an
- * error is printed once per distinct error message. Pass `printedWarnings` to
- * share deduplication between loggers.
+ * Creates the logger shared by the SDK packages. Pass `printedWarnings` to share
+ * `warnOnce()` deduplication between loggers.
  */
-export function createWarningLogger(
+export function createLogger(
   prefix: string,
   printedWarnings = new Set<string>()
 ) {
   return {
+    /**
+     * Prints a warning once. A warning that comes with an error is printed once
+     * per distinct error message.
+     */
     warnOnce(message: string, error?: Error) {
       const sanitizedMessage = message.trim();
       const key = error

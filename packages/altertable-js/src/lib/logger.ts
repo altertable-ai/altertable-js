@@ -1,6 +1,6 @@
 /* oxlint-disable no-console */
 
-import { createWarningLogger } from '@altertable/altertable-shared';
+import { createLogger as createBaseLogger } from '@altertable/altertable-shared';
 
 import {
   PROPERTY_URL,
@@ -18,7 +18,7 @@ import {
 export type Logger = ReturnType<typeof createLogger>;
 
 export function createLogger(prefix: string) {
-  const warnings = createWarningLogger(prefix, loggerCache);
+  const baseLogger = createBaseLogger(prefix, loggerCache);
 
   return {
     log: (...args: unknown[]) => {
@@ -176,7 +176,7 @@ export function createLogger(prefix: string) {
     },
     warnDev: (message: string, error?: Error) => {
       if (__DEV__) {
-        warnings.warnOnce(message, error);
+        baseLogger.warnOnce(message, error);
       }
     },
     error: (...args: unknown[]) => {

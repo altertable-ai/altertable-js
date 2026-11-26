@@ -293,8 +293,6 @@ export class Altertable {
   /**
    * Initializes the Altertable SDK with your API key and optional configuration.
    *
-   * @param apiKey Your Altertable API key
-   * @param config Configuration options
    * @returns A cleanup function to remove event listeners
    *
    * @example
@@ -309,7 +307,10 @@ export class Altertable {
    * new API key. Await `flush()` first if you need those events
    * delivered before re-initializing.
    */
-  init(apiKey: string, config: AltertableConfig = {}) {
+  init(
+    /** Your Altertable API key */ apiKey: string,
+    /** Configuration options */ config: AltertableConfig = {}
+  ) {
     invariant(apiKey, 'Missing API key');
     const resolvedConfig = resolveAltertableConfig(config);
     const generation = ++this._generation;
@@ -445,8 +446,6 @@ export class Altertable {
   /**
    * Updates the configuration after initialization.
    *
-   * @param updates Configuration updates to apply
-   *
    * @example
    * ```javascript
    * altertable.configure({
@@ -454,7 +453,9 @@ export class Altertable {
    * });
    * ```
    */
-  configure(updates: AltertableConfigUpdates) {
+  configure(
+    /** Configuration updates to apply */ updates: AltertableConfigUpdates
+  ) {
     invariant(
       this._isInitialized,
       'The client must be initialized with init() before configuring.'
@@ -655,9 +656,6 @@ export class Altertable {
    * - To change traits, use {@link updateTraits} instead.
    * - To switch to a new user ID, call {@link reset} first.
    *
-   * @param userId The user's unique identifier
-   * @param traits User properties
-   *
    * @example
    * ```javascript
    * altertable.identify('u_01jza857w4f23s1hf2s61befmw', {
@@ -668,7 +666,10 @@ export class Altertable {
    * });
    * ```
    */
-  identify(userId: DistinctId, traits: UserTraits = {}) {
+  identify(
+    /** The user's unique identifier */ userId: DistinctId,
+    /** User properties */ traits: UserTraits = {}
+  ) {
     if (
       this._isInitialized &&
       (this._rejectAltertableCall() || this._rejectIdentityCall())
@@ -741,14 +742,12 @@ export class Altertable {
   /**
    * Link a new ID to the current identity.
    *
-   * @param newUserId The new user ID
-   *
    * @example
    * ```javascript
    * altertable.alias('u_01jza857w4f23s1hf2s61befmw');
    * ```
    */
-  alias(newUserId: DistinctId) {
+  alias(/** The new user ID */ newUserId: DistinctId) {
     if (
       this._isInitialized &&
       (this._rejectAltertableCall() || this._rejectIdentityCall())
@@ -798,8 +797,6 @@ export class Altertable {
   /**
    * Updates user traits for the current user.
    *
-   * @param traits User properties to update
-   *
    * @example
    * ```javascript
    * altertable.updateTraits({
@@ -807,7 +804,7 @@ export class Altertable {
    * });
    * ```
    */
-  updateTraits(traits: UserTraits) {
+  updateTraits(/** User properties to update */ traits: UserTraits) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',
@@ -890,8 +887,6 @@ export class Altertable {
    *
    * When `autoCapture` is enabled (default), this method is automatically called when the page URL changes.
    *
-   * @param url The page URL
-   *
    * @example
    * ```javascript
    * altertable.page('https://example.com/products');
@@ -910,7 +905,7 @@ export class Altertable {
    * - Virtual page views that don't trigger URL changes (modals, step changes)
    * - Server-side tracking where auto-capture isn't available
    */
-  page(url: string) {
+  page(/** The page URL */ url: string) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',
@@ -947,9 +942,6 @@ export class Altertable {
   /**
    * Tracks a custom event with optional properties.
    *
-   * @param event The event name
-   * @param properties Custom event properties
-   *
    * @example
    * ```javascript
    * altertable.track('Purchase Completed', {
@@ -959,7 +951,10 @@ export class Altertable {
    * });
    * ```
    */
-  track(event: string, properties: EventProperties = {}) {
+  track(
+    /** The event name */ event: string,
+    /** Custom event properties */ properties: EventProperties = {}
+  ) {
     if (!this._isInitialized) {
       this._queue.enqueue({
         type: 'command',

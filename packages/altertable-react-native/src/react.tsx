@@ -57,7 +57,6 @@ export function useAltertable<T extends FunnelMapping = FunnelMapping>() {
   const { track, selectFunnel } = useTrackingApi<T>(client);
 
   return useMemo(() => {
-    // Annotated so that a client method missing here fails typecheck.
     const methods: Omit<ReactNativeClient, 'track'> = {
       screen: (name, options) =>
         client.screen(name, {

@@ -8,7 +8,7 @@ import {
   type TrackingMode,
 } from '@altertable/altertable-js';
 import {
-  createWarningLogger,
+  createLogger,
   EVENT_SCREEN,
   getViewProperties,
 } from '@altertable/altertable-shared';
@@ -106,7 +106,7 @@ export async function createAltertable(
     eventPersistence = true,
     ...config
   } = options;
-  const logger = createWarningLogger('Altertable React Native');
+  const logger = createLogger('Altertable React Native');
   let onError = config.onError;
   const reportedErrors = new WeakSet<Error>();
 

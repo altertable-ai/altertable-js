@@ -8,20 +8,47 @@ import type {
   FunnelTracker,
 } from './funnels';
 
+/** The type-safe tracking methods shared by both `useAltertable()` hooks. */
+export type TrackingApi<T extends FunnelMapping> = {
+  /**
+   * Type-safe track method for funnel steps.
+   *
+   * @template Steps The funnel steps type
+   *
+   * @example
+   * ```typescript
+   * const altertable = useAltertable<MyFunnels>();
+   * altertable.track('Email Entered', { email: 'user@example.com' });
+   * ```
+   */
+  track: <Steps extends T[keyof T] = T[keyof T]>(
+    /** The name of the funnel step to track */
+    eventName: FunnelStepName<Steps>,
+    /** Properties associated with the step (type-checked based on step definition) */
+    properties?: FunnelStepProperties<Steps, FunnelStepName<Steps>>
+  ) => void;
+  /**
+   * Selects a specific funnel for type-safe step tracking.
+   *
+   * @template FunnelName The name of the funnel to select
+   * @returns An object with a `trackStep` method for tracking steps in the selected funnel
+   *
+   * @example
+   * ```typescript
+   * const altertable = useAltertable<MyFunnels>();
+   * const signupFunnel = altertable.selectFunnel('signup');
+   * signupFunnel.trackStep('Email Entered', { email: 'user@example.com' });
+   * ```
+   */
+  selectFunnel: <FunnelName extends keyof T>(
+    /** The name of the funnel (used for type inference only) */
+    funnelName: FunnelName
+  ) => FunnelTracker<T[FunnelName]>;
+};
+
 /** The part of a client that the tracking API sends events through. */
 type TrackingClient = {
   track(event: string, properties?: Record<string, unknown>): unknown;
-};
-
-/** The type-safe tracking methods shared by both `useAltertable()` hooks. */
-export type TrackingApi<T extends FunnelMapping> = {
-  track: <Steps extends T[keyof T] = T[keyof T]>(
-    eventName: FunnelStepName<Steps>,
-    properties?: FunnelStepProperties<Steps, FunnelStepName<Steps>>
-  ) => void;
-  selectFunnel: <FunnelName extends keyof T>(
-    funnelName: FunnelName
-  ) => FunnelTracker<T[FunnelName]>;
 };
 
 /**
@@ -31,24 +58,8 @@ export type TrackingApi<T extends FunnelMapping> = {
 export function useTrackingApi<T extends FunnelMapping>(
   client: TrackingClient
 ): TrackingApi<T> {
-  /**
-   * Type-safe track method for funnel steps.
-   *
-   * @template Steps The funnel steps type
-   * @param eventName The name of the funnel step to track
-   * @param properties Properties associated with the step (type-checked based on step definition)
-   *
-   * @example
-   * ```typescript
-   * const altertable = useAltertable<MyFunnels>();
-   * altertable.track('Email Entered', { email: 'user@example.com' });
-   * ```
-   */
-  const track = useCallback(
-    <Steps extends T[keyof T] = T[keyof T]>(
-      eventName: FunnelStepName<Steps>,
-      properties: FunnelStepProperties<Steps, typeof eventName> = {}
-    ) => {
+  const track = useCallback<TrackingApi<T>['track']>(
+    (eventName, properties = {}) => {
       client.track(eventName, mergeEventProperties(properties));
     },
     [client]
@@ -61,24 +72,8 @@ export function useTrackingApi<T extends FunnelMapping>(
     [track]
   );
 
-  /**
-   * Selects a specific funnel for type-safe step tracking.
-   *
-   * @template FunnelName The name of the funnel to select
-   * @param funnelName The name of the funnel (used for type inference only)
-   * @returns An object with a `trackStep` method for tracking steps in the selected funnel
-   *
-   * @example
-   * ```typescript
-   * const altertable = useAltertable<MyFunnels>();
-   * const signupFunnel = altertable.selectFunnel('signup');
-   * signupFunnel.trackStep('Email Entered', { email: 'user@example.com' });
-   * ```
-   */
-  const selectFunnel = useCallback(
-    <FunnelName extends keyof T>(
-      _funnelName: FunnelName
-    ): FunnelTracker<T[FunnelName]> =>
+  const selectFunnel = useCallback<TrackingApi<T>['selectFunnel']>(
+    <FunnelName extends keyof T>() =>
       funnelTracker as FunnelTracker<T[FunnelName]>,
     [funnelTracker]
   );

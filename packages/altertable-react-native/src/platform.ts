@@ -1,6 +1,6 @@
 import type { Platform, TrackingMode } from '@altertable/altertable-js';
 import {
-  createWarningLogger,
+  createLogger,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   toError,
@@ -29,7 +29,7 @@ export function createReactNativePlatform({
   prepareDelivery: () => Promise<boolean>;
   onError: (error: Error) => void;
 }): Platform {
-  const logger = createWarningLogger('Altertable React Native');
+  const logger = createLogger('Altertable React Native');
   let online = true;
   return {
     getContext: () => ({

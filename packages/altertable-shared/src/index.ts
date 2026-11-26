@@ -7,4 +7,4 @@ export {
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
 } from './events';
-export { createWarningLogger } from './logger';
+export { createLogger } from './logger';
