@@ -1,8 +1,6 @@
-import {
-  PROPERTY_REFERER,
-  PROPERTY_URL,
-  PROPERTY_VIEWPORT,
-} from '../constants';
+import { PROPERTY_URL } from '@altertable/altertable-shared';
+
+import { PROPERTY_REFERER, PROPERTY_VIEWPORT } from '../constants';
 import type { AudienceTrackPayload, TrackPayload } from '../types';
 
 function sanitizeUrl(value: unknown, originOnly = false): string | null {

@@ -1,3 +1,4 @@
+import { createLogger } from '@altertable/altertable-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -11,7 +12,6 @@ import {
   SESSION_EXPIRATION_TIME_MS,
   TrackingConsent,
 } from '../src/constants';
-import { createLogger } from '../src/lib/logger';
 import { SessionManager } from '../src/lib/sessionManager';
 
 describe('SessionManager with tracking consent', () => {

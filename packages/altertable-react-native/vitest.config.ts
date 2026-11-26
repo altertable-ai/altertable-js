@@ -22,6 +22,7 @@ export default mergeConfig(base, {
   },
   test: {
     environment: 'node',
+    setupFiles: ['./test/setup.ts'],
     coverage: { include: ['src/**/*.{ts,tsx}'] },
   },
 });

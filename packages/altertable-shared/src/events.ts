@@ -2,7 +2,10 @@
 // the core package, so it cannot import core types.
 type EventProperties = Record<string, unknown>;
 
+export const EVENT_PAGEVIEW = '$pageview';
+
 export const PROPERTY_LIB = '$lib';
+export const PROPERTY_URL = '$url';
 export const PROPERTY_LIB_VERSION = '$lib_version';
 
 export const EVENT_SCREEN = '$screen';

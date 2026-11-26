@@ -28,11 +28,8 @@ export const RETRY_BASE_DELAY_MS = 1_000;
  */
 export const HTTP_REQUEST_MAX_ATTEMPTS = 4;
 
-export const EVENT_PAGEVIEW = '$pageview';
-
 export const PROPERTY_REFERER = '$referer';
 export const PROPERTY_RELEASE = '$release';
-export const PROPERTY_URL = '$url';
 export const PROPERTY_VIEWPORT = '$viewport';
 
 /**

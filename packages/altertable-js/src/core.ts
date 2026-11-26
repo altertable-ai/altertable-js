@@ -1,6 +1,9 @@
 import {
+  createDebugLogger,
+  EVENT_PAGEVIEW,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
+  PROPERTY_URL,
   toError,
 } from '@altertable/altertable-shared';
 
@@ -11,11 +14,9 @@ import {
   DEFAULT_FLUSH_EVENT_THRESHOLD,
   DEFAULT_FLUSH_INTERVAL_MS,
   DEFAULT_MAX_BATCH_SIZE,
-  EVENT_PAGEVIEW,
   MAX_QUEUE_SIZE,
   PROPERTY_REFERER,
   PROPERTY_RELEASE,
-  PROPERTY_URL,
   PROPERTY_VIEWPORT,
   REQUEST_TIMEOUT_MS,
   TrackingConsent,
@@ -30,7 +31,6 @@ import {
 } from './lib/error';
 import { getLegacyStorageKeys, getStorageKeys } from './lib/getStorageKeys';
 import { invariant } from './lib/invariant';
-import { createLogger } from './lib/logger';
 import { parseUrl } from './lib/parseUrl';
 import { Queue } from './lib/queue';
 import { Requester } from './lib/requester';
@@ -245,7 +245,7 @@ export class Altertable {
   private _queue: Queue<QueueItem>;
   private _isInitialized = false;
   private _lastUrl: string | null;
-  private _logger = createLogger('Altertable');
+  private _logger = createDebugLogger('Altertable');
   private _referrer: string | null;
   private _requesterState: Requester<EventPayload> | undefined;
   private _sessionManagerState: SessionManager | undefined;
