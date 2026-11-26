@@ -73,6 +73,7 @@
         "@altertable/altertable-js": "^1.6.0",
       },
       "devDependencies": {
+        "@altertable/altertable-react-shared": "workspace:*",
         "@posthog/react": "1.11.2",
         "@testing-library/dom": "10.4.2",
         "@testing-library/react": "^16.3.3",
@@ -92,6 +93,7 @@
         "@altertable/altertable-js": "^1.6.0",
       },
       "devDependencies": {
+        "@altertable/altertable-react-shared": "workspace:*",
         "@testing-library/dom": "10.4.2",
         "@testing-library/react": "^16.3.3",
         "@types/react": "^19.3.0",
@@ -102,6 +104,13 @@
       "peerDependencies": {
         "react": "^19.1",
         "react-native": ">=0.81 <1",
+      },
+    },
+    "packages/altertable-react-shared": {
+      "name": "@altertable/altertable-react-shared",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@altertable/altertable-js": "^1.6.0",
       },
     },
     "packages/altertable-segment": {
@@ -132,6 +141,8 @@
     "@altertable/altertable-react": ["@altertable/altertable-react@workspace:packages/altertable-react"],
 
     "@altertable/altertable-react-native": ["@altertable/altertable-react-native@workspace:packages/altertable-react-native"],
+
+    "@altertable/altertable-react-shared": ["@altertable/altertable-react-shared@workspace:packages/altertable-react-shared"],
 
     "@altertable/altertable-segment": ["@altertable/altertable-segment@workspace:packages/altertable-segment"],
 

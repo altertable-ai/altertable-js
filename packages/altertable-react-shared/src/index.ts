@@ -1,0 +1,1 @@
+export { mergeEventProperties } from './eventProperties';

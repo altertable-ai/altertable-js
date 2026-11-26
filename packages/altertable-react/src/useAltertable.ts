@@ -1,7 +1,7 @@
+import { mergeEventProperties } from '@altertable/altertable-react-shared';
 import { useCallback, useMemo } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
-import { PROPERTY_LIB, PROPERTY_LIB_VERSION } from './constants';
 import {
   FunnelMapping,
   FunnelStepName,
@@ -58,13 +58,7 @@ export function useAltertable<T extends FunnelMapping>() {
       eventName: FunnelStepName<Steps>,
       properties: FunnelStepProperties<Steps, typeof eventName> = {}
     ) => {
-      altertable.track(eventName, {
-        ...properties,
-        // The React library needs to override the lib properties coming from
-        // the core library
-        [PROPERTY_LIB]: __LIB__,
-        [PROPERTY_LIB_VERSION]: __LIB_VERSION__,
-      });
+      altertable.track(eventName, mergeEventProperties(properties));
     },
     [altertable]
   );

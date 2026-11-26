@@ -1,0 +1,11 @@
+{
+  // Declaration builds for altertable-react-native. This file lives above both packages
+  // because tsdown emits declarations relative to the tsconfig directory, and
+  // types from the private altertable-react-shared module must be inlined.
+  "extends": "./altertable-react-native/tsconfig.json",
+  "include": [
+    "altertable-react-native/src/**/*",
+    "altertable-react-shared/src/**/*"
+  ],
+  "exclude": ["**/node_modules", "**/dist"]
+}

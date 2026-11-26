@@ -12,7 +12,7 @@ export default defineConfig({
   clean: true,
   minify: isProduction,
   format: ['cjs', 'esm'],
-  dts: { tsconfig: 'tsconfig.build.json' },
+  dts: { tsconfig: '../tsconfig.altertable-react.build.json' },
   platform: 'neutral',
   deps: { neverBundle: ['@altertable/altertable-js'] },
   banner: {

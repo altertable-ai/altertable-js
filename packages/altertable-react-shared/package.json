@@ -1,0 +1,17 @@
+{
+  "name": "@altertable/altertable-react-shared",
+  "description": "Internal React binding code bundled into @altertable/altertable-react and @altertable/altertable-react-native. Never published.",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@altertable/altertable-js": "^1.6.0"
+  }
+}
