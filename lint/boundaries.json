@@ -7,33 +7,14 @@
         "no-restricted-imports": [
           "error",
           {
-            "paths": [
+            "patterns": [
               {
-                "name": "react",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "react-dom",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "react-native",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "@altertable/altertable-js",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "@altertable/altertable-react-shared",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "@altertable/altertable-react",
-                "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
-              },
-              {
-                "name": "@altertable/altertable-react-native",
+                "group": [
+                  "react",
+                  "react-dom",
+                  "react-native",
+                  "@altertable/*"
+                ],
                 "message": "altertable-shared is the bottom layer: it must not import React, platforms or other SDK packages."
               }
             ]
@@ -69,25 +50,20 @@
                 "message": "This code supports React 16.14. Import only APIs that React 16.14 provides, by name."
               },
               {
-                "name": "react-dom",
-                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
-              },
-              {
-                "name": "react-native",
-                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
-              },
-              {
-                "name": "@altertable/altertable-react",
-                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
-              },
-              {
-                "name": "@altertable/altertable-react-native",
-                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
-              },
-              {
                 "name": "@altertable/altertable-js",
                 "allowTypeImports": true,
                 "message": "altertable-react-shared may only import types from the core package; each binding provides its own client."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "react-dom",
+                  "react-native",
+                  "@altertable/altertable-react",
+                  "@altertable/altertable-react-native"
+                ],
+                "message": "altertable-react-shared must stay platform-neutral: move platform code to the web or React Native package."
               }
             ]
           }
@@ -100,29 +76,15 @@
         "no-restricted-imports": [
           "error",
           {
-            "paths": [
+            "patterns": [
               {
-                "name": "react",
-                "message": "The core package must not depend on React, React Native or the bindings."
-              },
-              {
-                "name": "react-dom",
-                "message": "The core package must not depend on React, React Native or the bindings."
-              },
-              {
-                "name": "react-native",
-                "message": "The core package must not depend on React, React Native or the bindings."
-              },
-              {
-                "name": "@altertable/altertable-react-shared",
-                "message": "The core package must not depend on React, React Native or the bindings."
-              },
-              {
-                "name": "@altertable/altertable-react",
-                "message": "The core package must not depend on React, React Native or the bindings."
-              },
-              {
-                "name": "@altertable/altertable-react-native",
+                "group": [
+                  "react",
+                  "react-dom",
+                  "react-native",
+                  "@altertable/*",
+                  "!@altertable/altertable-shared"
+                ],
                 "message": "The core package must not depend on React, React Native or the bindings."
               }
             ]
@@ -156,13 +118,14 @@
                   "Activity"
                 ],
                 "message": "This code supports React 16.14. Import only APIs that React 16.14 provides, by name."
-              },
+              }
+            ],
+            "patterns": [
               {
-                "name": "react-native",
-                "message": "The web React package must not depend on React Native."
-              },
-              {
-                "name": "@altertable/altertable-react-native",
+                "group": [
+                  "react-native",
+                  "@altertable/altertable-react-native"
+                ],
                 "message": "The web React package must not depend on React Native."
               }
             ]
@@ -176,13 +139,9 @@
         "no-restricted-imports": [
           "error",
           {
-            "paths": [
+            "patterns": [
               {
-                "name": "react-dom",
-                "message": "The React Native package must not depend on React DOM or the web React package."
-              },
-              {
-                "name": "@altertable/altertable-react",
+                "group": ["react-dom", "@altertable/altertable-react"],
                 "message": "The React Native package must not depend on React DOM or the web React package."
               }
             ]
