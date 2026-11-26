@@ -1,7 +1,6 @@
 {
-  // Declaration build for altertable-js. It sits above the packages because tsdown
-  // emits declarations relative to the tsconfig directory, and types from the
-  // private shared modules must be inlined into the package's declarations.
+  // Declaration build. It sits above the packages so tsdown can inline the
+  // types of the private shared modules.
   "extends": "./altertable-js/tsconfig.json",
   "include": ["altertable-js/src/**/*", "altertable-shared/src/**/*"],
   "exclude": ["**/node_modules", "**/dist"]
