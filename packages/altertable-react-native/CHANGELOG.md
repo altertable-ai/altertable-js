@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.7.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.6.0...altertable-react-native-v1.7.0) (2026-11-26)
+
+
+### Features
+
+* **react-native:** add typed funnels to useAltertable() ([29553fa](https://github.com/altertable-ai/altertable-js/commit/29553fa1ec851f0f9b716a6a014f745345dde951))
+
+
+### Bug Fixes
+
+* print dev warnings in apps' development builds ([29553fa](https://github.com/altertable-ai/altertable-js/commit/29553fa1ec851f0f9b716a6a014f745345dde951))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @altertable/altertable-js bumped from ^1.6.0 to ^1.7.0
+
 ## [1.6.0](https://github.com/altertable-ai/altertable-js/compare/altertable-react-native-v1.5.0...altertable-react-native-v1.6.0) (2026-11-09)
 
 ### Features
