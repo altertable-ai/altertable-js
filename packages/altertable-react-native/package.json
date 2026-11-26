@@ -49,6 +49,7 @@
     "react-native": ">=0.81 <1"
   },
   "devDependencies": {
+    "@altertable/altertable-react-shared": "workspace:*",
     "@altertable/altertable-shared": "workspace:*",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "^16.3.3",

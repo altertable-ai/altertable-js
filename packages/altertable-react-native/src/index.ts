@@ -7,6 +7,7 @@ export type {
   ScreenOptions,
 } from './client';
 export { AltertableProvider, useAltertable } from './react';
+export type { FunnelMapping } from '@altertable/altertable-react-shared';
 export { trackNavigation } from './navigation';
 export type { NavigationSource } from './navigation';
 export type { AsyncStorageAdapter } from './storage';

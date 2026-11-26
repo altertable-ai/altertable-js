@@ -75,12 +75,40 @@ it('returns a stable client API that sends events through the provider client', 
   unmount();
 });
 
-it('exposes every client method', () => {
+it('exposes every client method and funnel selection', () => {
   const { result, unmount } = renderHook(useAltertable, { wrapper });
 
   expect(Object.keys(result.current).sort()).toEqual(
-    Object.keys(client).sort()
+    [...Object.keys(client), 'selectFunnel'].sort()
   );
+  unmount();
+});
+
+type Funnels = {
+  checkout: [
+    { name: 'Cart Viewed'; properties: { itemCount: number } },
+    { name: 'Order Completed'; properties: { total: number } },
+  ];
+};
+
+it('tracks typed funnel steps', async () => {
+  const { result, unmount } = renderHook(() => useAltertable<Funnels>(), {
+    wrapper,
+  });
+  const checkout = result.current.selectFunnel('checkout');
+
+  checkout.trackStep('Order Completed', { total: 42 });
+  await result.current.flush();
+
+  expect(payloads()).toEqual([
+    expect.objectContaining({
+      event: 'Order Completed',
+      properties: expect.objectContaining({
+        total: 42,
+        $lib: 'TEST_NATIVE_LIB',
+      }),
+    }),
+  ]);
   unmount();
 });
 

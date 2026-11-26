@@ -27,7 +27,8 @@ npm install @react-native-async-storage/async-storage
 npx pod-install
 ```
 
-Requires React Native 0.81+ and React 19.1+. CI checks the minimum and example
+Requires React Native 0.81+ and React 19.1+. Each React Native release requires
+a specific React version, so the React range follows the React Native range. CI checks the minimum and example
 versions with packed-package typechecks and iOS/Android bundles. See the
 [runtime qualification checks](../../examples/example-react-native/DELIVERY_CHECKS.md#runtime-qualification)
 for device validation instructions.
@@ -110,6 +111,36 @@ Saved consent takes precedence over the creation default (`granted`). Use
 `trackingConsent: 'pending'` to wait for a decision on first initialization.
 Pending events stay in memory until granted; denial clears queued events. Reset
 and account switching clear unsent events while preserving device ID and consent.
+
+### Typed funnels
+
+Pass a funnel mapping to `useAltertable()` to type event names and their
+properties, and to track the steps of one funnel. The mapping must match the
+exported `FunnelMapping` type:
+
+```tsx
+import { Button } from 'react-native';
+import { useAltertable } from '@altertable/altertable-react-native';
+
+type AppFunnels = {
+  checkout: [
+    { name: 'Cart Viewed'; properties: { itemCount: number } },
+    { name: 'Order Completed'; properties: { total: number } },
+  ];
+};
+
+function Checkout() {
+  const client = useAltertable<AppFunnels>();
+  const checkout = client.selectFunnel('checkout');
+
+  return (
+    <Button
+      title="Purchase"
+      onPress={() => checkout.trackStep('Order Completed', { total: 42 })}
+    />
+  );
+}
+```
 
 ### Screen tracking
 
