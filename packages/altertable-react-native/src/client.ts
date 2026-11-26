@@ -7,12 +7,9 @@ import {
   TrackingConsent,
   type TrackingMode,
 } from '@altertable/altertable-js';
-import {
-  createLogger,
-  EVENT_SCREEN,
-  getViewProperties,
-} from '@altertable/altertable-shared';
+import { EVENT_SCREEN, getViewProperties } from '@altertable/altertable-shared';
 
+import { logger } from './logger';
 import { createReactNativePlatform, type Connectivity } from './platform';
 import {
   type AsyncStorageAdapter,
@@ -106,7 +103,6 @@ export async function createAltertable(
     eventPersistence = true,
     ...config
   } = options;
-  const logger = createLogger('Altertable React Native');
   let onError = config.onError;
   const reportedErrors = new WeakSet<Error>();
 

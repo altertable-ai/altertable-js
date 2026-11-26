@@ -16,8 +16,6 @@ import type {
   TrackPayload,
 } from '../types';
 
-export type DebugLogger = ReturnType<typeof createDebugLogger>;
-
 /**
  * Extends the shared logger with the debug output that the core package prints
  * for each event when `debug` is enabled.

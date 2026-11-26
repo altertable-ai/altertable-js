@@ -1,11 +1,12 @@
 import type { Platform, TrackingMode } from '@altertable/altertable-js';
 import {
-  createLogger,
   PROPERTY_LIB,
   PROPERTY_LIB_VERSION,
   toError,
 } from '@altertable/altertable-shared';
 import { AppState, Platform as ReactNativePlatform } from 'react-native';
+
+import { logger } from './logger';
 
 /** Structurally compatible with @react-native-community/netinfo. */
 export interface Connectivity {
@@ -29,7 +30,6 @@ export function createReactNativePlatform({
   prepareDelivery: () => Promise<boolean>;
   onError: (error: Error) => void;
 }): Platform {
-  const logger = createLogger('Altertable React Native');
   let online = true;
   return {
     getContext: () => ({

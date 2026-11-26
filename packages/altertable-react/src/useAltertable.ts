@@ -34,7 +34,7 @@ import { useAltertableContext } from './AltertableProvider';
  * }
  * ```
  */
-export function useAltertable<T extends FunnelMapping>() {
+export function useAltertable<T extends FunnelMapping = FunnelMapping>() {
   const altertable = useAltertableContext();
   const { track, selectFunnel } = useTrackingApi<T>(altertable);
 

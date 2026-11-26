@@ -2,17 +2,15 @@ import {
   EVENT_SCREEN,
   EVENT_VIEW,
   getViewProperties,
-  createLogger,
   mergeEventProperties,
+  type ViewType,
 } from '@altertable/altertable-shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAltertableContext } from './AltertableProvider';
-
-const logger = createLogger('Altertable React');
+import { logger } from './logger';
 
 type ViewProperties = Record<string, unknown>;
-type ViewType = 'screen' | 'view';
 
 type BaseViewOptions = {
   /**

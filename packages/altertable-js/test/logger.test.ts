@@ -1,7 +1,7 @@
 import { loggerCache } from '@altertable/altertable-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createDebugLogger as createLogger } from '../src/lib/debugLogger';
+import { createDebugLogger } from '../src/lib/debugLogger';
 import type {
   AliasPayload,
   EventPayload,
@@ -43,7 +43,7 @@ describe('Logger', () => {
 
   describe('log', () => {
     it('logs with prefix', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Hello world';
 
       logger.log(message);
@@ -52,7 +52,7 @@ describe('Logger', () => {
     });
 
     it('logs multiple arguments', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const arg1 = 'Hello';
       const arg2 = { key: 'value' };
       const arg3 = 42;
@@ -70,7 +70,7 @@ describe('Logger', () => {
 
   describe('logHeader', () => {
     it('logs header with version and debug mode', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logHeader();
 
@@ -81,7 +81,7 @@ describe('Logger', () => {
     });
 
     it('only logs header once', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logHeader();
       logger.logHeader();
@@ -106,7 +106,7 @@ describe('Logger', () => {
     };
 
     it('logs event with all components', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
@@ -122,7 +122,7 @@ describe('Logger', () => {
     });
 
     it('logs user information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
@@ -134,7 +134,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined distinct_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutUser: TrackPayload = {
         ...mockEventPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -151,7 +151,7 @@ describe('Logger', () => {
     });
 
     it('logs anonymous information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
@@ -163,7 +163,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined anonymous_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutAnonymousId: TrackPayload = {
         ...mockEventPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -182,7 +182,7 @@ describe('Logger', () => {
     });
 
     it('logs session information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
@@ -194,7 +194,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined session_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutSession: EventPayload = {
         ...mockEventPayload,
         session_id: undefined,
@@ -210,7 +210,7 @@ describe('Logger', () => {
     });
 
     it('displays no badge when tracking consent is granted', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'granted' });
 
@@ -226,7 +226,7 @@ describe('Logger', () => {
     });
 
     it('displays DENIED badge when tracking consent is denied', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'denied' });
 
@@ -242,7 +242,7 @@ describe('Logger', () => {
     });
 
     it('displays PENDING badge when tracking consent is pending', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'pending' });
 
@@ -258,7 +258,7 @@ describe('Logger', () => {
     });
 
     it('displays PENDING badge when tracking consent is dismissed', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'dismissed' });
 
@@ -274,7 +274,7 @@ describe('Logger', () => {
     });
 
     it('displays UNKNOWN badge for unknown tracking consent values', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logEvent(mockEventPayload, { trackingConsent: 'unknown' as any });
 
@@ -290,7 +290,7 @@ describe('Logger', () => {
     });
 
     it('logs pageview event with Page badge and URL as title', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const pageviewPayload: EventPayload = {
         ...mockEventPayload,
         event: '$pageview',
@@ -327,7 +327,7 @@ describe('Logger', () => {
     };
 
     it('logs identify event with all components', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
@@ -340,7 +340,7 @@ describe('Logger', () => {
     });
 
     it('logs user information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
@@ -352,7 +352,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined distinct_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutDistinctId: IdentifyPayload = {
         ...mockIdentifyPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -371,7 +371,7 @@ describe('Logger', () => {
     });
 
     it('logs anonymous information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
@@ -383,7 +383,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined anonymous_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutAnonymousId: IdentifyPayload = {
         ...mockIdentifyPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -402,7 +402,7 @@ describe('Logger', () => {
     });
 
     it('logs traits table', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
@@ -410,7 +410,7 @@ describe('Logger', () => {
     });
 
     it('displays no badge when tracking consent is granted', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'granted' });
 
@@ -423,7 +423,7 @@ describe('Logger', () => {
     });
 
     it('displays DENIED badge when tracking consent is denied', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'denied' });
 
@@ -436,7 +436,7 @@ describe('Logger', () => {
     });
 
     it('displays PENDING badge when tracking consent is pending', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logIdentify(mockIdentifyPayload, { trackingConsent: 'pending' });
 
@@ -458,7 +458,7 @@ describe('Logger', () => {
     };
 
     it('logs alias event with all components', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
 
@@ -471,7 +471,7 @@ describe('Logger', () => {
     });
 
     it('logs distinct ID information', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
 
@@ -483,7 +483,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined distinct_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutDistinctId: AliasPayload = {
         ...mockAliasPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -502,7 +502,7 @@ describe('Logger', () => {
     });
 
     it('handles undefined new_user_id', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const payloadWithoutAnonymousId: AliasPayload = {
         ...mockAliasPayload,
         // @ts-expect-error Exercise defensive logging of a malformed external payload.
@@ -521,7 +521,7 @@ describe('Logger', () => {
     });
 
     it('displays no badge when tracking consent is granted', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logAlias(mockAliasPayload, { trackingConsent: 'granted' });
 
@@ -534,7 +534,7 @@ describe('Logger', () => {
     });
 
     it('displays DENIED badge when tracking consent is denied', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logAlias(mockAliasPayload, { trackingConsent: 'denied' });
 
@@ -547,7 +547,7 @@ describe('Logger', () => {
     });
 
     it('displays PENDING badge when tracking consent is pending', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
 
       logger.logAlias(mockAliasPayload, { trackingConsent: 'pending' });
 
@@ -562,7 +562,7 @@ describe('Logger', () => {
 
   describe('warn', () => {
     it('warns with prefix', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Warning message';
 
       logger.warn(message);
@@ -571,7 +571,7 @@ describe('Logger', () => {
     });
 
     it('warns multiple arguments', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const arg1 = 'Warning';
       const arg2 = { error: 'details' };
 
@@ -583,7 +583,7 @@ describe('Logger', () => {
 
   describe('error', () => {
     it('errors with prefix', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Error message';
 
       logger.error(message);
@@ -592,7 +592,7 @@ describe('Logger', () => {
     });
 
     it('errors multiple arguments', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const arg1 = 'Error';
       const arg2 = new Error('Something went wrong');
 
@@ -604,7 +604,7 @@ describe('Logger', () => {
 
   describe('warnDev', () => {
     it('warns in development mode', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Development warning';
 
       expect(() => {
@@ -613,7 +613,7 @@ describe('Logger', () => {
     });
 
     it('trims whitespace from message', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = '  Development warning  ';
 
       expect(() => {
@@ -622,7 +622,7 @@ describe('Logger', () => {
     });
 
     it('passes the error', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Development warning';
       const error = new Error('Cause');
 
@@ -635,7 +635,7 @@ describe('Logger', () => {
     });
 
     it('does not warn the same message twice', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message = 'Development warning';
 
       expect(() => {
@@ -648,7 +648,7 @@ describe('Logger', () => {
     });
 
     it('warns different messages separately', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message1 = 'First warning';
       const message2 = 'Second warning';
 
@@ -661,7 +661,7 @@ describe('Logger', () => {
     });
 
     it('caches messages with trimmed content', () => {
-      const logger = createLogger('TestLogger');
+      const logger = createDebugLogger('TestLogger');
       const message1 = 'Development warning';
       const message2 = '  Development warning  ';
 
@@ -676,8 +676,8 @@ describe('Logger', () => {
 
   describe('loggerCache', () => {
     it('is shared across logger instances', () => {
-      const logger1 = createLogger('Logger1');
-      const logger2 = createLogger('Logger2');
+      const logger1 = createDebugLogger('Logger1');
+      const logger2 = createDebugLogger('Logger2');
       const message = 'Shared warning';
 
       expect(() => {

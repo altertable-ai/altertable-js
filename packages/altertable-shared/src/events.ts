@@ -8,7 +8,8 @@ export const PROPERTY_LIB_VERSION = '$lib_version';
 export const EVENT_SCREEN = '$screen';
 export const EVENT_VIEW = '$view';
 
-type ViewType = 'screen' | 'view';
+/** The `$view_type` of a `$screen` or `$view` event. */
+export type ViewType = 'screen' | 'view';
 
 /**
  * Merges the property layers of an event, from lowest to highest precedence.

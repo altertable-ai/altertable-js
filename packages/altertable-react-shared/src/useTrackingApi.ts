@@ -59,7 +59,7 @@ export function useTrackingApi<T extends FunnelMapping>(
   client: TrackingClient
 ): TrackingApi<T> {
   const track = useCallback<TrackingApi<T>['track']>(
-    (eventName, properties = {}) => {
+    (eventName, properties) => {
       client.track(eventName, mergeEventProperties(properties));
     },
     [client]
