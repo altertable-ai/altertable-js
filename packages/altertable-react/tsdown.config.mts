@@ -19,7 +19,6 @@ export default defineConfig({
     js: generateBundleBanner(pkg),
   },
   define: {
-    __DEV__: JSON.stringify(!isProduction),
     __LIB__: JSON.stringify(pkg.name),
     __LIB_VERSION__: JSON.stringify(pkg.version),
   },

@@ -2,9 +2,9 @@
 // report that package's name and version.
 declare const __LIB__: string;
 declare const __LIB_VERSION__: string;
-// Replaced at build time by core and web React. React Native apps define it at
-// runtime; elsewhere it can be undefined.
-declare const __DEV__: boolean;
+// Replaced by the app's bundler, like React does. Declared here because this
+// module must not depend on Node types.
+declare const process: { env: { NODE_ENV?: string } };
 
 // Every runtime the SDK supports provides `console`, but the ECMAScript library
 // types don't declare it, and this module must not depend on DOM or Node types.

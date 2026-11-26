@@ -6,7 +6,6 @@ import base from '../../vitest.base';
 
 export default mergeConfig(base, {
   define: {
-    __DEV__: 'true',
     __LIB__: JSON.stringify('TEST_NATIVE_LIB'),
     __LIB_VERSION__: JSON.stringify('TEST_VERSION'),
   },

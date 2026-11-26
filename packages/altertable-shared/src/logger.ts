@@ -42,9 +42,12 @@ export function createLogger(prefix: string) {
       console.warn(`[${prefix}]`, ...args);
     },
     warnOnce,
-    /** Prints a warning once, in development builds only. */
+    /**
+     * Prints a warning once, unless the app is built for production. The app's
+     * bundler replaces `process.env.NODE_ENV` and drops this in production.
+     */
     warnDev: (message: string, error?: Error) => {
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      if (process.env.NODE_ENV !== 'production') {
         warnOnce(message, error);
       }
     },

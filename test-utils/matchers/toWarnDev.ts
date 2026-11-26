@@ -10,7 +10,7 @@ export function toWarnDev(
     };
   }
 
-  if (!__DEV__) {
+  if (process.env.NODE_ENV === 'production') {
     callback();
     return {
       pass: true,
