@@ -6,7 +6,7 @@ import {
   type ReactNativeClient,
   type ReactNativeConfig,
 } from '../src';
-import { createAsyncStorageMock, deferred } from './helpers';
+import { createAsyncStorageMock, deferred, payloads } from './helpers';
 import { appStateListenerCount, emitAppState } from './reactNativeMock';
 
 const clients: ReactNativeClient[] = [];
@@ -18,12 +18,6 @@ async function create(options: ReactNativeConfig = { mode: 'audience' }) {
   clients.push(client);
   return client;
 }
-function payloads() {
-  return vi
-    .mocked(fetch)
-    .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
-}
-
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal('window', globalThis);

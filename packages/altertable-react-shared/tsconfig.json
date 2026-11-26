@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ESNext"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*", "../altertable-shared/globals.d.ts"]
+}

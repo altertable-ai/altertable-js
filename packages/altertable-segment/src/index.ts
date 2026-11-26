@@ -217,8 +217,6 @@ function buildAliasPayload(event: SegmentAliasEvent): Record<string, any> {
 
 /**
  * Handle track event
- * @param event SegmentTrackEvent
- * @param settings FunctionSettings
  */
 export async function onTrack(
   event: SegmentTrackEvent,
@@ -240,8 +238,6 @@ function batchTrack(
 
 /**
  * Handle identify event
- * @param event SegmentIdentifyEvent
- * @param settings FunctionSettings
  */
 export async function onIdentify(
   event: SegmentIdentifyEvent,
@@ -252,8 +248,6 @@ export async function onIdentify(
 
 /**
  * Handle identify event batch
- * @param events SegmentIdentifyEvent[]
- * @param settings FunctionSettings
  */
 function batchIdentify(
   events: SegmentIdentifyEvent[],
@@ -268,8 +262,6 @@ function batchIdentify(
 
 /**
  * Handle alias event
- * @param event SegmentAliasEvent
- * @param settings FunctionSettings
  */
 export async function onAlias(
   event: SegmentAliasEvent,
@@ -280,8 +272,6 @@ export async function onAlias(
 
 /**
  * Handle alias event batch
- * @param events SegmentAliasEvent[]
- * @param settings FunctionSettings
  */
 function batchAlias(
   events: SegmentAliasEvent[],
@@ -296,7 +286,6 @@ function batchAlias(
 
 /**
  * Convert page event to track event
- * @param event SegmentPageEvent
  * @returns SegmentTrackEvent
  */
 function convertPageEventToTrackEvent(
@@ -311,8 +300,6 @@ function convertPageEventToTrackEvent(
 
 /**
  * Handle page event - converts to $pageview track event
- * @param event SegmentPageEvent
- * @param settings FunctionSettings
  */
 export async function onPage(
   event: SegmentPageEvent,
@@ -323,7 +310,6 @@ export async function onPage(
 
 /**
  * Convert screen event to track event
- * @param event SegmentScreenEvent
  * @returns SegmentTrackEvent
  */
 function convertScreenEventToTrackEvent(
@@ -338,8 +324,6 @@ function convertScreenEventToTrackEvent(
 
 /**
  * Handle screen event - converts to $screen track event
- * @param event SegmentScreenEvent
- * @param settings FunctionSettings
  */
 export async function onScreen(
   event: SegmentScreenEvent,
@@ -350,8 +334,6 @@ export async function onScreen(
 
 /**
  * Handle group event - NOT SUPPORTED
- * @param _event SegmentGroupEvent
- * @param _settings FunctionSettings
  */
 export async function onGroup(
   _event: SegmentGroupEvent,
@@ -362,8 +344,6 @@ export async function onGroup(
 
 /**
  * Handle delete event - NOT SUPPORTED
- * @param _event SegmentDeleteEvent
- * @param _settings FunctionSettings
  */
 export async function onDelete(
   _event: SegmentDeleteEvent,
@@ -374,8 +354,6 @@ export async function onDelete(
 
 /**
  * Handle batch event
- * @param events SegmentEvent[]
- * @param settings FunctionSettings
  */
 export async function onBatch(
   events: SegmentAnyEvent[],

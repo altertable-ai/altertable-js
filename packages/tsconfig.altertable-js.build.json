@@ -1,0 +1,7 @@
+{
+  // Declaration build. It sits above the packages so tsdown can inline the
+  // types of the private shared modules.
+  "extends": "./altertable-js/tsconfig.json",
+  "include": ["altertable-js/src/**/*", "altertable-shared/src/**/*"],
+  "exclude": ["**/node_modules", "**/dist"]
+}

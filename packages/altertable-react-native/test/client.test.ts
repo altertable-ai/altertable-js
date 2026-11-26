@@ -7,7 +7,7 @@ import {
   type Connectivity,
   type ReactNativeClient,
 } from '../src';
-import { createAsyncStorageMock, deferred } from './helpers';
+import { createAsyncStorageMock, deferred, payloads } from './helpers';
 import {
   AppState,
   appStateListenerCount,
@@ -40,12 +40,6 @@ async function create(
   clients.push(client);
   return client;
 }
-function payloads() {
-  return vi
-    .mocked(fetch)
-    .mock.calls.flatMap(([, options]) => JSON.parse(options!.body as string));
-}
-
 beforeEach(() => {
   storageMock = createAsyncStorageMock();
   vi.useFakeTimers();
